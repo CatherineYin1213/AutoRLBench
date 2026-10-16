@@ -1,291 +1,208 @@
-const LEADERBOARD_DATA = [
+const TASKS = window.RSIBENCH_RL_TASKS || [];
+
+const TASK_CATEGORIES = [
+    'Configuration',
+    'Reward',
+    'Data',
+    'Environment',
+    'Algorithm',
+    'Infrastructure'
+];
+
+const DOMAIN_BLURBS = {
+    Configuration: 'Bad hyperparameters and training settings.',
+    Reward: 'Rewards that miss or punish the right behavior.',
+    Data: 'Input, format, or distribution / difficulty issues.',
+    Environment: 'Unstable or mis-specified training environments.',
+    Algorithm: 'Algorithm design flaws, unstable updates, and exploration failures.',
+    Infrastructure: 'Runtime, engine, and systems failures.'
+};
+
+const DOMAIN_COUNTS = {
+    Configuration: 6,
+    Reward: 7,
+    Data: 1,
+    Environment: 1,
+    Algorithm: 1,
+    Infrastructure: 4
+};
+
+const RESULT_TASK_IDS = [
+    'verl_hyper/qwen_dapo_hparam/task_hparam_overlong_023',
+    'verl_implementation/data_format/task_agent_loop_022-llama-dapo-math',
+    'verl_implementation/llama_dapo_implementation/task_monkey_patch_011',
+    'verl_implementation/verl_reward_implementation/task_engine_base_025',
+    'rlve_hyper/task_001',
+    'rlve_hyper/task_008',
+    'rlve_hyper/task_012',
+    'rlve_hyper/task_019',
+    'reward_design/task_evaluator',
+    'reward_design/task_function_call'
+];
+
+const ISSUE_RESULTS = [
     {
-        agent: 'ReasonAgent',
-        framework: 'Tree-of-Thought + Reflection',
-        model: 'Qwen3-235B-DAPO',
-        params: '235B params · RL-tuned',
-        scores: { math: 78.4, code: 82.1, reasoning: 71.3, science: 74.8, planning: 69.2 }
+        model: 'GPT-6.1-Sol',
+        agent: 'Codex',
+        scores: [1, 0, 1, 1, 0, 1, 1, 1, 0, 1]
     },
     {
-        agent: 'DeepAgent-R',
-        framework: 'Multi-step Reasoning Chain',
-        model: 'DeepSeek-R1',
-        params: '671B MoE · Reasoning-tuned',
-        scores: { math: 76.2, code: 79.8, reasoning: 73.1, science: 72.5, planning: 71.4 }
+        model: 'GPT-6-Astra',
+        agent: 'Codex',
+        scores: [1, 0, 1, 1, 0, 1, 0, 0, 0, 1]
     },
     {
-        agent: 'ToolFormer-X',
-        framework: 'Tool-augmented ReAct',
-        model: 'Llama-3-70B-RL',
-        params: '70B params · GRPO-tuned',
-        scores: { math: 71.5, code: 74.3, reasoning: 68.9, science: 70.1, planning: 66.8 }
+        model: 'Fable-5.1',
+        agent: 'Claude Code',
+        scores: [1, 0, 1, 1, 1, 1, 1, 1, 0, 1]
     },
     {
-        agent: 'PlanExec',
-        framework: 'Plan-then-Execute pipeline',
-        model: 'Qwen3-32B-GRPO',
-        params: '32B params · RL-tuned',
-        scores: { math: 69.8, code: 72.1, reasoning: 65.4, science: 67.3, planning: 72.6 }
+        model: 'Opus-5.5',
+        agent: 'Claude Code',
+        scores: []
     },
     {
-        agent: 'Vanilla-CoT',
-        framework: 'Chain-of-Thought baseline',
-        model: 'Mistral-Large-RL',
-        params: '123B params · SFT + RL',
-        scores: { math: 65.3, code: 68.7, reasoning: 62.8, science: 64.9, planning: 61.5 }
+        model: 'Gemini-4-Argon',
+        agent: 'Antigravity',
+        scores: [1, 0, 1, 1, 1, 1, 1, 1, 0, 1]
     },
     {
-        agent: 'ReasonAgent',
-        framework: 'Tree-of-Thought + Reflection',
-        model: 'DeepSeek-R1',
-        params: '671B MoE · Reasoning-tuned',
-        scores: { math: 77.1, code: 80.4, reasoning: 74.6, science: 73.2, planning: 68.9 }
+        model: 'GLM-5.3',
+        agent: 'Claude Code',
+        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 0]
     },
     {
-        agent: 'ToolFormer-X',
-        framework: 'Tool-augmented ReAct',
-        model: 'Qwen3-235B-DAPO',
-        params: '235B params · RL-tuned',
-        scores: { math: 74.8, code: 79.2, reasoning: 70.1, science: 72.8, planning: 70.5 }
+        model: 'DeepSeek-V4-Pro',
+        agent: 'DeepSeek Harness',
+        scores: [1, 0, 0, 1, 1, 1, 1, 0, 0, 0]
+    },
+    {
+        model: 'Qwen3.8-Max',
+        agent: 'Qwen Code',
+        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 1]
+    },
+    {
+        model: 'Kimi-K3',
+        agent: 'Kimi Code',
+        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 1]
+    },
+    {
+        model: 'Grok-4.7',
+        agent: 'Grok',
+        scores: [1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
     }
 ];
 
-const EVALUATION_DATA = {
-    summary: [
-        { value: '74.8', label: 'Mean hidden score', note: 'across published runs' },
-        { value: '6', label: 'Domains covered', note: 'with a shared harness' },
-        { value: '42m', label: 'Median run time', note: 'per agent evaluation' },
-        { value: '18k', label: 'Median output tokens', note: 'per completed run' }
-    ],
-    domains: [
-        { label: 'Math', score: 78.4 },
-        { label: 'Code', score: 76.9 },
-        { label: 'Reasoning', score: 73.8 },
-        { label: 'Science', score: 71.6 },
-        { label: 'Planning', score: 69.2 },
-        { label: 'Language', score: 67.5 }
-    ],
-    resources: [
-        { label: 'ReasonAgent', score: 75.2, runtime: '42m' },
-        { label: 'DeepAgent-R', score: 74.8, runtime: '57m' },
-        { label: 'ToolFormer-X', score: 73.5, runtime: '31m' },
-        { label: 'PlanExec', score: 69.4, runtime: '26m' }
-    ]
-};
+let activeResultTask = 'all';
 
-const PTDBENCH_TASKS = window.PTDBENCH_TASKS || [];
-
-let currentTask = 'all';
-let currentAgent = 'all';
-let currentModel = 'all';
-
-function getAvg(scores, task) {
-    if (task === 'all') {
-        const vals = Object.values(scores);
-        return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
-    }
-    return scores[task].toFixed(1);
+function tasksForFamily(family) {
+    return TASKS.filter(task => task.family === family);
 }
 
-function getScoreKeys(task) {
-    if (task === 'all') return ['math', 'code', 'reasoning'];
-    return [task];
-}
+function renderDomainCards() {
+    const mount = document.getElementById('domain-cards');
+    if (!mount) return;
 
-function renderLeaderboard() {
-    let filtered = LEADERBOARD_DATA.filter(row => {
-        if (currentAgent !== 'all' && row.agent !== currentAgent) return false;
-        if (currentModel !== 'all' && row.model !== currentModel) return false;
-        return true;
-    });
+    const domainCount = document.getElementById('domain-count');
+    const activeCount = document.getElementById('active-task-count');
+    if (domainCount) domainCount.textContent = String(TASK_CATEGORIES.length);
+    if (activeCount) activeCount.textContent = String(Object.values(DOMAIN_COUNTS).reduce((sum, count) => sum + count, 0));
 
-    filtered.sort((a, b) => {
-        return parseFloat(getAvg(b.scores, currentTask)) - parseFloat(getAvg(a.scores, currentTask));
-    });
-
-    const list = document.querySelector('.leaderboard-list');
-    const scoreKeys = getScoreKeys(currentTask);
-
-    list.innerHTML = filtered.map((row, i) => `
-        <div class="lb-row" data-agent="${row.agent}" data-model="${row.model}">
-            <div class="lb-rank">${i + 1}</div>
-            <div class="lb-agent">
-                <span class="lb-agent-name">${row.agent}</span>
-                <span class="lb-agent-framework">${row.framework}</span>
+    mount.innerHTML = TASK_CATEGORIES.map((family, index) => {
+        const count = DOMAIN_COUNTS[family] || 0;
+        return `
+            <div class="domain-card">
+                <span class="domain-card-index">${String(index + 1).padStart(2, '0')}</span>
+                <span class="domain-card-name">${family}</span>
+                <span class="domain-card-blurb">${DOMAIN_BLURBS[family] || ''}</span>
+                <span class="domain-card-count">${count}</span>
             </div>
-            <div class="lb-model">
-                <span class="lb-model-name">${row.model}</span>
-                <span class="lb-model-params">${row.params}</span>
-            </div>
-            <div class="lb-scores">
-                ${scoreKeys.map(key => `
-                    <div class="lb-score-item">
-                        <span class="lb-score-label">${key}</span>
-                        <div class="lb-score-bar"><div class="lb-score-fill" style="width:${row.scores[key]}%"></div></div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="lb-avg">${getAvg(row.scores, currentTask)}</div>
-        </div>
-    `).join('');
-
-    const headerScores = document.querySelector('.lb-header-scores');
-    if (headerScores) {
-        headerScores.textContent = currentTask === 'all' ? 'Scores' : currentTask.charAt(0).toUpperCase() + currentTask.slice(1);
-    }
-}
-
-function initLeaderboard() {
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => {
-                b.classList.remove('active');
-                b.setAttribute('aria-pressed', 'false');
-            });
-            btn.classList.add('active');
-            btn.setAttribute('aria-pressed', 'true');
-            currentTask = btn.dataset.task;
-            renderLeaderboard();
-        });
-    });
-
-    const initialFilter = document.querySelector('.filter-btn.active');
-    if (initialFilter) initialFilter.setAttribute('aria-pressed', 'true');
-
-    const agentFilter = document.getElementById('agent-filter');
-    const modelFilter = document.getElementById('model-filter');
-
-    if (agentFilter) {
-        agentFilter.addEventListener('change', () => {
-            currentAgent = agentFilter.value;
-            renderLeaderboard();
-        });
-    }
-
-    if (modelFilter) {
-        modelFilter.addEventListener('change', () => {
-            currentModel = modelFilter.value;
-            renderLeaderboard();
-        });
-    }
-
-    renderLeaderboard();
-}
-
-function taskCard(task) {
-    return `
-        <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
-            <span class="task-tag">${task.domain}</span>
-            <h3>${task.title}</h3>
-            <p>${task.summary}</p>
-            <div class="task-meta">
-                <span>${task.family}</span>
-                <span>${task.failureType}</span>
-            </div>
-        </a>
-    `;
+        `;
+    }).join('');
 }
 
 function renderTaskCatalog() {
-    const mount = document.getElementById('task-groups');
-    if (!mount || !PTDBENCH_TASKS.length) return;
-
-    const groups = PTDBENCH_TASKS.reduce((map, task) => {
-        if (!map.has(task.family)) map.set(task.family, []);
-        map.get(task.family).push(task);
-        return map;
-    }, new Map());
-
-    mount.innerHTML = [...groups.entries()].map(([family, tasks], index) => `
-        <details class="task-group" ${index === 0 ? 'open' : ''}>
-            <summary>
-                <span>${family}</span>
-                <span class="task-group-count">${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}</span>
-            </summary>
-            <div class="tasks-grid">${tasks.map(taskCard).join('')}</div>
-        </details>
-    `).join('');
+    const mount = document.getElementById('sample-cards');
+    if (!mount) return;
+    mount.innerHTML = TASK_CATEGORIES.map(family => {
+        const task = tasksForFamily(family)[0];
+        if (!task) {
+            return `
+                <div class="task-card is-empty">
+                    <span class="task-tag">${family}</span>
+                    <h3>Sample coming soon</h3>
+                </div>
+            `;
+        }
+        return `
+            <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
+                <span class="task-tag">${task.family}</span>
+                <h3>${task.title}</h3>
+                <p>${task.issue}</p>
+                <div class="task-meta">
+                    <span>${task.model}</span>
+                    <span>${task.framework}</span>
+                </div>
+            </a>
+        `;
+    }).join('');
 }
 
-function renderEvaluation() {
-    const summary = document.getElementById('eval-summary');
-    const domains = document.getElementById('domain-score-chart');
-    const resources = document.getElementById('resource-chart');
-    if (!summary || !domains || !resources) return;
-
-    summary.innerHTML = EVALUATION_DATA.summary.map(item => `
-        <div class="eval-stat">
-            <strong>${item.value}</strong>
-            <span>${item.label}</span>
-            <small>${item.note}</small>
-        </div>
-    `).join('');
-
-    domains.innerHTML = EVALUATION_DATA.domains.map(item => `
-        <div class="chart-row">
-            <span class="chart-label">${item.label}</span>
-            <span class="chart-track"><i style="width:${item.score}%"></i></span>
-            <strong class="chart-value">${item.score.toFixed(1)}</strong>
-        </div>
-    `).join('');
-
-    resources.innerHTML = EVALUATION_DATA.resources.map(item => `
-        <div class="chart-row">
-            <span class="chart-label">${item.label}</span>
-            <span class="chart-track"><i style="width:${item.score}%"></i></span>
-            <strong class="chart-value">${item.score.toFixed(1)} <small>${item.runtime}</small></strong>
-        </div>
-    `).join('');
+function resultTaskLabel(taskId) {
+    return TASKS.find(task => task.id === taskId)?.title || taskId;
 }
+
+function average(scores) {
+    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+}
+
+function renderLeaderboard() {
+    const mount = document.querySelector('.leaderboard-list');
+    if (!mount) return;
+    mount.innerHTML = ISSUE_RESULTS.map(result => `
+            <div class="lb-row">
+                <div class="lb-model-cell"><span class="lb-model-name">${result.model}</span></div>
+                <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}</span></div>
+                <div class="lb-scores">
+                    <div class="lb-pending">
+                        <span class="lb-pending-label">Coming soon</span>
+                        <div class="lb-pending-bar" aria-hidden="true"><span></span></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+}
+
+function initLeaderboard() {}
 
 function initScrollMotion() {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) return;
-
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     document.documentElement.classList.add('motion-ready');
-
     const sections = document.querySelectorAll('body > section:not(.hero), body > footer');
     sections.forEach(section => section.classList.add('scroll-reveal'));
-
     const revealAll = () => sections.forEach(section => section.classList.add('is-visible'));
-    const hashId = window.location.hash.slice(1);
-    const hashTarget = hashId ? document.getElementById(hashId) : null;
-    if (hashTarget) hashTarget.classList.add('is-visible');
-
     requestAnimationFrame(() => {
         sections.forEach(section => {
             const rect = section.getBoundingClientRect();
-            if (rect.top < window.innerHeight * 1.15 && rect.bottom > 0) {
-                section.classList.add('is-visible');
-            }
+            if (rect.top < window.innerHeight * 1.15 && rect.bottom > 0) section.classList.add('is-visible');
         });
     });
-
-    if (!('IntersectionObserver' in window)) {
-        sections.forEach(section => section.classList.add('is-visible'));
-        return;
-    }
-
+    if (!('IntersectionObserver' in window)) return revealAll();
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (!entry.isIntersecting) return;
             entry.target.classList.add('is-visible');
             observer.unobserve(entry.target);
         });
-    }, {
-        threshold: 0.08,
-        rootMargin: '0px 0px -8% 0px'
-    });
-
+    }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
     sections.forEach(section => observer.observe(section));
-
-    // Keep direct hash links and static hosts usable if observers are delayed.
     window.setTimeout(revealAll, 1200);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    renderDomainCards();
     renderTaskCatalog();
+    renderLeaderboard();
     initLeaderboard();
-    renderEvaluation();
     initScrollMotion();
 });

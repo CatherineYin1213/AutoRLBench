@@ -3,118 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataCall — Open Data for Scalable RL Training</title>
+    <title>AutoRLBench - Benchmark Tasks</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171716'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20261016-50">
 </head>
-<body>
+<body class="home-page">
     <nav>
-        <a href="index.html" class="nav-logo">DataCall</a>
+        <a href="index.html" class="nav-logo">AutoRLBench</a>
         <div class="nav-links">
-            <a href="#tasks">Tasks</a>
-            <a href="#leaderboard">Leaderboard</a>
-            <a href="#evaluation">Evaluation</a>
-            <a href="contribute.html">Contribute</a>
+            <a href="index.html">HOME</a>
+            <a href="#tasks">TASKS</a>
+            <a href="#leaderboard">LEADERBOARD</a>
+            <a href="contribute.html">CONTRIBUTE</a>
+            <a class="nav-github" href="https://github.com/Thinking-Space/AutoRLBench" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7A5.4 5.4 0 0 0 19.4 4 5 5 0 0 0 19.3.5S18.2.1 15 1.8a13.4 13.4 0 0 0-7 0C4.8.1 3.7.5 3.7.5A5 5 0 0 0 3.6 4a5.4 5.4 0 0 0-1.4 3.7c0 5.4 3.5 6.6 6.8 7A4.8 4.8 0 0 0 8 18v4"/><path d="M8 19c-3 .9-3-1.5-4.2-2"/></svg>
+                <span>GITHUB</span>
+            </a>
         </div>
     </nav>
 
     <!-- Hero -->
     <section class="hero">
-        <h1>Open Data Call for<br>Scalable RL Training</h1>
-        <p>A community-driven initiative to collect, curate, and benchmark high-quality training data for reinforcement learning at scale.</p>
+        <h1>AutoRLBench</h1>
+        <p>A benchmark and open call for valuable, reproducible RL runs. We welcome both problematic runs and healthy reference runs. Issue evaluation is available now; Solution evaluation is coming soon.</p>
         <div class="hero-stats">
             <div class="stat">
-                <div class="stat-number">10</div>
-                <div class="stat-label">Task packages</div>
+                <div class="stat-number">20</div>
+                <div class="stat-label">Tasks</div>
             </div>
             <div class="stat">
-                <div class="stat-number">4</div>
-                <div class="stat-label">Families</div>
+                <div class="stat-number">6</div>
+                <div class="stat-label">Domains</div>
             </div>
             <div class="stat">
-                <div class="stat-number">2</div>
-                <div class="stat-label">Eval levels</div>
+                <div class="stat-number">1</div>
+                <div class="stat-label">Live evaluation</div>
             </div>
             <div class="stat">
-                <div class="stat-number">0</div>
-                <div class="stat-label">Public runs</div>
+                <div class="stat-number">9</div>
+                <div class="stat-label">Evaluated systems</div>
             </div>
         </div>
         <div class="hero-buttons">
-            <a href="#contribute" class="btn btn-primary">Submit Data</a>
-            <a href="#tasks" class="btn btn-secondary">Explore Tasks</a>
+            <a href="#contribute" class="btn btn-primary">Contribute a Run</a>
+            <a href="#tasks" class="btn btn-secondary">Browse Tasks</a>
         </div>
         <a class="contribute-guide-link" href="contribute.html">Read the full contribution guide <span aria-hidden="true">→</span></a>
     </section>
 
     <!-- Tasks -->
     <section id="tasks">
-        <h2 class="section-title">Task Catalog</h2>
-        <p class="section-subtitle">Browse the active PTDBench packages. Raw snapshots and hidden evaluation materials are intentionally excluded from the public index.</p>
-        <div class="task-groups" id="task-groups"></div>
+        <h2 class="section-title">Tasks</h2>
+        <p class="section-subtitle">Grouped by common failure modes across the RL pipeline.</p>
+        <div class="task-overview-stats" aria-label="Tasks summary">
+            <div class="task-overview-stat">
+                <strong id="domain-count">6</strong>
+                <span>DOMAINS</span>
+            </div>
+            <div class="task-overview-stat-divider" aria-hidden="true"></div>
+            <div class="task-overview-stat">
+                <strong id="active-task-count">20</strong>
+                <span>TASKS</span>
+                <em class="collecting-note">Actively collecting</em>
+            </div>
+        </div>
+        <div class="domain-cards" id="domain-cards"></div>
+        <p class="task-sample-note">One task is shown as a sample for each available category.</p>
+        <div class="tasks-grid" id="sample-cards"></div>
     </section>
 
     <!-- Leaderboard -->
     <section id="leaderboard">
         <h2 class="section-title">Leaderboard</h2>
-        <p class="section-subtitle">Agent performance on DataCall benchmark. Each entry is an agent framework paired with a backbone model.</p>
-        <div class="leaderboard-controls">
-            <div class="leaderboard-filters">
-                <button class="filter-btn active" data-task="all">All Tasks</button>
-                <button class="filter-btn" data-task="math">Math</button>
-                <button class="filter-btn" data-task="code">Code</button>
-                <button class="filter-btn" data-task="reasoning">Reasoning</button>
-                <button class="filter-btn" data-task="science">Science</button>
-                <button class="filter-btn" data-task="planning">Planning</button>
-            </div>
-            <div class="filter-selects">
-                <select class="filter-select" id="agent-filter">
-                    <option value="all">All Agents</option>
-                    <option value="ReasonAgent">ReasonAgent</option>
-                    <option value="DeepAgent-R">DeepAgent-R</option>
-                    <option value="ToolFormer-X">ToolFormer-X</option>
-                    <option value="PlanExec">PlanExec</option>
-                    <option value="Vanilla-CoT">Vanilla-CoT</option>
-                </select>
-                <select class="filter-select" id="model-filter">
-                    <option value="all">All Models</option>
-                    <option value="Qwen3-235B-DAPO">Qwen3-235B-DAPO</option>
-                    <option value="DeepSeek-R1">DeepSeek-R1</option>
-                    <option value="Llama-3-70B-RL">Llama-3-70B-RL</option>
-                    <option value="Qwen3-32B-GRPO">Qwen3-32B-GRPO</option>
-                    <option value="Mistral-Large-RL">Mistral-Large-RL</option>
-                </select>
-            </div>
-        </div>
+        <p class="section-subtitle">Agents currently under evaluation. Scores are not published yet.</p>
+        <div class="lb-kicker">AutoRLBench Leaderboard 0.1</div>
         <div class="lb-header">
-            <span>#</span>
-            <span>Agent</span>
             <span>Model</span>
-            <span class="lb-header-scores">Scores</span>
-            <span style="text-align:right">Avg</span>
+            <span>Agent</span>
+            <span class="lb-header-scores">Score</span>
         </div>
         <div class="leaderboard-list"></div>
     </section>
 
     <!-- Evaluation -->
     <section id="evaluation" class="evaluation-section">
-        <h2 class="section-title">Evaluation Snapshot</h2>
-        <p class="section-subtitle">A compact view of benchmark quality, domain coverage, and the cost of running each agent.</p>
-        <div class="eval-summary-grid" id="eval-summary"></div>
-        <div class="eval-chart-grid">
-            <div class="chart-card">
-                <div class="chart-heading">
-                    <h3>Score by domain</h3>
-                    <span>Mean hidden-set score</span>
-                </div>
-                <div class="bar-chart" id="domain-score-chart"></div>
-            </div>
-            <div class="chart-card">
-                <div class="chart-heading">
-                    <h3>Agent efficiency</h3>
-                    <span>Score compared with run time</span>
-                </div>
-                <div class="bar-chart" id="resource-chart"></div>
+        <div class="coming-soon-block">
+            <span>COMING SOON</span>
+            <div>
+                <h2>Solution Evaluation</h2>
+                <p>Repair-and-rerun evaluation is in preparation. Current results cover Issue diagnosis only.</p>
             </div>
         </div>
     </section>
@@ -124,50 +101,47 @@
         <div class="contribute-cta">
             <div class="contribute-cta-copy">
                 <span class="contribute-kicker">CONTRIBUTE</span>
-                <h2>Turn a reproducible failure into a benchmark task.</h2>
-                <p>Package the workspace, environment, Issue/Solution evaluations, and verifier that make your case useful to other agents and researchers.</p>
+                <h2>Contribute a valuable RL run.</h2>
+                <p>Submit the full configuration, workspace, launch path, logs, and metrics. Problem cases, healthy runs, and useful controls are all welcome.</p>
             </div>
             <div class="contribute-cta-action">
-                <div class="contribute-cta-meta"><span>Task package format</span><span>Local validation</span></div>
+                <div class="contribute-cta-meta"><span>Complete run package</span><span>Issue available now</span></div>
                 <a class="btn btn-primary" href="contribute.html">Read the contribution guide <span aria-hidden="true">→</span></a>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer>
+    <footer id="contact">
         <div class="footer-grid">
             <div class="footer-brand">
-                <div class="nav-logo">DataCall</div>
-                <p>An open community initiative for collecting and benchmarking RL training data at scale.</p>
+                <div class="nav-logo">AutoRLBench</div>
+                <p>A benchmark and open call for complete, reproducible RL runs.</p>
             </div>
             <div class="footer-col">
                 <h4>Benchmark</h4>
                 <a href="#tasks">Tasks</a>
                 <a href="#leaderboard">Leaderboard</a>
-                <a href="#">Evaluation</a>
-                <a href="#">Baselines</a>
+                <a href="#evaluation">Evaluation</a>
             </div>
             <div class="footer-col">
-                <h4>Build</h4>
-                <a href="contribute.html">Quick Start</a>
-                <a href="contribute.html">Task format</a>
-                <a href="#">API Reference</a>
-                <a href="#">Examples</a>
+                <h4>Contribute</h4>
+                <a href="contribute.html">Submission Guide</a>
+                <a href="contribute.html#requirements">Run Package</a>
             </div>
             <div class="footer-col">
-                <h4>Community</h4>
-                <a href="#">Discord</a>
-                <a href="#">Twitter</a>
-                <a href="#">Contact</a>
+                <h4>Contact</h4>
+                <a href="contribute.html">Contribution Guide</a>
+                <a href="#contact">AutoRLBench</a>
             </div>
         </div>
         <div class="footer-bottom">
-            &copy; 2026 DataCall. Released under Apache-2.0 License.
+            &copy; 2026 AutoRLBench. Released under Apache-2.0 License.
         </div>
     </footer>
 
-    <script src="task-data.js"></script>
-    <script src="app.js"></script>
+    <script src="task-data.js?v=20261017-1"></script>
+    <script src="app.js?v=20261016-51"></script>
+    <script src="site.js?v=20261016-3"></script>
 </body>
 </html>
