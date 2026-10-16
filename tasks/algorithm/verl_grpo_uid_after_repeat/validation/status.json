@@ -1,0 +1,88 @@
+{
+  "kind": "local_task_packaging_validation_no_gpu_no_llm_acceptance",
+  "task_id": "task_dapo_math_021",
+  "created_date": "2026-10-17",
+  "packaged_on": "macOS arm64 laptop, no GPU, no docker run performed",
+
+  "schema": {
+    "command": "python3 -m ptdbench validate tasks/verl_implementation/llama_dapo_implementation/task_dapo_math_021",
+    "strict": true,
+    "ok": true,
+    "issues": []
+  },
+
+  "source_integrity": {
+    "base_commit": "6f2aa24abfc01cc72811b376aeb3936503885096",
+    "base_fetched_by": "git fetch --depth 1 from https://github.com/volcengine/verl",
+    "verl_version_file": "0.9.0.dev",
+    "files_differing_from_pinned_upstream": 1,
+    "differing_file": "workspace/verl/trainer/ppo/ray_trainer.py",
+    "verified_by": "diff -rq against the fetched tree; all six top-level files (LICENSE, pyproject.toml, setup.py, requirements*.txt) cmp clean",
+    "injected_diff_shape": "one 5-line deletion + one 5-line insertion, no other hunks",
+    "base_compatibility_argument": "Byte-identical base to sibling task_monkey_patch_011, whose recorded 2026-07-20 run executed on the `verl` image. This is an inference from shared provenance, NOT an observed launch of this tree."
+  },
+
+  "defect_mechanism": {
+    "status": "verified_numerically_on_cpu",
+    "how": "Re-implemented compute_grpo_outcome_advantage verbatim from the pinned commit and ran both grouping schemes over the same 0/1 reward vector (8 prompts x 8 rollouts).",
+    "result_healthy": "adv mean +0.000000, min -0.540061, max +2.474867, 8 groups",
+    "result_defect": "adv mean +0.093750 (== reward mean), min +0.000000, max +0.999999, 64 groups",
+    "identity_check": "torch.allclose(defect_advantages, raw_rewards, atol=1e-5) is True",
+    "cross_check": "The healthy max 2.474867 equals (1 - 1/8)/0.35355 and matches critic/advantages/max:2.4748666286468506 in the sibling task's real frozen log on the same recipe.",
+    "caveat": "This validates the advantage math only. It does not prove the staged tree launches, nor that downstream metrics (entropy, response length, held-out accuracy) move as the oracle's Observable impact section says."
+  },
+
+  "static_checks": {
+    "launch_script_bash_n": "passed",
+    "prepare_sh_bash_n": "passed",
+    "prepare_sh_behaviourally_identical_to_sibling": "passed (diff of non-comment, non-blank lines is empty)",
+    "shared_issue_files_cmp_against_sibling": "passed for instruction.md, verifier/judge.py, verifier/judge_prompt.md, verifier/test.sh",
+    "metadata_script_path_exists_in_workspace": true,
+    "metadata_image_exists_in_docker_images": true,
+    "no_pycache_no_git_no_files_over_1mb": true,
+    "workspace_size": "5.6 MB"
+  },
+
+  "leak_audit": {
+    "command": "grep -rIilE 'task_dapo_math_021|task_monkey_patch_011|uid|required_final_score|grader_spec' environment evaluations/issue/instruction.md",
+    "result": "no hits",
+    "workspace_scan": "grep -rIilE 'task_dapo_math_021|required_final_score|grader_spec|oracle' workspace returns three files: verl/utils/vllm/vllm_fp8_utils.py, verl/utils/qat/vllm_patch.py, verl/utils/modelopt/vllm_modelopt_patch.py. All three are upstream imports of vllm.model_executor.layers.fused_moe.oracle.*, i.e. legitimate near-misses that must stay.",
+    "finding_acted_on": "environment/source_manifest.json was moved to validation/source_manifest.json. ptdbench/agents/base.py mounts the entire environment/ directory read-only at /ptdbench/environment, so the manifest's description of the injected defect would have been fully agent-visible. skills/package-task/SKILL.md's directory listing places this file under environment/; that placement is unsafe for any task with an injected defect and the skill should be amended.",
+    "experiment_name_placeholder": "Launch script defaults EXPERIMENT_NAME to ${BENCH_TASK_LEAF_ID:-__BENCH_TASK_ID__}; no harness code sets BENCH_TASK_LEAF_ID, so a recorded run emits the literal placeholder.",
+    "known_residual": "The parent directory name verl_implementation states the defect class. Inherited from the existing family; does not reach the agent through the harness, since TaskPackage.task_id is paths.root.name (the leaf only)."
+  },
+
+  "not_run": {
+    "recorded_defect_arm_run": {
+      "status": "pending",
+      "why": "No GPU on the packaging machine. The user is producing this run separately.",
+      "next_step": "Run the launch script on 2 GPUs from workspace/, then drop logs/llama3_2_1b_instruct_dapo_math_fsdp_<timestamp>.log and logs/wandb/ into workspace/logs/ and replace readme.md's 'Original failure evidence' section with the measured numbers."
+    },
+    "control_arm_run": {
+      "status": "pending",
+      "why": "Same. Not required for issue level, but it is what turns the derived healthy column into a measured one.",
+      "next_step": "In a separate workspace copy, move the uid block back above self._get_gen_batch(batch) and run the identical command. Keep its code and logs out of workspace/."
+    },
+    "image_build_and_prepare": {
+      "status": "not_run",
+      "why": "No docker on the packaging machine.",
+      "next_step": "./docker/warm-cache.sh on a machine with docker and network; it builds the verl image if missing and runs every task's prepare.sh once. The model and dataset checksums here are copied from the sibling task's prepare.sh, which has been exercised, so this is expected to be a no-op cache hit."
+    },
+    "end_to_end_launch_of_the_staged_tree": {
+      "status": "not_run",
+      "why": "Needs GPU and the built image.",
+      "risk_if_it_fails": "Low but non-zero. The injected move removes uid from gen_batch's non_tensor_batch. _get_gen_batch keeps uid only as a pass-through reward key, no consumer of uid was found on the rollout path (grep across verl/ finds uid read only in ray_trainer.py, seqlen_balancing's prefix grouper, and the fully_async rollouter, whose own comment confirms the agent-loop worker returns a DataProto without the input's non_tensor_batch), and the uid is reinstated before compute_advantage. Verify at step 1 of the recorded run rather than reasoning further.",
+      "next_step": "The defect-arm run is itself this check."
+    },
+    "llm_judge_acceptance": {
+      "status": "not_run",
+      "why": "No judge credentials used during packaging; no agent evaluation was performed.",
+      "next_step": "Run the issue verifier with PTDBENCH_JUDGE_MODEL / OPENAI_BASE_URL / OPENAI_API_KEY against a correct answer and against each wrong attribution listed in oracle.md's Documentation reconciliation section. The incomplete-answer case ('group size is 1' with no uid location) is the one worth checking first.",
+      "agent_trace_json": "not_generated"
+    },
+    "solution_level": {
+      "status": "intentionally_absent",
+      "why": "A solution threshold must be measured off a real repaired run; neither arm exists yet. See readme.md 'Why issue-only for now'."
+    }
+  }
+}

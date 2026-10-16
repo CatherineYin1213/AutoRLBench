@@ -1,0 +1,13 @@
+outputs/*
+ref/*
+__pycache__/
+*.py[cod]
+.vscode/*
+
+# 跨 run、跨任务共享的下载缓存（ptdbench evaluate / docker/warm-cache.sh 的默认落点）。
+# 多 GB，且随时可以从 prepare.sh 里钉死的 revision 重新拉出来。
+models/
+datasets/
+
+raw_tasks/
+task_construct/

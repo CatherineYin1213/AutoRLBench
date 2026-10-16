@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataCall — Open Data for Scalable RL Training</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171716'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="nav-logo">DataCall</a>
+        <div class="nav-links">
+            <a href="#tasks">Tasks</a>
+            <a href="#leaderboard">Leaderboard</a>
+            <a href="#evaluation">Evaluation</a>
+            <a href="contribute.html">Contribute</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1>Open Data Call for<br>Scalable RL Training</h1>
+        <p>A community-driven initiative to collect, curate, and benchmark high-quality training data for reinforcement learning at scale.</p>
+        <div class="hero-stats">
+            <div class="stat">
+                <div class="stat-number">10</div>
+                <div class="stat-label">Task packages</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">4</div>
+                <div class="stat-label">Families</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">2</div>
+                <div class="stat-label">Eval levels</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Public runs</div>
+            </div>
+        </div>
+        <div class="hero-buttons">
+            <a href="#contribute" class="btn btn-primary">Submit Data</a>
+            <a href="#tasks" class="btn btn-secondary">Explore Tasks</a>
+        </div>
+        <a class="contribute-guide-link" href="contribute.html">Read the full contribution guide <span aria-hidden="true">→</span></a>
+    </section>
+
+    <!-- Tasks -->
+    <section id="tasks">
+        <h2 class="section-title">Task Catalog</h2>
+        <p class="section-subtitle">Browse the active PTDBench packages. Raw snapshots and hidden evaluation materials are intentionally excluded from the public index.</p>
+        <div class="task-groups" id="task-groups"></div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="leaderboard">
+        <h2 class="section-title">Leaderboard</h2>
+        <p class="section-subtitle">Agent performance on DataCall benchmark. Each entry is an agent framework paired with a backbone model.</p>
+        <div class="leaderboard-controls">
+            <div class="leaderboard-filters">
+                <button class="filter-btn active" data-task="all">All Tasks</button>
+                <button class="filter-btn" data-task="math">Math</button>
+                <button class="filter-btn" data-task="code">Code</button>
+                <button class="filter-btn" data-task="reasoning">Reasoning</button>
+                <button class="filter-btn" data-task="science">Science</button>
+                <button class="filter-btn" data-task="planning">Planning</button>
+            </div>
+            <div class="filter-selects">
+                <select class="filter-select" id="agent-filter">
+                    <option value="all">All Agents</option>
+                    <option value="ReasonAgent">ReasonAgent</option>
+                    <option value="DeepAgent-R">DeepAgent-R</option>
+                    <option value="ToolFormer-X">ToolFormer-X</option>
+                    <option value="PlanExec">PlanExec</option>
+                    <option value="Vanilla-CoT">Vanilla-CoT</option>
+                </select>
+                <select class="filter-select" id="model-filter">
+                    <option value="all">All Models</option>
+                    <option value="Qwen3-235B-DAPO">Qwen3-235B-DAPO</option>
+                    <option value="DeepSeek-R1">DeepSeek-R1</option>
+                    <option value="Llama-3-70B-RL">Llama-3-70B-RL</option>
+                    <option value="Qwen3-32B-GRPO">Qwen3-32B-GRPO</option>
+                    <option value="Mistral-Large-RL">Mistral-Large-RL</option>
+                </select>
+            </div>
+        </div>
+        <div class="lb-header">
+            <span>#</span>
+            <span>Agent</span>
+            <span>Model</span>
+            <span class="lb-header-scores">Scores</span>
+            <span style="text-align:right">Avg</span>
+        </div>
+        <div class="leaderboard-list"></div>
+    </section>
+
+    <!-- Evaluation -->
+    <section id="evaluation" class="evaluation-section">
+        <h2 class="section-title">Evaluation Snapshot</h2>
+        <p class="section-subtitle">A compact view of benchmark quality, domain coverage, and the cost of running each agent.</p>
+        <div class="eval-summary-grid" id="eval-summary"></div>
+        <div class="eval-chart-grid">
+            <div class="chart-card">
+                <div class="chart-heading">
+                    <h3>Score by domain</h3>
+                    <span>Mean hidden-set score</span>
+                </div>
+                <div class="bar-chart" id="domain-score-chart"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-heading">
+                    <h3>Agent efficiency</h3>
+                    <span>Score compared with run time</span>
+                </div>
+                <div class="bar-chart" id="resource-chart"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contribute -->
+    <section id="contribute" class="contribute-section">
+        <div class="contribute-cta">
+            <div class="contribute-cta-copy">
+                <span class="contribute-kicker">CONTRIBUTE</span>
+                <h2>Turn a reproducible failure into a benchmark task.</h2>
+                <p>Package the workspace, environment, Issue/Solution evaluations, and verifier that make your case useful to other agents and researchers.</p>
+            </div>
+            <div class="contribute-cta-action">
+                <div class="contribute-cta-meta"><span>Task package format</span><span>Local validation</span></div>
+                <a class="btn btn-primary" href="contribute.html">Read the contribution guide <span aria-hidden="true">→</span></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <div class="nav-logo">DataCall</div>
+                <p>An open community initiative for collecting and benchmarking RL training data at scale.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Benchmark</h4>
+                <a href="#tasks">Tasks</a>
+                <a href="#leaderboard">Leaderboard</a>
+                <a href="#">Evaluation</a>
+                <a href="#">Baselines</a>
+            </div>
+            <div class="footer-col">
+                <h4>Build</h4>
+                <a href="contribute.html">Quick Start</a>
+                <a href="contribute.html">Task format</a>
+                <a href="#">API Reference</a>
+                <a href="#">Examples</a>
+            </div>
+            <div class="footer-col">
+                <h4>Community</h4>
+                <a href="#">Discord</a>
+                <a href="#">Twitter</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 DataCall. Released under Apache-2.0 License.
+        </div>
+    </footer>
+
+    <script src="task-data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
