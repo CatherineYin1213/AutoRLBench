@@ -16,10 +16,10 @@ import shutil
 import sys
 from pathlib import Path
 
-RAW = Path("/Users/chenyinghao/workspace/PTDBench/raw_tasks/hsz_search-r1-delivery")
+RAW = Path("/Users/chenyinghao/workspace/AutoRLBench/raw_tasks/hsz_search-r1-delivery")
 SRC = RAW / "workspace_broken/results/baseline32"
 DST = Path(
-    "/Users/chenyinghao/workspace/PTDBench/tasks/search_r1_zero_query_vector"
+    "/Users/chenyinghao/workspace/AutoRLBench/tasks/search_r1_zero_query_vector"
     "/workspace/results/baseline32"
 )
 

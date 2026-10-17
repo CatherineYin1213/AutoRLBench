@@ -2077,12 +2077,6 @@ footer {
     padding: 0.2rem 0 2.5rem;
 }
 
-.task-group-empty {
-    padding: 0.2rem 0 2rem;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-}
-
 /* Published AutoRLBench task detail */
 .task-breadcrumb {
     display: flex;

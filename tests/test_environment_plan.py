@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ptdbench.core.types import IMAGES_DIR, EnvironmentImage, known_images
-from ptdbench.tasks import SchemaError, load_task_package
-from ptdbench.tasks.validator import validate_metadata
+from autorlbench.core.types import IMAGES_DIR, EnvironmentImage, known_images
+from autorlbench.tasks import SchemaError, load_task_package
+from autorlbench.tasks.validator import validate_metadata
 
 
 METADATA_HEAD = """title: Image task
@@ -197,7 +197,7 @@ class EnvironmentEnvTests(unittest.TestCase):
 
 class EnvironmentEnvRuntimeTests(unittest.TestCase):
     def _request(self, **kwargs):
-        from ptdbench.runtimes import SandboxRequest
+        from autorlbench.runtimes import SandboxRequest
 
         root = Path("/host/run")
         defaults = dict(
@@ -212,8 +212,8 @@ class EnvironmentEnvRuntimeTests(unittest.TestCase):
         return SandboxRequest(**defaults)
 
     def test_task_env_reaches_the_command_but_cannot_shadow_the_harness(self):
-        from ptdbench.runtimes.base import CommandSpec
-        from ptdbench.runtimes.providers.docker import DockerRuntime
+        from autorlbench.runtimes.base import CommandSpec
+        from autorlbench.runtimes.providers.docker import DockerRuntime
 
         request = self._request(task_env={"CUDA_VISIBLE_DEVICES": "0,1"})
         merged = DockerRuntime()._merged_spec(request, CommandSpec(shell="true"))
@@ -222,8 +222,8 @@ class EnvironmentEnvRuntimeTests(unittest.TestCase):
         self.assertEqual(merged.env["PTDBENCH_STAGE"], "agent")
 
     def test_caller_env_still_wins_over_the_task_declaration(self):
-        from ptdbench.runtimes.base import CommandSpec
-        from ptdbench.runtimes.providers.docker import DockerRuntime
+        from autorlbench.runtimes.base import CommandSpec
+        from autorlbench.runtimes.providers.docker import DockerRuntime
 
         request = self._request(
             task_env={"CUDA_VISIBLE_DEVICES": "0,1"},
@@ -272,7 +272,7 @@ class EnvironmentImageTests(unittest.TestCase):
     def test_tooling_block_is_identical_in_every_dockerfile(self):
         # 每个镜像都靠同一段工具层（activate hook、fetch shim 等）和 harness 对接；
         # 哪份漂了，那个环境的任务就会在运行时才以奇怪的方式失败。
-        marker = "# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----"
+        marker = "# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----"
         blocks = {}
         for name in sorted(known_images()):
             text = EnvironmentImage(name).dockerfile.read_text(encoding="utf-8")
@@ -283,12 +283,12 @@ class EnvironmentImageTests(unittest.TestCase):
 
 class EnsureEnvironmentTests(unittest.TestCase):
     def _run(self, *, exists: bool, rebuild: bool = False):
-        from ptdbench.runtimes.providers.docker import DockerRuntime
+        from autorlbench.runtimes.providers.docker import DockerRuntime
 
         runtime = DockerRuntime()
         image = EnvironmentImage("verl")
         with mock.patch.object(DockerRuntime, "_image_exists", return_value=exists), \
-                mock.patch("ptdbench.runtimes.providers.docker.subprocess.run") as run:
+                mock.patch("autorlbench.runtimes.providers.docker.subprocess.run") as run:
             artifact = runtime.ensure_environment(image, rebuild=rebuild)
         self.assertEqual(artifact.reference, "ptdbench/verl:vllm0.17-torch2.10-cu129")
         return run
@@ -309,11 +309,11 @@ class EnsureEnvironmentTests(unittest.TestCase):
         self.assertTrue(self._run(exists=True, rebuild=True).called)
 
     def test_build_failure_propagates(self):
-        from ptdbench.runtimes.providers.docker import DockerRuntime
+        from autorlbench.runtimes.providers.docker import DockerRuntime
 
         with mock.patch.object(DockerRuntime, "_image_exists", return_value=False), \
                 mock.patch(
-                    "ptdbench.runtimes.providers.docker.subprocess.run",
+                    "autorlbench.runtimes.providers.docker.subprocess.run",
                     side_effect=subprocess.CalledProcessError(1, ["docker", "build"]),
                 ):
             with self.assertRaises(subprocess.CalledProcessError):
@@ -322,8 +322,8 @@ class EnsureEnvironmentTests(unittest.TestCase):
 
 class BuildImagesCommandTests(unittest.TestCase):
     def _main(self, *argv):
-        from ptdbench import cli
-        from ptdbench.runtimes.providers.docker import DockerRuntime
+        from autorlbench import cli
+        from autorlbench.runtimes.providers.docker import DockerRuntime
 
         with mock.patch.object(DockerRuntime, "ensure_environment") as ensure, \
                 mock.patch("builtins.print"):

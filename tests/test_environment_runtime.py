@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ptdbench.core.types import (
+from autorlbench.core.types import (
     DATASETS_DIR,
     MODELS_DIR,
     PREPARED_DIR,
@@ -21,8 +21,8 @@ from ptdbench.core.types import (
     TOOLING_DIR,
     EnvironmentPlan,
 )
-from ptdbench.runtimes import SandboxRequest
-from ptdbench.runtimes.providers.docker import DockerRuntime
+from autorlbench.runtimes import SandboxRequest
+from autorlbench.runtimes.providers.docker import DockerRuntime
 
 
 ROOT = Path("/host/run")
@@ -327,7 +327,7 @@ class PrepareScriptTests(unittest.TestCase):
     """evaluator 怎么把 prepare.sh 翻译成容器里的一条路径。"""
 
     def _package(self, root: Path, *, prepare: Path | None, image: str | None = "verl"):
-        from ptdbench.core.types import TaskPaths
+        from autorlbench.core.types import TaskPaths
 
         paths = TaskPaths(
             root=root,
@@ -337,8 +337,8 @@ class PrepareScriptTests(unittest.TestCase):
             environment=root / "environment",
             evaluations={},
         )
-        from ptdbench.core.types import TaskPackage
-        from ptdbench.core.types import ValidationReport
+        from autorlbench.core.types import TaskPackage
+        from autorlbench.core.types import ValidationReport
 
         return TaskPackage(
             paths=paths,
@@ -348,7 +348,7 @@ class PrepareScriptTests(unittest.TestCase):
         )
 
     def test_script_resolves_under_the_mounted_environment(self) -> None:
-        from ptdbench.evaluation.evaluator import TaskEvaluator
+        from autorlbench.evaluation.evaluator import TaskEvaluator
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -362,7 +362,7 @@ class PrepareScriptTests(unittest.TestCase):
             )
 
     def test_no_prepare_script_means_no_prepare_stage(self) -> None:
-        from ptdbench.evaluation.evaluator import TaskEvaluator
+        from autorlbench.evaluation.evaluator import TaskEvaluator
 
         with tempfile.TemporaryDirectory() as temp:
             package = self._package(Path(temp), prepare=None)
@@ -371,8 +371,8 @@ class PrepareScriptTests(unittest.TestCase):
     def test_script_outside_the_environment_directory_is_rejected(self) -> None:
         # 只有 environment/ 挂进容器；声明一个在外面的路径会在容器里变成
         # "文件不存在"，报错点离原因很远。
-        from ptdbench.evaluation.evaluator import TaskEvaluator
-        from ptdbench.tasks import SchemaError
+        from autorlbench.evaluation.evaluator import TaskEvaluator
+        from autorlbench.tasks import SchemaError
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

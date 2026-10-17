@@ -1,4 +1,4 @@
-"""PTDBench 的稳定数据模型。"""
+"""AutoRLBench 的稳定数据模型。"""
 
 from .types import (
     AgentSpec,

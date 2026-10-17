@@ -4,7 +4,7 @@
 The Cybertron backend shares one read-only model/dataset cache across every
 trial devspace at ``/user/<cluster_user>/ptdbench-cache/{models,datasets}``
 (see ``cybertron-harbor-impl-plan.md`` §6.1). That cache is populated *once*
-by a BATCH job that clones the ptdbench repo, points ``PTDBENCH_MODELS`` /
+by a BATCH job that clones the autorlbench repo, points ``PTDBENCH_MODELS`` /
 ``PTDBENCH_DATASETS`` at the cache, and runs every task's
 ``environment/prepare.sh``. Trials then only read it — no PVC / RBAC needed.
 
@@ -19,7 +19,7 @@ Example:
         --project xinfer-chenyinghao --cluster wuxi_train \\
         --resource-pool speech-wx --billing-account-id N00069 \\
         --image 25607122 --gpu 1 --gpu-model h100 \\
-        --git-path git@github.com:your-org/ptdbench.git --git-ref main \\
+        --git-path git@github.com:your-org/AutoRLBench.git --git-ref main \\
         --cluster-user chenyinghao
     # review the printed command, then re-run with --run to submit.
 """
@@ -72,7 +72,7 @@ def build_entry(
 ) -> str:
     """Build the BATCH ``--entry`` shell command that preheats the cache.
 
-    It exports the ptdbench cache env vars, creates the cache subtree on the
+    It exports the autorlbench cache env vars, creates the cache subtree on the
     persistent ``/user`` fs (never container rootfs — ephemeral is tiny), then
     runs every ``prepare.sh`` matched by *prepare_glob* with those env vars set.
 
@@ -122,7 +122,7 @@ def build_entry(
         # Guarded: a layout without the installer (older checkout) is a no-op.
         f"if [ -f docker/install-ptdbench-tooling.sh ]; then "
         f"bash docker/install-ptdbench-tooling.sh && "
-        f'echo "[preheat] installed latest ptdbench tooling from clone"; fi; '
+        f'echo "[preheat] installed latest autorlbench tooling from clone"; fi; '
         f"found=0; failed=''; "
         f"for p in {prepare_glob}; do "
         f'  [ -f "$p" ] || continue; '
@@ -211,7 +211,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--cpu", type=int, default=16)
     parser.add_argument("--memory", type=int, default=128, help="memory in GiB")
     parser.add_argument(
-        "--git-path", required=True, help="ptdbench repo SSH URL (--code-type git)"
+        "--git-path", required=True, help="autorlbench repo SSH URL (--code-type git)"
     )
     parser.add_argument("--git-ref", default=None)
     parser.add_argument("--cluster-user", default="chenyinghao")

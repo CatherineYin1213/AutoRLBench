@@ -1,6 +1,6 @@
 # Cybertron / Harbor 运行手册（runbook）
 
-面向 PTDBench 任务的三条常用流程：
+面向 AutoRLBench 任务的三条常用流程：
 
 1. **准备数据与模型** —— 跑通所有 `prepare.sh`，把权重 / 数据集缓存好；
 2. **手动实验** —— 拉起 devspace 并构建到「agent 开始 debug 之前」的状态，供你手动跑训练验证环境；
@@ -46,7 +46,7 @@
 COMMON=(--project xinfer-chenyinghao
         --cluster wuxi_train --resource-pool speech-wx --billing-account-id N00069
         --gpu 1 --gpu-model h100 --cpu 16 --memory 128
-        --git-path git@github.com:<org>/ptdbench.git --git-ref main
+        --git-path git@github.com:<org>/AutoRLBench.git --git-ref main
         --cluster-user chenyinghao)
 
 # ① slime-rc0（cu126）: rlve_hyper 四个子任务
@@ -137,7 +137,7 @@ export PTDBENCH_DATASETS_DIR=/abs/datasets
 **与 agent 阶段同一个容器**（但不启动 agent）的交互式 shell：
 
 ```bash
-python3 -m ptdbench harbor-shell tasks/slime_retool \
+python3 -m autorlbench harbor-shell tasks/slime_retool \
   --evaluation-level solution \
   --workspace-dir outputs/harbor-shell/slime_retool
 # 可选：--force-prepare 重跑 prepare、--gpus all、--shm-size 32g、--shell bash
@@ -152,7 +152,7 @@ python3 -m ptdbench harbor-shell tasks/slime_retool \
 上传任务 → 在 devspace 上跑 `prepare.sh`），然后**留着 devspace 不停**，打印 `tsh ssh` 入口：
 
 ```bash
-python3 -m ptdbench harbor-stage tasks/slime_retool --backend cybertron \
+python3 -m autorlbench harbor-stage tasks/slime_retool --backend cybertron \
   --gpus 8 --image 25607131 \
   --environment-kwarg project=xinfer-chenyinghao \
   --environment-kwarg cluster=wuxi_train \
@@ -174,13 +174,13 @@ python3 -m ptdbench harbor-stage tasks/slime_retool --backend cybertron \
 
 ## 3. 评测 agent（建 devspace → 起 agent → verify）
 
-### 3a. 一条命令（推荐，走 ptdbench harbor-evaluate + cybertron 后端）
+### 3a. 一条命令（推荐，走 autorlbench harbor-evaluate + cybertron 后端）
 
 `harbor-evaluate` 会：跑 `prepare.sh` → 物化 Harbor 任务 → 起 agent → 自动跑 verifier 打分。
 task 路径必须在所有转发给 `harbor run` 的参数**之前**：
 
 ```bash
-python3 -m ptdbench harbor-evaluate tasks/slime_retool \
+python3 -m autorlbench harbor-evaluate tasks/slime_retool \
   --evaluation-level solution \
   --judge-model gpt-5.5 \
   --agent codex --model gpt-5.5 \
@@ -189,7 +189,7 @@ python3 -m ptdbench harbor-evaluate tasks/slime_retool \
   --environment-kwarg cluster=wuxi_train \
   --environment-kwarg resource_pool=speech-wx \
   --environment-kwarg billing_account_id=N00069
-# 其余参数（--models-dir/--datasets-dir/--agent-network/--harbor-command…）见 `python3 -m ptdbench harbor-evaluate -h`
+# 其余参数（--models-dir/--datasets-dir/--agent-network/--harbor-command…）见 `python3 -m autorlbench harbor-evaluate -h`
 ```
 
 后端选择 `--env cybertron`、后端 kwargs 用可重复的 `--environment-kwarg key=value`
@@ -238,7 +238,7 @@ harbor run -t <materialized-task-dir> -e cybertron \
 
 - Harbor 在 agent 结束后自动跑 verifier 阶段（`tests/test.sh`），reward 写到
   `/logs/verifier/reward.txt`（或 `reward.json`）。
-- PTDBench 的 metric-only verifier 会从 `$PTDBENCH_RESULTS/experiment_logs`（含离线 W&B）
+- AutoRLBench 的 metric-only verifier 会从 `$PTDBENCH_RESULTS/experiment_logs`（含离线 W&B）
   重建 `eval/aime`，按 `resources/grader_spec.json` 打分（如 slime_retool_length_hack：
   `score_mode=best`、`required_final_score=0.18`）。
 - 分数与 trace 落在 `--jobs-dir`（helper 默认 `outputs/harbor-slime-retool`）下的 trial 输出里。

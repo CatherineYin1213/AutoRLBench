@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install PTDBench's prepare-stage fetch/dataset tooling into the image's
+# Install AutoRLBench's prepare-stage fetch/dataset tooling into the image's
 # /usr/local at runtime, from this directory's copies.
 #
 # These files used to be COPY'd into every docker/images/*.Dockerfile at build

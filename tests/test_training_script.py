@@ -12,8 +12,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ptdbench.tasks import load_task_package
-from ptdbench.tasks.validator import validate_metadata
+from autorlbench.tasks import load_task_package
+from autorlbench.tasks.validator import validate_metadata
 
 
 METADATA = """title: Training task

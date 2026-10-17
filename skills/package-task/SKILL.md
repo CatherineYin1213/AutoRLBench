@@ -1,20 +1,20 @@
 ---
 name: package-task
 description: >-
-  Packages a buggy training workspace into a PTDBench task with environment
+  Packages a buggy training workspace into a AutoRLBench task with environment
   (shared image + prepare.sh), issue and solution evaluations, workspace,
   metadata.yaml, and readme.md.
   Use when the user asks to package, build, or convert a workspace into the
   task format under tasks/, for any model, framework, or dataset.
 ---
 
-# Package a training workspace into a PTDBench task
+# Package a training workspace into a AutoRLBench task
 
 把有问题的训练工作区收成 `tasks/<family>/<task_id>/`（新任务也可以直接放 `tasks/<task_id>/`）。适用所有模型、框架与数据集。不产生 `agent_trace.json`。
 
 环境走**共享环境镜像**：任务不自带 Dockerfile，`metadata.environment.image` 写 `docker/images/` 下某个 `<name>.Dockerfile` 的名字，`environment/` 只有 `prepare.sh`（唯一联网阶段，下模型下数据）。
 
-细节模板见 [reference.md](reference.md)。填好的输入示例见 [examples.md](examples.md)。仓库侧的权威说明是 `README.zh.md`（元数据 schema、prepare 阶段）、`docker/README.zh.md`（环境镜像）和 `ptdbench/tasks/validator.py`（校验规则）。
+细节模板见 [reference.md](reference.md)。填好的输入示例见 [examples.md](examples.md)。仓库侧的权威说明是 `README.zh.md`（元数据 schema、prepare 阶段）、`docker/README.zh.md`（环境镜像）和 `autorlbench/tasks/validator.py`（校验规则）。
 
 ## 用户必填输入
 
@@ -233,7 +233,7 @@ grep -rIl 'broken\|fixed\|<原路径片段>\|<原用户名>' workspace/
 4. 用用户本次输入重写 `solution/instruction.md`、`grader_spec.json`、`resources/README.md`，并把失败运行的指标序列落成 `oracle/historical_evidence_manifest.json`。`grade_submission.py` 先按下面「grader 能不能复用」判断要新写还是照抄。
 5. 组 workspace（形态 2 要按「只发布有缺陷的那一侧」分好去处）、冻结证据的瘦身与脱敏、`environment/prepare.sh`、`metadata.yaml`、`readme.md`。
 6. 用用户给的 log 样例跑一次提取，确认能抽出所填的键与数字。抽不到就改 `grade_submission.py`，直到样例通过。来源带对照侧时，**两侧的历史 log 各回放一次**：缺陷侧必须不过，对照侧必须过。这是门槛唯一的离线自检。
-7. 跑 `python3 -m ptdbench validate <task_dir>`，必须零 error。有 docker 和网络的机器上再用 `./docker/warm-cache.sh` 跑一遍 `prepare.sh`（它会按需构建镜像，并把全部任务的 prepare 各跑一次）。
+7. 跑 `python3 -m autorlbench validate <task_dir>`，必须零 error。有 docker 和网络的机器上再用 `./docker/warm-cache.sh` 跑一遍 `prepare.sh`（它会按需构建镜像，并把全部任务的 prepare 各跑一次）。
 8. 本机没有 GPU 时，把没验过的东西逐条写进 `validation/status.json`：镜像构建、prepare 全流程、派生资产真的建得出来、一次真实重跑、门槛的方差。每一项写清楚「为什么没验」和「下一步怎么验」。
 
 ## Issue 归因
@@ -338,15 +338,15 @@ cp tasks/<现成任务>/evaluations/solution/verifier/tests/grade_submission.py 
 
 ## Environment
 
-`environment.image` 从 `docker/images/` 现有的镜像里挑，按框架与版本对上任务录制时的栈。镜像是多个任务共享的，内容就是它们的 ground truth 环境：不要为新任务改已有的 Dockerfile。现有镜像都不合适时，新加一个 `docker/images/<name>.Dockerfile`（`FROM` 钉 digest，末尾照抄其他 Dockerfile 的 PTDBench tooling 段），做法见 `docker/README.zh.md`。只缺一两个纯 Python 包的，在 `prepare.sh` 里 `pip install --target` 到 `$PTDBENCH_WORKSPACE` 下，再往 `$PTDBENCH_PREPARED/env` 写一行 `PYTHONPATH=...`（照 `tasks/reward_design/task_evaluator` 的做法；prepare 容器对镜像 site-packages 的改动带不到后两个阶段）。
+`environment.image` 从 `docker/images/` 现有的镜像里挑，按框架与版本对上任务录制时的栈。镜像是多个任务共享的，内容就是它们的 ground truth 环境：不要为新任务改已有的 Dockerfile。现有镜像都不合适时，新加一个 `docker/images/<name>.Dockerfile`（`FROM` 钉 digest，末尾照抄其他 Dockerfile 的 AutoRLBench tooling 段），做法见 `docker/README.zh.md`。只缺一两个纯 Python 包的，在 `prepare.sh` 里 `pip install --target` 到 `$PTDBENCH_WORKSPACE` 下，再往 `$PTDBENCH_PREPARED/env` 写一行 `PYTHONPATH=...`（照 `tasks/reward_design/task_evaluator` 的做法；prepare 容器对镜像 site-packages 的改动带不到后两个阶段）。
 
-来源的栈没有现成镜像时，需要自建的也写进 skill 流程，并标注「镜像未构建」。`metadata.yaml` 里写的名字必须是 `docker/images/` 下已存在的 `<name>.Dockerfile` 里对应的名字；`ptdbench validate` 会拒掉不存在的名字。因此，**哪怕镜像还没构建，Dockerfile 也要先写出来**，留待后续在有 GPU 的机器上实际构建，并在构建时把 `FROM` 的标签换成 digest。
+来源的栈没有现成镜像时，需要自建的也写进 skill 流程，并标注「镜像未构建」。`metadata.yaml` 里写的名字必须是 `docker/images/` 下已存在的 `<name>.Dockerfile` 里对应的名字；`autorlbench validate` 会拒掉不存在的名字。因此，**哪怕镜像还没构建，Dockerfile 也要先写出来**，留待后续在有 GPU 的机器上实际构建，并在构建时把 `FROM` 的标签换成 digest。
 
 现有的镜像名：`verl`、`slime-rc0`、`slime-v0.3.2`、`rank-distillation-cpu`（CPU 专用的 torch 环境，无 CUDA）。**不再有 `python3.11-slim`**——它从来没有对应的 Dockerfile，是 legacy 字段遗留的错误名字，不要在新任务里用它。
 
 `prepare.sh` 跑在独立的 prepare 阶段容器里：root、镜像自带的解释器、**唯一有网的阶段**，`$PTDBENCH_WORKSPACE` 可写。用 `ptdbench_fetch_hf` / `ptdbench_fetch_url` / `ptdbench_dataset` 三个命令取资产，每一份都要 `--expect` 与 `--expect-size` 硬校验，HF revision 必须是 40 位 commit sha。`--dest` 写到 `$PTDBENCH_WORKSPACE/<启动脚本实际读的路径>`，不要让任务脚本去引用 `$PTDBENCH_MODELS` / `$PTDBENCH_DATASETS`——那两个只是缓存，harbor 后端跑完 prepare 就删。
 
-`prepare.sh` 里**不要写 `HF_HUB_OFFLINE` / `TRANSFORMERS_OFFLINE`**。断网这件事由框架按阶段设（`ptdbench/runtimes/base.py` 的 `_network_policy_env`），agent 和 verifier 阶段才会带上这两个变量；写在 `metadata.environment.env` 里是三个阶段一视同仁，会把 prepare 自己的下载也堵死。
+`prepare.sh` 里**不要写 `HF_HUB_OFFLINE` / `TRANSFORMERS_OFFLINE`**。断网这件事由框架按阶段设（`autorlbench/runtimes/base.py` 的 `_network_policy_env`），agent 和 verifier 阶段才会带上这两个变量；写在 `metadata.environment.env` 里是三个阶段一视同仁，会把 prepare 自己的下载也堵死。
 
 要用的卡写在 `metadata.environment.env` 里，值必须是带引号的字符串。不在 `prepare.sh` 里设 `CUDA_VISIBLE_DEVICES`，也不写 `PTDBENCH_*`（validator 会拒掉）。
 
@@ -356,7 +356,7 @@ cp tasks/<现成任务>/evaluations/solution/verifier/tests/grade_submission.py 
 
 ## metadata.yaml 与 readme.md
 
-字段结构见 [reference.md](reference.md)。`metadata.yaml` 的所有字段值都必须是简单标量（字符串、数字、布尔）、列表或嵌套 mapping。**`ptdbench/utils/yaml.py` 是一个轻量解析器，不支持 `>-`、`|` 块标量**（即多行折叠或原文缩进文字）：写了 `>-` 会在 `ptdbench validate` 时报 `unexpected indentation`，必须改成单行字符串。如果 `failure_reason` 很长，用引号包裹整行，不要用 `>-`。
+字段结构见 [reference.md](reference.md)。`metadata.yaml` 的所有字段值都必须是简单标量（字符串、数字、布尔）、列表或嵌套 mapping。**`autorlbench/utils/yaml.py` 是一个轻量解析器，不支持 `>-`、`|` 块标量**（即多行折叠或原文缩进文字）：写了 `>-` 会在 `autorlbench validate` 时报 `unexpected indentation`，必须改成单行字符串。如果 `failure_reason` 很长，用引号包裹整行，不要用 `>-`。
 
 `training.script` 写相对 `workspace/` 的启动脚本路径，需要位置参数时加 `script_args`（列表，一项一个参数，全部带引号）。`environment` 写 `image` 与 `env`；旧的 `conda` / `requirements` / `dockerfile` 字段会被 validator 拒掉。
 
@@ -377,5 +377,5 @@ cp tasks/<现成任务>/evaluations/solution/verifier/tests/grade_submission.py 
 - `metadata.environment.image` 是 `docker/images/` 下已有的名字
 - `metadata.yaml` 没有 `>-` 或 `|` 块标量；所有 `env` 值都是字符串（`"0"` 而不是 `0`）；没有 `PTDBENCH_*` 也没有 `HF_HUB_OFFLINE`
 - `prepare.sh` 里每份 HF 资产都有 `--expect` 与 `--expect-size`，revision 都是 40 位 sha；派生资产用 `.complete` 标记守卫
-- `python3 -m ptdbench validate <task_dir>` 零 error
+- `python3 -m autorlbench validate <task_dir>` 零 error
 - `validation/status.json` 里诚实地列出本机没验过的东西和原因

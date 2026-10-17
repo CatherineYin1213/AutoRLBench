@@ -1,6 +1,6 @@
-# PTDBench
+# AutoRLBench
 
-PostTrainDiagnosisBench, or PTDBench, is a benchmark framework for community
+PostTrainDiagnosisBench, or AutoRLBench, is a benchmark framework for community
 submission of broken post-train tasks, environment specs, and verifier logic.
 
 ## Core idea
@@ -45,7 +45,7 @@ a `solution` evaluation.
 ## Source layout
 
 ```text
-ptdbench/
+autorlbench/
 ├── cli.py
 ├── core/                       # 稳定的数据模型
 │   └── types.py
@@ -106,14 +106,14 @@ there is no reason to let it read the answer.
 
 ## Runtime abstraction
 
-PTDBench separates the task contract from the execution platform. The current
+AutoRLBench separates the task contract from the execution platform. The current
 runtime implementations are:
 
 - `local`: runs commands on the host and is intended only for development;
 - `docker`: runs prepare/agent/verifier in separate containers, all from the
   image named by the task's `environment.image`. The image is built from
   `docker/images/<name>.Dockerfile` the first time it is missing; run
-  `ptdbench build-images [NAME...] [--rebuild]` to build ahead of time or to
+  `autorlbench build-images [NAME...] [--rebuild]` to build ahead of time or to
   pick up an edited Dockerfile (the tag is fixed, so edits are not detected).
 
 The environment image is prepared once and reused by all three stages. The
@@ -123,14 +123,14 @@ verifier gets a read-only workspace plus the selected hidden evaluation. Reusing
 one image does not mean sharing one container, which is important for keeping
 hidden grading files inaccessible.
 
-The platform boundary is `ptdbench.runtimes.base.SandboxRuntime`. A future runtime
+The platform boundary is `autorlbench.runtimes.base.SandboxRuntime`. A future runtime
 such as Harbor or a remote cloud sandbox should implement this interface for
 environment preparation, logical path mapping, and command execution. Agent
 adapters only receive a runtime and an environment artifact; they do not import
 Docker or host-process executors.
 
 The low-level command implementation lives with the corresponding provider under
-`ptdbench.runtimes.providers/`. New platform integrations should depend on
+`autorlbench.runtimes.providers/`. New platform integrations should depend on
 `SandboxRuntime`, not on the Docker or Local provider classes.
 
 ## Verifier contract
@@ -176,19 +176,19 @@ If no `result.json` exists, the evaluator falls back to the verifier exit code.
 Validate a task:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench validate tasks/slime_retool
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench validate tasks/slime_retool
 ```
 
 Run only the verifier on the staged workspace with the local backend:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool --backend local --keep-artifacts --json
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool --backend local --keep-artifacts --json
 ```
 
 Put run artifacts under a known directory for debugging:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --backend local \
   --work-dir ./runs \
   --keep-artifacts \
@@ -198,7 +198,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
 Run an agent command inside the Docker environment, then verify:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --backend docker \
   --agent shell \
   --agent-command "your-agent-command" \
@@ -210,7 +210,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
 Run Codex as the agent:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --evaluation-level solution \
   --backend docker \
   --agent codex \
@@ -220,14 +220,14 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
 ```
 
 The Codex adapter turns `instruction.md` into the initial prompt and runs
-`codex exec` in the staged workspace. With `--backend docker`, PTDBench starts
+`codex exec` in the staged workspace. With `--backend docker`, AutoRLBench starts
 a fresh task container, installs `@openai/codex@latest`, and runs Codex in that
 same container. The verifier runs in a separate clean container built
 from the original task environment. Agent installation is not cached yet.
-After installation, PTDBench creates a Codex model-provider entry from
+After installation, AutoRLBench creates a Codex model-provider entry from
 `--base-url` and runs `codex login --with-api-key` via stdin. The credential is
 not embedded in the command line or setup logs. The generated provider uses
-the generic internal name `ptdbench`.
+the generic internal name `autorlbench`.
 For the Docker backend, the container is the outer security boundary, so Codex
 runs with `--dangerously-bypass-approvals-and-sandbox` to avoid an unsupported
 nested bubblewrap user namespace. The local backend retains Codex's
@@ -272,7 +272,7 @@ PTDBENCH_EVALUATION_LEVEL=issue ./run.sh
 `harbor-evaluate` runs every task on its prebuilt environment image: the
 generated task.toml sets `docker_image` to the tag declared in
 `docker/images/<name>.Dockerfile`, so Harbor never builds a per-task image. For
-each task PTDBench first runs `environment/prepare.sh` in that image (online,
+each task AutoRLBench first runs `environment/prepare.sh` in that image (online,
 same staging as `evaluate`), then starts one Harbor job with the prepared
 workspace uploaded to `/workspace` and the prepare output, the task's
 `environment/` and the model/dataset caches bind-mounted read-only. The verifier
@@ -283,7 +283,7 @@ are merged. It accepts one or more task directories, or a directory whose direct
 children are tasks (not recursive):
 
 ```bash
-python3 -m ptdbench harbor-evaluate \
+python3 -m autorlbench harbor-evaluate \
   tasks/rlve_hyper/task_001 \
   tasks/rlve_hyper/task_008 \
   --agent codex \
@@ -293,7 +293,7 @@ python3 -m ptdbench harbor-evaluate \
 GPUs: Harbor's docker environment has no GPU option, so GPU tasks need the
 Docker daemon's default runtime set to `nvidia` (or an equivalent compose
 override on the Harbor side). `--mounts`/`--mounts-json` are managed by
-PTDBench and rejected if forwarded.
+AutoRLBench and rejected if forwarded.
 
 Keep every task path before forwarded Harbor options. The included batch
 script makes that boundary explicit: arguments before `--` are task paths and
@@ -309,7 +309,7 @@ also reports `n_tasks`, `n_completed_tasks`, and `missing_task_ids`. It passes
 only when every submitted task produced at least one trial and every trial
 passed.
 
-To add a new agent, put its runner under `ptdbench/agents/installed/`, register
+To add a new agent, put its runner under `autorlbench/agents/installed/`, register
 it with the factory, and keep `evaluator.py` untouched. Its `run` method should
 only construct a `CommandSpec` and call the supplied `SandboxRuntime`.
 
@@ -345,5 +345,5 @@ export PTDBENCH_DOCKER_NO_PROXY=localhost,127.0.0.1,host.docker.internal
 ```
 
 The proxy settings apply to both agent and verifier containers. Without
-`PTDBENCH_DOCKER_PROXY`, PTDBench leaves the default Docker bridge network
+`PTDBENCH_DOCKER_PROXY`, AutoRLBench leaves the default Docker bridge network
 unchanged and does not require Clash.

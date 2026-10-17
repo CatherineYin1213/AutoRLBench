@@ -1,4 +1,4 @@
-"""PTDBench 评测框架。"""
+"""AutoRLBench 评测框架。"""
 
 from .agents import AgentExecutionContext, AgentRunner, create_agent_runner, register_agent_runner
 from .core.types import (

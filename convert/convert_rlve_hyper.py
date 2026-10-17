@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize the selected RLVE hyperparameter tasks as PTDBench B0 tasks."""
+"""Materialize the selected RLVE hyperparameter tasks as AutoRLBench B0 tasks."""
 
 from __future__ import annotations
 
@@ -470,7 +470,7 @@ def render_readme(
     oracle = hidden.get("oracle", {})
     return f"""# {task_id}
 
-PTDBench B0 package generated from a Benchmark_Evaluation RLVE historical run.
+AutoRLBench B0 package generated from a Benchmark_Evaluation RLVE historical run.
 
 - Source run: `{hidden.get("source_run")}`
 - Failure signature: `{manifest["failure_signature"]}`

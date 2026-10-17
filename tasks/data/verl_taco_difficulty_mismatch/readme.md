@@ -159,7 +159,7 @@ the sibling verl tasks. This task has only an `issue` level: the agent reads a
 historical snapshot and the verifier judges `agent_answer.md`, so neither stage
 runs the training stack. Declaring `NVIDIA_VISIBLE_DEVICES` would make the
 docker runtime pass `--gpus` to the agent and verifier containers
-(`ptdbench/runtimes/providers/docker.py::_gpu_args`), which fails outright on a
+(`autorlbench/runtimes/providers/docker.py::_gpu_args`), which fails outright on a
 GPU-less host. To re-run the recorded 8-GPU experiment, set
 `PTDBENCH_DOCKER_GPUS` on the host; a Harbor-side rerun additionally needs the
 GPU/shm compose override that the sibling tasks ship as
@@ -196,7 +196,7 @@ re-checked against the published revision: it holds exactly
 **Task id leak.** Both the task directory name and the published dataset
 repository name (`...-task-train-too-hard-dataset`) state the answer, and the
 agent sees both: `PTDBENCH_TASK_ID` is exported into the agent stage
-(`ptdbench/runtimes/base.py::standard_env`) and `prepare.sh` is readable at
+(`autorlbench/runtimes/base.py::standard_env`) and `prepare.sh` is readable at
 `/ptdbench/environment`. Closing this needs a task rename plus a republished
 dataset repository under a neutral name, so it is recorded here rather than
 worked around in `prepare.sh`.

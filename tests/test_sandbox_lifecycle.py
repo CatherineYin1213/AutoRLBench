@@ -6,10 +6,10 @@ import subprocess
 from unittest.mock import patch
 from pathlib import Path
 
-from ptdbench.agents.base import AgentExecutionContext, AgentRunner
-from ptdbench.agents.installed.codex import CodexAgentRunner
-from ptdbench.cli import build_parser
-from ptdbench.core.types import (
+from autorlbench.agents.base import AgentExecutionContext, AgentRunner
+from autorlbench.agents.installed.codex import CodexAgentRunner
+from autorlbench.cli import build_parser
+from autorlbench.core.types import (
     DATASETS_DIR,
     MODELS_DIR,
     PREPARED_DIR,
@@ -19,15 +19,15 @@ from ptdbench.core.types import (
     EnvironmentPlan,
     EvaluationConfig,
 )
-from ptdbench.evaluation.evaluator import TaskEvaluator
-from ptdbench.runtimes import (
+from autorlbench.evaluation.evaluator import TaskEvaluator
+from autorlbench.runtimes import (
     CommandSpec,
     EnvironmentArtifact,
     SandboxInstance,
     SandboxRequest,
     SandboxRuntime,
 )
-from ptdbench.runtimes.providers.docker import DockerRuntime
+from autorlbench.runtimes.providers.docker import DockerRuntime
 
 
 def result(label: str, returncode: int = 0) -> CommandResult:
@@ -381,7 +381,7 @@ class SandboxLifecycleTests(unittest.TestCase):
             )
 
         shell = runtime.setup_spec.shell
-        self.assertIn('model_provider = "ptdbench"', shell)
+        self.assertIn('model_provider = "autorlbench"', shell)
         self.assertIn('model_reasoning_effort = "medium"', shell)
         self.assertIn('base_url = "https://yeysai.com/v1"', shell)
         self.assertIn("codex login --with-api-key", shell)

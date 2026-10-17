@@ -1,4 +1,4 @@
-# PTDBench environment `rank-distillation-cpu`.
+# AutoRLBench environment `rank-distillation-cpu`.
 # ptdbench-image: ptdbench/rank-distillation-cpu:torch2.13-cpu-py3.12
 #
 # CPU-only Python 3.12 slim environment for the ptdbench_rank_distillation_collapse
@@ -917,7 +917,7 @@ print('transformers =', transformers.__version__)
 assert torch.__version__.startswith('2.13.0')
 PY
 
-# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----
+# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
 RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets

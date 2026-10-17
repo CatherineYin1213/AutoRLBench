@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize selected data-format variants as PTDBench B0 tasks."""
+"""Materialize selected data-format variants as AutoRLBench B0 tasks."""
 
 from __future__ import annotations
 
@@ -741,7 +741,7 @@ def materialize_one(
     )
     (target / "readme.md").write_text(
         f"# {task_id}\n\n"
-        "PTDBench B0 data-format dirty-workspace package.\n\n"
+        "AutoRLBench B0 data-format dirty-workspace package.\n\n"
         f"- Historical metric: `{config['metric']}`\n"
         f"- Historical eval points: `{historical['n_eval_points']}`\n"
         "- Code and format oracles are stored separately.\n"

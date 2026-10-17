@@ -234,7 +234,7 @@ observations. Consequences:
   free.
 - `metadata.yaml`'s `environment.env` deliberately omits `HF_HUB_OFFLINE` /
   `TRANSFORMERS_OFFLINE`: the framework sets them per stage
-  (`_network_policy_env` in `ptdbench/runtimes/base.py`), while a task-level copy
+  (`_network_policy_env` in `autorlbench/runtimes/base.py`), while a task-level copy
   would also disable prepare's downloads.
 - One GPU. `run.py` refuses to start on a GPU that already has memory in use and
   requires 10 GiB of free disk; it also starts the retrieval server itself and

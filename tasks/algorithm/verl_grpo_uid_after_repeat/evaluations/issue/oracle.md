@@ -24,29 +24,40 @@ GRPO becomes REINFORCE with no baseline and no variance normalisation.
 
 ## Observable impact
 
+Measured on the recorded 60-step defect run (`workspace/logs/`), whose
+per-step metrics are in `metrics_<timestamp>.jsonl`.
+
 - Primary source evaluation metric: `val-core/math_dapo/acc/mean@1`.
-- `critic/advantages/mean` equals `critic/rewards/mean` digit for digit at
-  every logged step, instead of sitting near zero. Group-mean subtraction is
-  what forces a healthy GRPO batch's advantages to average to zero.
-- `critic/advantages/min` is exactly `0.0` and `critic/advantages/max` is
-  exactly `1.0` at every step, matching the 0/1 reward range of
-  `reward_math_dapo_01.py::compute_score`. A healthy run on the same recipe
-  (`train_batch_size` 8, `rollout.n` 8, 0/1 reward) shows a negative minimum
-  and a discrete positive maximum set by the within-group standard deviation —
-  for a group with exactly one correct response out of eight that maximum is
-  `(1 - 1/8) / 0.35355 = 2.4749`.
-- `critic/returns/*` tracks `critic/advantages/*` exactly, because the GRPO
-  estimator returns the advantage tensor for both.
-- `actor/pg_loss` sits around the negative of the mean reward (order `1e-2`)
-  rather than the order `1e-4` of a baseline-subtracted batch, because every
-  token carries a non-negative advantage and nothing pushes any sampled
-  response down.
-- No group is ever filtered or skipped for having zero advantage: with
-  singleton groups a correct response always yields advantage 1.0, so the run
-  looks busier than a healthy one while optimising a higher-variance,
-  positively biased objective.
-- Held-out `val-core/math_dapo/acc/mean@1` fails to improve over the run and
-  `actor/entropy` falls faster than the healthy arm.
+- **`critic/advantages/min` is exactly `0.0` at every one of the 60 steps.**
+  No sampled response is ever assigned a negative advantage. A healthy GRPO
+  batch must contain negative advantages whenever a group mixes correct and
+  incorrect responses, because the group mean is subtracted.
+- **`critic/advantages/max` is exactly `0.9999990463256836` at every step
+  where any response scored**, and `0.0` at the steps where none did. That
+  constant is fp32 `1 / (1 + 1e-6)`: it is the raw reward `1.0` divided by the
+  substituted `id2std = 1.0` plus the `epsilon = 1e-6` guard in
+  `compute_grpo_outcome_advantage`. A real group standard deviation would
+  divide by something else at essentially every step, so a max that is
+  bit-identical across every rewarded step is a direct fingerprint of the
+  singleton-group branch.
+- `critic/advantages/mean` is strictly positive on every rewarded step
+  (`0.0048` to `0.0674` in the recorded run) instead of sitting near zero.
+  Note it is a response-token-weighted mean, not the plain mean of the
+  sequence rewards, so it is close to but not exactly equal to
+  `critic/rewards/mean` — comparing the two for exact equality is not the
+  right check; the sign and the absence of cancellation are.
+- `critic/returns/mean` equals `critic/advantages/mean` to within `1e-9` at
+  every step, because the GRPO estimator returns the advantage tensor for
+  both. This is also true of a healthy run and is not by itself evidence.
+- `actor/pg_loss` is negative on every rewarded step and of order `1e-2`
+  (around minus the token-weighted mean advantage), rather than fluctuating
+  around zero at order `1e-4`: every token carries a non-negative advantage,
+  so nothing ever pushes a sampled response down.
+- Held-out `val-core/math_dapo/acc/mean@1`: `0.0454` (step 0) → `0.0437`
+  (20) → `0.0476` (40) → `0.0570` (60). The curve is **not** collapsed, and
+  at a 60-step budget it does not on its own separate this defect from a
+  healthy short run. The advantage statistics do. A diagnosis resting mainly
+  on the held-out curve has not identified the defect.
 
 ## Trigger conditions
 

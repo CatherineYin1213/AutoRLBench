@@ -1,6 +1,6 @@
 """给 metadata 使用的轻量 YAML 读取器。
 
-这里只支持 PTDBench schema 实际需要的 YAML 子集，不引入额外依赖，也不
+这里只支持 AutoRLBench schema 实际需要的 YAML 子集，不引入额外依赖，也不
 试图成为完整的 YAML 解析器。
 """
 

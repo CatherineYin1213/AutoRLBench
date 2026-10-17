@@ -25,6 +25,12 @@ LOG_FILE="${LOG_DIR}/llama3_2_1b_instruct_dapo_math_fsdp_${TIMESTAMP}.log"
 export WANDB_MODE="${WANDB_MODE:-offline}"
 export WANDB_DIR="${WANDB_DIR:-${LOG_DIR}}"
 export WANDB_PROJECT="${WANDB_PROJECT:-verl_grpo_dapo_math}"
+# Per-step metrics as JSONL, written unbuffered by verl's `file` tracking
+# backend. The `console` backend prints the same numbers from inside the
+# TaskRunner Ray actor, and whether Ray forwards that actor's stdout to the
+# driver (and hence into LOG_FILE) varies with the Ray build, so the text log
+# is not a dependable record of the metrics. This file always is.
+export VERL_FILE_LOGGER_PATH="${VERL_FILE_LOGGER_PATH:-${LOG_DIR}/metrics_${TIMESTAMP}.jsonl}"
 # ---- end logging / wandb ----
 
 # Resolve model path for host / docker.
@@ -169,9 +175,11 @@ REF=(
 
 TRAINER=(
     trainer.critic_warmup=0
-    # Keep console+wandb. The console logger makes step:N metrics visible in
-    # LOG_FILE even if the wandb teardown races Ray shutdown.
-    trainer.logger='["console","wandb"]'
+    # file: per-step JSONL at VERL_FILE_LOGGER_PATH, the authoritative record.
+    # console: same numbers to the TaskRunner's stdout (only reaches LOG_FILE
+    #   when the Ray build forwards actor stdout to the driver).
+    # wandb: offline run under WANDB_DIR/wandb.
+    trainer.logger='["file","console","wandb"]'
     trainer.project_name=${PROJECT_NAME}
     trainer.experiment_name=${EXPERIMENT_NAME}
     trainer.n_gpus_per_node=${NGPUS_PER_NODE}

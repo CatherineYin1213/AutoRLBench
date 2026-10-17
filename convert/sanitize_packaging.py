@@ -1,4 +1,4 @@
-"""Shared secret-redaction helpers for PTDBench materializers."""
+"""Shared secret-redaction helpers for AutoRLBench materializers."""
 
 from __future__ import annotations
 

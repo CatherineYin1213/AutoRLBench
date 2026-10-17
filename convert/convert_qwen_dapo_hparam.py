@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize six selected Qwen DAPO hparam tasks as PTDBench B0 tasks."""
+"""Materialize six selected Qwen DAPO hparam tasks as AutoRLBench B0 tasks."""
 
 from __future__ import annotations
 
@@ -587,7 +587,7 @@ def materialize_one(
     )
     (target / "readme.md").write_text(
         f"# {task_id}\n\n"
-        "PTDBench B0 package of a dirty Qwen DAPO hparam workspace.\n\n"
+        "AutoRLBench B0 package of a dirty Qwen DAPO hparam workspace.\n\n"
         f"- Previous attempt: {metrics.get('attempt')}\n"
         f"- Eval points: {len(points)}\n"
         "- Checkpoints excluded; logs/wandb and old outputs retained.\n"

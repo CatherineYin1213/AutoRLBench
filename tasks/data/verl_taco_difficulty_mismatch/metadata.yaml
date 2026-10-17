@@ -18,7 +18,7 @@ environment:
   # （reward_design/*、verl_implementation/torch_functional）不同：本任务只有
   # issue 一级，agent 读历史快照、verifier 判 agent_answer.md，两段都不起训练。
   # 声明了 NVIDIA_VISIBLE_DEVICES，docker runtime 就会给 agent / verifier 容器加
-  # `--gpus`（ptdbench/runtimes/providers/docker.py::_gpu_args），无卡机器上直接
+  # `--gpus`（autorlbench/runtimes/providers/docker.py::_gpu_args），无卡机器上直接
   # 起不来。要复跑 readme.md 里那次 8 卡实验，用 PTDBENCH_DOCKER_GPUS 覆盖。
 outcome:
   failure_type: data_difficulty_mismatch

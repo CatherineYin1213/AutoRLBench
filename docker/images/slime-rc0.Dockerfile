@@ -1,4 +1,4 @@
-# PTDBench environment `slime-rc0`.
+# AutoRLBench environment `slime-rc0`.
 # ptdbench-image: ptdbench/slime:v0.5.0rc0-sglang0.5.0rc0-cu126
 #
 # slime v0.5.0rc0 stack: sglang 0.5.0rc0, torch 2.8 / CUDA 12.6, Ubuntu 22.04.
@@ -8,12 +8,12 @@
 # outcomes on this torch, and the retool / search-r1 recipes need sglang APIs
 # (sglang.srt.constants.GPU_MEMORY_TYPE_CUDA_GRAPH) this sglang does not have.
 #
-# The upstream image is used as-is; the only thing added is the PTDBench
+# The upstream image is used as-is; the only thing added is the AutoRLBench
 # tooling block below. The FROM is pinned by digest because the tag moves
 # upstream and the tasks' recorded outcomes must not move with it.
 FROM slimerl/slime:v0.5.0rc0-cu126@sha256:8685221e76f85e89b7ffe8e13a9e8c57041c15c63b3878bd2cecc8ae50deec11
 
-# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----
+# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
 RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Stage a PTDBench task to the pre-agent state on a Cybertron devspace.
+"""Stage a AutoRLBench task to the pre-agent state on a Cybertron devspace.
 
-This is the Cybertron counterpart of ``ptdbench harbor-shell`` (which is
+This is the Cybertron counterpart of ``autorlbench harbor-shell`` (which is
 docker-only): it reaches exactly the state a Harbor trial is in *just before the
 agent starts* -- prepared workspace, downloaded weights, tooling installed --
 and then stops, leaving the devspace running for manual experiments (launch the
@@ -18,8 +18,8 @@ manual §2b runbook flow, automated.
 It defaults to ``--dry-run``: prints the plan for review rather than touching the
 cluster. Pass ``--run`` to actually create/attach + stage.
 
-``ptdbench harbor-stage --backend cybertron`` shells out to this script (the same
-ptdbench→harbor boundary ``harbor-evaluate`` uses for ``harbor run``).
+``autorlbench harbor-stage --backend cybertron`` shells out to this script (the same
+autorlbench→harbor boundary ``harbor-evaluate`` uses for ``harbor run``).
 
 Example:
     python scripts/cybertron_stage.py tasks/slime_retool \\
@@ -202,7 +202,7 @@ def build_env_config(docker_image: str | None, gpu: int):
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("task_root", help="PTDBench task directory (contains environment/)")
+    p.add_argument("task_root", help="AutoRLBench task directory (contains environment/)")
     p.add_argument(
         "--evaluation-level",
         default="solution",

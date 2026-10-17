@@ -10,15 +10,15 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ptdbench.cli import build_parser, expand_task_roots, main as cli_main
-from ptdbench.core.harbor_types import (
+from autorlbench.cli import build_parser, expand_task_roots, main as cli_main
+from autorlbench.core.harbor_types import (
     HarborEvaluationConfig,
     HarborEvaluationReport,
     HarborRun,
     HarborTaskUnit,
     PreparedHarborTask,
 )
-from ptdbench.core.types import (
+from autorlbench.core.types import (
     DATASETS_DIR,
     MODELS_DIR,
     PREPARED_DIR,
@@ -26,7 +26,7 @@ from ptdbench.core.types import (
     CommandResult,
     EnvironmentImage,
 )
-from ptdbench.evaluation.harbor_evaluator import (
+from autorlbench.evaluation.harbor_evaluator import (
     ACTIVATE_HOOK,
     HarborAdapterError,
     HarborEvaluator,
@@ -35,7 +35,7 @@ from ptdbench.evaluation.harbor_evaluator import (
     HarborRunner,
     HarborTaskMaterializer,
 )
-from ptdbench.tasks import load_task_package
+from autorlbench.tasks import load_task_package
 
 
 METADATA = """title: Harbor fixture
@@ -477,7 +477,7 @@ class HarborRunnerTests(unittest.TestCase):
             config = HarborEvaluationConfig(harbor_args=(flag, "[]"))
             with tempfile.TemporaryDirectory() as temp_dir:
                 prepared = self._prepared(Path(temp_dir), create=False)
-                with self.assertRaisesRegex(ValueError, "managed by PTDBench"):
+                with self.assertRaisesRegex(ValueError, "managed by AutoRLBench"):
                     HarborRunner().run(prepared, config)
 
     def test_a_job_holds_exactly_one_task(self):
@@ -488,7 +488,7 @@ class HarborRunnerTests(unittest.TestCase):
                 tasks_dir=root / "tasks",
                 units=[make_unit(self.package, "solution"), make_unit(self.package, "issue")],
             )
-            with self.assertRaisesRegex(HarborAdapterError, "one PTDBench task per job"):
+            with self.assertRaisesRegex(HarborAdapterError, "one AutoRLBench task per job"):
                 HarborRunner().run(prepared, HarborEvaluationConfig())
 
     @patch.object(HarborRunner, "_run_streaming")
@@ -816,7 +816,7 @@ class HarborResultMapperTests(FixtureTestCase):
             [other_unit.package.task_id],
         )
 
-    @patch("ptdbench.cli.HarborEvaluator.evaluate")
+    @patch("autorlbench.cli.HarborEvaluator.evaluate")
     def test_cli_keeps_batch_report_when_only_one_task_has_a_trial(self, evaluate):
         other_unit = make_unit(self.other_package(), "solution")
         prepared = PreparedHarborTask(
@@ -1078,7 +1078,7 @@ def _command() -> CommandResult:
 
 
 def _trial(task_id: str, report_dir: Path):
-    from ptdbench.core.types import EvaluationResult
+    from autorlbench.core.types import EvaluationResult
 
     return EvaluationResult(
         task_id=task_id, evaluation_level="solution", passed=True, score=1.0,

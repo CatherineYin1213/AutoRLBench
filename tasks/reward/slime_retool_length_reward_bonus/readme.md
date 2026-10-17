@@ -171,7 +171,7 @@ The score channel is what was measured, so the score channel is what is graded.
 
 ## Environment requirement
 
-The task runs on the `slime-v0.3.2` PTDBench image
+The task runs on the `slime-v0.3.2` AutoRLBench image
 (`environment: image: slime-v0.3.2`) — the same image as `slime_retool`, which
 is the same recipe. There is no per-task Dockerfile; `environment/prepare.sh`
 fetches the assets instead.

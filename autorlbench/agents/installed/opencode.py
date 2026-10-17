@@ -15,7 +15,7 @@ class OpenCodeAgentRunner(AgentRunner):
     """通过 OpenCode CLI 调用 OpenAI-compatible 模型。"""
 
     # 使用一个固定的 provider 名称，避免要求每个 task 额外提供 OpenCode 配置文件。
-    provider_name = "ptdbench"
+    provider_name = "autorlbench"
 
     def run(
         self,
@@ -57,7 +57,7 @@ class OpenCodeAgentRunner(AgentRunner):
             "provider": {
                 self.provider_name: {
                     "npm": "@ai-sdk/openai-compatible",
-                    "name": "PTDBench OpenAI Compatible",
+                    "name": "AutoRLBench OpenAI Compatible",
                     "options": {
                         "baseURL": self.spec.base_url,
                         "apiKey": self.spec.api_key or "EMPTY",
@@ -84,7 +84,7 @@ class OpenCodeAgentRunner(AgentRunner):
 
     def _model_name(self) -> str:
         # SGLang 当前默认返回 /model；保留斜杠后 selector 会自然变成
-        # ptdbench//model。若服务使用 --served-model-name，则直接使用新名称。
+        # autorlbench//model。若服务使用 --served-model-name，则直接使用新名称。
         return self.spec.model or "/model"
 
     def _model_selector(self) -> str:
@@ -93,7 +93,7 @@ class OpenCodeAgentRunner(AgentRunner):
     def _build_prompt(self, context: AgentExecutionContext, workspace_path: str) -> str:
         return "\n".join(
             [
-                "You are solving a PTDBench task.",
+                "You are solving a AutoRLBench task.",
                 (
                     "Only modify files under the workspace, except for deliverables "
                     "that the task explicitly requires under $PTDBENCH_RESULTS."
@@ -206,7 +206,7 @@ class OpenCodeAgentRunner(AgentRunner):
     def _redact_config(config: Dict[str, Any]) -> Dict[str, Any]:
         # trace 中保留连接地址和模型名，但不保存 API key。
         copied = json.loads(json.dumps(config))
-        provider = copied.get("provider", {}).get("ptdbench", {})
+        provider = copied.get("provider", {}).get("autorlbench", {})
         options = provider.get("options", {})
         if "apiKey" in options:
             options["apiKey"] = "<redacted>"

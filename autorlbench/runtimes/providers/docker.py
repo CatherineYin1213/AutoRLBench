@@ -63,7 +63,7 @@ class DockerRuntime(SandboxRuntime):
         """镜像已存在就直接用，否则照 docker/images/<name>.Dockerfile 构建。
 
         tag 是固定的，所以"已存在"不代表"和 Dockerfile 一致"：改了 Dockerfile 或
-        docker/ 下的工具脚本之后要 rebuild（`ptdbench build-images --rebuild`）。
+        docker/ 下的工具脚本之后要 rebuild（`autorlbench build-images --rebuild`）。
         rebuild 走 docker 的层缓存，没变的层不会重跑。
         """
         if rebuild or not self._image_exists(image.tag):

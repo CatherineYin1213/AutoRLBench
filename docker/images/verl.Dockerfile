@@ -1,16 +1,16 @@
-# PTDBench environment `verl`.
+# AutoRLBench environment `verl`.
 # ptdbench-image: ptdbench/verl:vllm0.17-torch2.10-cu129
 #
 # verl + vLLM 0.17, torch 2.10 / CUDA 12.9, Ubuntu 22.04.
 # Tasks: reward_design/*, verl_hyper/*, verl_implementation/*.
 #
-# The upstream image is used as-is; the only thing added is the PTDBench
+# The upstream image is used as-is; the only thing added is the AutoRLBench
 # tooling block below. The FROM is pinned by digest because the tag moves
 # upstream and the tasks' recorded outcomes must not move with it. Changing the
 # digest is a deliberate upgrade: re-run the tasks on this environment after it.
 FROM verlai/verl:vllm017.latest@sha256:4c43bbf17e90284b1102008399240b25406e8d34fea178d86272231b333b7cb6
 
-# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----
+# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
 RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets

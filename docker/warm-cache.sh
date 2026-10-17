@@ -11,13 +11,13 @@
 # that *does* have network, and every prepare stage afterwards is a cache hit.
 #
 #   ./docker/warm-cache.sh                        # fills <repo>/models and <repo>/datasets
-#   ptdbench evaluate ...                         # offline, all hits
+#   autorlbench evaluate ...                         # offline, all hits
 #
 # Point it somewhere else when the cache is meant to be shared over NFS:
 #
 #   ./docker/warm-cache.sh --models-dir /mnt/shared/models \
 #                          --datasets-dir /mnt/shared/datasets
-#   ptdbench evaluate --models-dir /mnt/shared/models \
+#   autorlbench evaluate --models-dir /mnt/shared/models \
 #                     --datasets-dir /mnt/shared/datasets ...
 #
 # It is also just a fast way to find out whether a newly written prepare.sh
@@ -50,7 +50,7 @@ usage: docker/warm-cache.sh [--models-dir DIR] [--datasets-dir DIR] [task-id ...
 
 Each task runs in its environment image (the tag in the `# ptdbench-image:` header
 of docker/images/<environment.image>.Dockerfile), built on first use exactly as
-`ptdbench build-images` would.
+`autorlbench build-images` would.
 
 env:
   PTDBENCH_HF_ENDPOINT passed through as HF_ENDPOINT, for a mirror
@@ -81,8 +81,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
-from ptdbench.core.types import DEFAULT_PREPARE, EnvironmentImage  # noqa: E402
-from ptdbench.utils.yaml import load_simple_yaml  # noqa: E402
+from autorlbench.core.types import DEFAULT_PREPARE, EnvironmentImage  # noqa: E402
+from autorlbench.utils.yaml import load_simple_yaml  # noqa: E402
 
 wanted = set(sys.argv[1:])
 found = set()
@@ -130,9 +130,9 @@ for entry in "${entries[@]}"; do
     task_id="$(basename "$task_dir")"
     echo "=== $task_id  (image: $image_tag)"
 
-    # Same "build only if missing" rule as `ptdbench evaluate`.
+    # Same "build only if missing" rule as `autorlbench evaluate`.
     if ! docker image inspect "$image_tag" >/dev/null 2>&1; then
-        if ! python3 -m ptdbench build-images "$env_name"; then
+        if ! python3 -m autorlbench build-images "$env_name"; then
             echo "--- $task_id FAILED (image build)" >&2
             failed+=("$task_id")
             echo

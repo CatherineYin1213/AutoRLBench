@@ -1,4 +1,4 @@
-"""PTDBench 评测流程编排。"""
+"""AutoRLBench 评测流程编排。"""
 
 from ..core.harbor_types import (
     HarborEvaluationConfig,

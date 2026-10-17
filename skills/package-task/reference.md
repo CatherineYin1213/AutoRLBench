@@ -322,9 +322,9 @@ GLOBAL_JUDGE_POLICY:
 
 ## 环境镜像
 
-`metadata.environment.image` 写 `docker/images/` 下某个 `<name>.Dockerfile` 的 `<name>`，评测时用 `ptdbench/<name>:latest`，本地没有就先构建（也可以 `python3 -m ptdbench build-images <name>` 预构建）。
+`metadata.environment.image` 写 `docker/images/` 下某个 `<name>.Dockerfile` 的 `<name>`，评测时用 `ptdbench/<name>:latest`，本地没有就先构建（也可以 `python3 -m autorlbench build-images <name>` 预构建）。
 
-镜像是多个任务共享的，内容就是它们共同的 ground truth 环境。不要为新任务改已有的 Dockerfile——那会同时改掉其他任务的环境。现有镜像都对不上时开一个新的 `docker/images/<name>.Dockerfile`：`FROM` 钉 digest，末尾照抄其他 Dockerfile 里 `# ---- PTDBench tooling ...` 之后的整段（测试会逐字比对），详见 `docker/README.zh.md`。
+镜像是多个任务共享的，内容就是它们共同的 ground truth 环境。不要为新任务改已有的 Dockerfile——那会同时改掉其他任务的环境。现有镜像都对不上时开一个新的 `docker/images/<name>.Dockerfile`：`FROM` 钉 digest，末尾照抄其他 Dockerfile 里 `# ---- AutoRLBench tooling ...` 之后的整段（测试会逐字比对），详见 `docker/README.zh.md`。
 
 框架本身（verl / slime）不在镜像里算数：它来自任务 workspace 里的 checkout。
 
@@ -437,7 +437,7 @@ validator 会拒掉的写法：
 ```markdown
 ## Environment requirement
 
-The task runs on the `<image-name>` PTDBench image
+The task runs on the `<image-name>` AutoRLBench image
 (`environment: image: <image-name>`, built from
 `docker/images/<image-name>.Dockerfile`) — <这个 stack 的一句话描述>。
 <为什么不是另一个环境>。See `docker/README.zh.md`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize the selected reward-design dirty workspaces as PTDBench B0 tasks."""
+"""Materialize the selected reward-design dirty workspaces as AutoRLBench B0 tasks."""
 
 from __future__ import annotations
 
@@ -694,7 +694,7 @@ def materialize_one(
     )
     (target / "readme.md").write_text(
         f"# {task_id}\n\n"
-        "PTDBench B0 reward-design dirty-workspace package.\n\n"
+        "AutoRLBench B0 reward-design dirty-workspace package.\n\n"
         f"- Historical eval points: `{historical['held_out_eval']['n_eval_points']}`\n"
         f"- Baseline status: `{baseline['status']}`\n"
         f"- Held-out environments: `{len(hidden.get('locked_heldout_environment_list', []))}`\n"

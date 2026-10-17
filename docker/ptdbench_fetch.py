@@ -3,7 +3,7 @@
 
 Installed into the image as `ptdbench_fetch_hf` and `ptdbench_fetch_url`, and
 called by each task's `environment/prepare.sh`. This is the in-container
-counterpart of `ptdbench/assets/resolver.py` and keeps its two load-bearing
+counterpart of `autorlbench/assets/resolver.py` and keeps its two load-bearing
 rules:
 
 * **Cache first.** A repo+revision already in `$PTDBENCH_MODELS` (models) or
@@ -19,7 +19,7 @@ rules:
   is either corrupt or altered; turning that into a retry line in a log is how a
   poisoned or truncated weight file reaches a training run nobody is watching.
 
-It is deliberately standalone -- no `ptdbench` import. It runs inside the
+It is deliberately standalone -- no `autorlbench` import. It runs inside the
 evaluation image the task declared (docker/images/<name>.Dockerfile), and that
 image contains the task's stack, not the harness.
 
@@ -53,7 +53,7 @@ from typing import Dict, List, Optional, Sequence
 _CHUNK = 1024 * 1024
 
 # 两个缓存根，宿主机上就是仓库根的 models/ 和 datasets/。默认值必须和
-# ptdbench/core/types.py 的 MODELS_DIR / DATASETS_DIR、以及
+# autorlbench/core/types.py 的 MODELS_DIR / DATASETS_DIR、以及
 # docker/ptdbench-activate.sh 里的一致。
 MODELS_ROOT = Path(os.environ.get("PTDBENCH_MODELS", "/ptdbench/models"))
 DATASETS_ROOT = Path(os.environ.get("PTDBENCH_DATASETS", "/ptdbench/datasets"))

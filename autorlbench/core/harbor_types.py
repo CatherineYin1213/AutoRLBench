@@ -17,18 +17,18 @@ from .types import (
 
 
 def harbor_task_name(task_id: str, evaluation_level: str) -> str:
-    """Harbor task 名；同时用于把 trial 结果映射回 PTDBench task。"""
+    """Harbor task 名；同时用于把 trial 结果映射回 AutoRLBench task。"""
     safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", task_id).strip("-.") or "task"
     return f"ptdbench/{safe_id}-{evaluation_level}"
 
 
 @dataclass(frozen=True)
 class HarborEvaluationConfig:
-    """PTDBench 转换参数；Harbor 自身参数统一放在 harbor_args。
+    """AutoRLBench 转换参数；Harbor 自身参数统一放在 harbor_args。
 
     Harbor 直接用预构建镜像（task.toml 的 `docker_image`），不再逐任务构建，
     所以 verifier 固定与 agent 共用同一个容器（shared 模式）。prepare.sh 在
-    `harbor run` 之前由 PTDBench 在同一个镜像里跑完，产物以只读挂载交给 Harbor。
+    `harbor run` 之前由 AutoRLBench 在同一个镜像里跑完，产物以只读挂载交给 Harbor。
     """
 
     evaluation_level: str = "solution"
@@ -134,7 +134,7 @@ class HarborRun:
 
 @dataclass(frozen=True)
 class HarborEvaluationReport:
-    """一个 Harbor job 中所有 trial 的 PTDBench 结果。"""
+    """一个 Harbor job 中所有 trial 的 AutoRLBench 结果。"""
 
     task_ids: Sequence[str]
     evaluation_level: str

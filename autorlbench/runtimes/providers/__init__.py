@@ -1,4 +1,4 @@
-"""PTDBench 内置 runtime provider。"""
+"""AutoRLBench 内置 runtime provider。"""
 
 from .docker import DockerRuntime
 from .local import LocalRuntime

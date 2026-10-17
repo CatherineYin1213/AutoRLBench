@@ -46,7 +46,7 @@ if [ -r /etc/ptdbench-image-path ]; then
     unset _ptdbench_image_path _ptdbench_missing _ptdbench_ifs _ptdbench_dir
 fi
 
-# Nothing more to do outside a PTDBench sandbox (a plain `docker run` for
+# Nothing more to do outside a AutoRLBench sandbox (a plain `docker run` for
 # debugging, say), and nothing to do twice.
 if [ -z "${PTDBENCH_STAGE:-}" ] || [ -n "${PTDBENCH_ACTIVATED:-}" ]; then
     return 0 2>/dev/null || :

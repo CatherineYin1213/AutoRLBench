@@ -1,4 +1,4 @@
-# PTDBench Docker 环境设计
+# AutoRLBench Docker 环境设计
 
 本文介绍 `docker/` 目录下评测镜像的设计：它解决什么问题、镜像怎么组织、任务怎么选镜像、
 怎么构建、运行时怎么塑造每个阶段的环境。
@@ -39,10 +39,10 @@ environment:
 
 可选值就是 `docker/images/` 下的文件名，代码里没有第二份常量表（`known_images()` 直接列目录）。
 写了不存在的名字、或者还在用旧的 `conda` / `requirements` / `dockerfile` 字段，
-`ptdbench validate` 会直接报错。
+`autorlbench validate` 会直接报错。
 
 **上游镜像原样使用。** 每个 Dockerfile 只有两部分：一行钉死 digest 的 `FROM`，加上一段
-所有镜像完全相同的 PTDBench 工具块（见第 4 节）。不在镜像里重新编译框架栈 —— 上游镜像就是
+所有镜像完全相同的 AutoRLBench 工具块（见第 4 节）。不在镜像里重新编译框架栈 —— 上游镜像就是
 这些任务录制时的运行时底座，框架源码则随任务的 workspace 一起来。
 
 **为什么 slime 有两个环境**：不是新旧补丁关系，而是两套端到端不同的栈。retool /
@@ -66,12 +66,12 @@ site-packages 的改动不会带到 agent / verifier 容器里。
 不存在才用 `docker/images/<name>.Dockerfile` 构建（构建上下文是 `docker/`）。
 prepare / agent / verifier 三个阶段用同一个镜像，各自起容器。
 
-### 显式预构建：`ptdbench build-images`
+### 显式预构建：`autorlbench build-images`
 
 ```sh
-python3 -m ptdbench build-images                  # docker/images/ 下所有缺失的镜像
-python3 -m ptdbench build-images verl slime-rc0   # 只处理指定的
-python3 -m ptdbench build-images --rebuild verl   # 已存在也重建
+python3 -m autorlbench build-images                  # docker/images/ 下所有缺失的镜像
+python3 -m autorlbench build-images verl slime-rc0   # 只处理指定的
+python3 -m autorlbench build-images --rebuild verl   # 已存在也重建
 ```
 
 **tag 是固定的，不从内容派生。** 所以改了 Dockerfile 或工具块（`ptdbench_fetch.py` 等）之后，
@@ -93,7 +93,7 @@ python3 -m ptdbench build-images --rebuild verl   # 已存在也重建
 
 1. 新建 `docker/images/<name>.Dockerfile`，开头注释写清上游镜像、栈和用它的任务；
 2. `FROM` 钉 digest；
-3. 从已有 Dockerfile 里把 `# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----`
+3. 从已有 Dockerfile 里把 `# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----`
    之后的部分原样复制过来 —— 测试会检查所有 Dockerfile 这一段逐字相同；
 4. 任务的 `metadata.yaml` 写 `environment.image: <name>`。
 

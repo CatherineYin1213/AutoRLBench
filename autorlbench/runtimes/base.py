@@ -160,7 +160,7 @@ class SandboxRuntime(ABC):
         raise NotImplementedError(f"{self.name} does not support sandbox cleanup")
 
     def standard_env(self, request: SandboxRequest) -> Dict[str, str]:
-        """生成三个阶段都可以依赖的 PTDBench 环境变量。"""
+        """生成三个阶段都可以依赖的 AutoRLBench 环境变量。"""
         visible_task = self.path(request, "visible_task")
         workspace = self.path(request, "workspace")
         results = self.path(request, "results")

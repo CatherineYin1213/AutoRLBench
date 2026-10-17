@@ -32,7 +32,7 @@ def _parse_env_assignments(assignments: list[str]) -> dict[str, str]:
 
 
 def _is_task_root(path: Path) -> bool:
-    """A PTDBench task is identified by its metadata file, as the loader does."""
+    """A AutoRLBench task is identified by its metadata file, as the loader does."""
     return any((path / name).is_file() for name in ("metadata.yaml", "metadata.yml"))
 
 
@@ -72,7 +72,7 @@ def expand_task_roots(paths: list[str]) -> list[Path]:
 
 def build_parser() -> argparse.ArgumentParser:
     # 两个 evaluator 使用两个明确的入口，避免把 Harbor 混进 runtime 选择。
-    ap = argparse.ArgumentParser(prog="ptdbench", allow_abbrev=False)
+    ap = argparse.ArgumentParser(prog="autorlbench", allow_abbrev=False)
     sub = ap.add_subparsers(dest="command", required=True)
 
     v = sub.add_parser("validate", help="validate a task package", allow_abbrev=False)
@@ -170,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     e.add_argument("--timeout-s", type=int, default=None)
     e.add_argument("--keep-artifacts", action="store_true")
-    e.add_argument("--work-dir", default=None, help="parent directory for PTDBench run artifacts")
+    e.add_argument("--work-dir", default=None, help="parent directory for AutoRLBench run artifacts")
     e.add_argument("--json", action="store_true", help="print JSON only")
 
     b = sub.add_parser(
@@ -203,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     h = sub.add_parser(
         "harbor-evaluate",
         help=(
-            "run each PTDBench task's prepare.sh, then evaluate it with Harbor "
+            "run each AutoRLBench task's prepare.sh, then evaluate it with Harbor "
             "on the prebuilt environment image"
         ),
         allow_abbrev=False,
@@ -223,7 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="solution",
         help="task evaluation to run",
     )
-    h.add_argument("--judge-model", default=None, help="model used by PTDBench verifiers")
+    h.add_argument("--judge-model", default=None, help="model used by AutoRLBench verifiers")
     h.add_argument(
         "--huggingface-mirror",
         default=None,
@@ -677,7 +677,7 @@ def main(argv=None) -> int:
             )
             return 0  # unreachable: shell() calls os.execvp
 
-        # cybertron: shell out to the harbor-side stager (ptdbench never imports
+        # cybertron: shell out to the harbor-side stager (autorlbench never imports
         # harbor as a library — same boundary harbor-evaluate uses for harbor run).
         cmd = [*shlex.split(args.stage_command), str(task_root)]
         cmd += ["--evaluation-level", args.evaluation_level]

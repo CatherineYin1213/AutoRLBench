@@ -54,7 +54,7 @@ Cybertron devspace（长驻主机，一 trial 一台）
 - **一 trial 一台 devspace**（忠实照搬 EC2/ACK「一 host 一 trial」；`--n-concurrent=N` = N 台 devspace）。
   Landlock 控制的是**访问权**不是**路径名**，无法把两个 trial 的 workspace 都映射成 `/workspace`
   （那需要 bind mount，已被禁），所以并发靠多台 devspace，不靠一台多沙盒。见 §7 的可选优化。
-- **workspace 放 `/user`**（ephemeral 太小），用 `ln -s` 让它出现在 ptdbench 期望的 `/workspace`。
+- **workspace 放 `/user`**（ephemeral 太小），用 `ln -s` 让它出现在 autorlbench 期望的 `/workspace`。
 - **Landlock 只包 agent/verifier 这类不可信执行**，不包 setup 阶段（装 agent 要写 `/usr`）。
 
 ---
@@ -99,7 +99,7 @@ EnvironmentType.CYBERTRON: _EnvEntry(
 | `stop(delete)` | 停心跳线程；`delete=True` → `cctl devspace stop <id>`（只停 pod）。per-trial 目录在 `/user`（持久盘）上默认**保留**，仅在 `cybertron.keep_workspace=False` 时才 `rm -rf`（见 §6.2）。 |
 | healthcheck | `cctl devspace get -F status` + `ssh ... true`。 |
 
-**镜像名映射**：harbor `environment.image`（`ptdbench/<name>:latest`，见 `ptdbench/core/types.py`
+**镜像名映射**：harbor `environment.image`（`ptdbench/<name>:latest`，见 `autorlbench/core/types.py`
 `EnvironmentImage.tag`）→ cybertron 平台数字镜像 id。维护一张表（配置文件或 env）：
 ```
 ptdbench/ptdbench-verl-vllm017  -> 25607123          # cu129
@@ -116,8 +116,8 @@ ptdbench/ptdbench-slime         -> 25607131          # v0.3.2，已重建到 cu1
   置 `True`；`exec()` 里 `confine = self._sealed`。缺点：需要一个「install 完成」钩子。
 - **exec kwarg**：给 `BaseEnvironment.exec` 加一个可选 `sandbox: bool=False`，agent/verifier
   的调用点传 `True`。改动小但动到基类签名（各 backend 忽略即可）。
-- **命令前缀约定**：agent/verifier 命令由 ptdbench 侧自己前缀 `llrun --`。最省 harbor 改动，
-  但把隔离逻辑漏到 ptdbench，不推荐。
+- **命令前缀约定**：agent/verifier 命令由 autorlbench 侧自己前缀 `llrun --`。最省 harbor 改动，
+  但把隔离逻辑漏到 autorlbench，不推荐。
 
 推荐走 **exec kwarg**：`BaseEnvironment.exec(..., sandbox: bool = False)`，只有
 `CybertronEnvironment` 消费它（其它 backend 无视），agent/verifier 调用点显式传 `sandbox=True`。
@@ -158,7 +158,7 @@ cctl devspace create \
   --gpu <N> --gpu-model h100 \
   --resource-pool speech-wx \
   --billing-account-id N00069 \
-  --project <ptdbench 项目> \
+  --project <autorlbench 项目> \
   -o json     # 拿回 tasks/<id>
 ```
 > ⚠️ `cctl devspace create` 的确切 flag 需对 `cctl devspace create --help` 复核（本文按已知
@@ -199,7 +199,7 @@ set -e
 U=/user/<cluster_user>          # 后端用 self._cluster_user 填，非 whoami（pod 里是 root）
 RUN=$U/harbor-runs/<session_id>
 mkdir -p "$RUN/workspace" "$RUN/logs"
-# ptdbench 期望的绝对路径 → 软链到 /user（bind 不可用，软链可）
+# autorlbench 期望的绝对路径 → 软链到 /user（bind 不可用，软链可）
 ln -sfn "$RUN/workspace"            /workspace
 mkdir -p /ptdbench
 ln -sfn "$U/ptdbench-cache/models"   /ptdbench/models
@@ -356,7 +356,7 @@ int main(int argc, char** argv){
 - 真实路径 `/user/<cluster_user>/harbor-runs/<session>/workspace`，`/workspace` 软链过去。
 - **初始态从本地上传**：agent 运行前，harbor 的 `upload_dir`（tar-over-ssh）把本地 prepared
   workspace 灌进这个真实路径 → agent 拿到的就是初始 workspace（每 trial 一份干净副本）。
-- ptdbench 原本**硬链接**权重进 workspace 的那部分（几 GB）仍随 workspace 走；大 cache 不进 workspace，
+- autorlbench 原本**硬链接**权重进 workspace 的那部分（几 GB）仍随 workspace 走；大 cache 不进 workspace，
   用 §6.1 的软链。
 - **agent 操作后 workspace 被保留（双重）**：
   1. workspace 实际落在 `/user`（**持久**集群盘）。`stop(delete=True)` 停的是 **devspace pod**，
@@ -377,9 +377,9 @@ int main(int argc, char** argv){
 - **默认：一 trial 一台 devspace**（忠实 EC2/ACK 语义）。`--n-concurrent=N` → N 台 devspace，
   各自 `/workspace`、各自心跳。Landlock 在每台里挡住 `/user` 别人的数据。
 - **代价**：N 份 GPU 配额 + N 条心跳 + N 次 devspace create（比起 pod 慢）。
-- **可选优化（gated）：一台 devspace 跑多 trial**。前提是让 ptdbench/harbor 的 workspace 路径
+- **可选优化（gated）：一台 devspace 跑多 trial**。前提是让 autorlbench/harbor 的 workspace 路径
   **可 per-trial 参数化**（不再写死 `/workspace`），这样一台 devspace 上多个 trial 落在不同子目录，
-  Landlock 再给每个 agent 只放行自己的子目录 → trial 间互不可见。**需要 harbor/ptdbench 侧改动**，
+  Landlock 再给每个 agent 只放行自己的子目录 → trial 间互不可见。**需要 harbor/autorlbench 侧改动**，
   非首版目标。
 
 ---
@@ -440,7 +440,7 @@ int main(int argc, char** argv){
 
 > `<cluster_user>` = §4.0 从 cctl 登录解析出的账号名（如 `chenyinghao`），**不是** pod 里的 `whoami`（root）。
 
-| 逻辑路径（ptdbench 期望） | 真实路径（devspace 上） | 谁填 |
+| 逻辑路径（autorlbench 期望） | 真实路径（devspace 上） | 谁填 |
 |---|---|---|
 | `/workspace` | `→ /user/<cluster_user>/harbor-runs/<session>/workspace`（软链） | harbor tar 上传 |
 | `/ptdbench/models` | `→ /user/<cluster_user>/ptdbench-cache/models`（软链，RO） | 预热 job |

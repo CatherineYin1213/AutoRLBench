@@ -5,7 +5,7 @@ set -euo pipefail
 #   ./run_harbor_multi.sh
 #   ./run_harbor_multi.sh task/a task/b
 #   ./run_harbor_multi.sh tasks/family -- --n-attempts 2
-# Arguments before -- are PTDBench task roots (or direct-parent directories).
+# Arguments before -- are AutoRLBench task roots (or direct-parent directories).
 # Arguments after -- are forwarded to `harbor run`.
 : "${OPENAI_API_KEY:?Set OPENAI_API_KEY before running}"
 
@@ -37,7 +37,7 @@ if [[ "${#task_roots[@]}" -eq 0 ]]; then
 fi
 
 args=(
-  -m ptdbench harbor-evaluate
+  -m autorlbench harbor-evaluate
   "${task_roots[@]}"
   --evaluation-level "${PTDBENCH_EVALUATION_LEVEL:-solution}"
   --judge-model "${PTDBENCH_JUDGE_MODEL:-${PTDBENCH_MODEL:-gpt-5.5}}"

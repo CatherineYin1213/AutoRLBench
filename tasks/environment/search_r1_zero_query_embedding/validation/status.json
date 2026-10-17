@@ -6,8 +6,8 @@
   "host_limits": "macOS laptop, no GPU, no reachable Docker Hub or GitHub",
   "verified_here": [
     {
-      "check": "ptdbench validate",
-      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench validate tasks/search_r1_zero_query_vector",
+      "check": "autorlbench validate",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench validate tasks/search_r1_zero_query_vector",
       "result": "ok, no issues"
     },
     {
@@ -52,7 +52,7 @@
       "item": "docker/images/search-r1-verl.Dockerfile",
       "why": "never built. No GPU and no reachable registry on the packaging host.",
       "consequence": "the FROM is pinned by tag, not by digest, and the prebuilt flash-attn wheel URL is unconfirmed (the build falls back to compiling the lock's sdist).",
-      "next_step": "python3 -m ptdbench build-images search-r1-verl on a GPU host, then replace the FROM tag with its RepoDigest as the Dockerfile comment describes"
+      "next_step": "python3 -m autorlbench build-images search-r1-verl on a GPU host, then replace the FROM tag with its RepoDigest as the Dockerfile comment describes"
     },
     {
       "item": "environment/prepare.sh end to end",

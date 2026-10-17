@@ -1,6 +1,6 @@
 # 在 Cybertron 上跑 harbor：可行性分析与权限申请
 
-> 写给：接手「把 ptdbench/harbor 评测搬到 Cybertron」的同学。
+> 写给：接手「把 autorlbench/harbor 评测搬到 Cybertron」的同学。
 > 记录日期：2026-09-29。探测集群 `wuxi_train` / 资源池 `speech-wx` / 命名空间 `training`。
 
 ---
@@ -21,7 +21,7 @@
 
 ## 1. 背景
 
-- 本仓库是 benchmark **PTDBench**：以「复现特定训练失败」为评分，任务横跨三套互不兼容的
+- 本仓库是 benchmark **AutoRLBench**：以「复现特定训练失败」为评分，任务横跨三套互不兼容的
   训练栈（verl / 两个版本 slime，CUDA 12.9 / 12.6 / 13.0）。
 - 评测框架是 **harbor**（`harbor/`），通过 **environment（backend）** 抽象启动任务，
   当前默认 `docker` backend（本机 docker）。
@@ -105,7 +105,7 @@ in-cluster API 可达、kubectl 未预装，但这个 default SA **零 RBAC**。
   靠 `exec`+`cp` 反复伸进 pod。**要申请的权限正是给 pod 外控制器用的。**
 
 **阶段 0 · prepare（harbor 之前、容器外）**
-`environment/prepare.sh` 由 ptdbench 在 `harbor run` 之前单独跑，是**唯一联网、唯一写共享
+`environment/prepare.sh` 由 autorlbench 在 `harbor run` 之前单独跑，是**唯一联网、唯一写共享
 缓存**的阶段（下模型/数据、写 `prepared/env`）。产物塞进 harbor task 的 `environment/`，
 后续由 harbor 上传到 `/workspace`。到 harbor 这步 agent/verifier 已离线。
 
@@ -148,7 +148,7 @@ in-cluster API 可达、kubectl 未预装，但这个 default SA **零 RBAC**。
     配额/池），再对该 pod 用 k8s API exec/cp。平台集成最干净。
   - **(B) 纯 k8s（ACK 式）**：连建 pod 都用 kubeconfig。代码复用最大，但绕过 cybertron 调度语义。
 - 镜像名映射：harbor `environment.image`（`ptdbench/<name>:latest`，见
-  `ptdbench/core/types.py` 的 `EnvironmentImage.tag`）→ cybertron 数字镜像 id。
+  `autorlbench/core/types.py` 的 `EnvironmentImage.tag`）→ cybertron 数字镜像 id。
 
 **两个必须解决的坑：**
 1. **prepare 联网 + 缓存喂进只读挂载**：agent/verifier 离线没问题，但 prepare 要联网、产物要落到
@@ -227,13 +227,13 @@ harbor 的 `BaseEnvironment` 有个 `capabilities.mounted` 开关，两个后端
 | `/workspace`、`/ptdbench/*` | 由 **task 级** `[environment].mounts` 声明的 bind | 只能靠 `pod_overrides` 注入 PVC/hostPath（harbor 不默认声明） |
 
 > 重要纠正：`/ptdbench/{prepared,models,datasets}`、`/workspace` **不是 harbor 内置**，是
-> ptdbench adapter 通过 task.toml `[environment].mounts` 塞进去的（docker 后端）。
+> autorlbench adapter 通过 task.toml `[environment].mounts` 塞进去的（docker 后端）。
 > **ACK 后端根本不挂任何卷**——这正是 cybertron 该抄的样板：cctl 无挂载 flag（见 §5.6.3），
 > 所以 cybertron backend 应设 `mounted=False`，走 ACK 的 tar-over-exec 模型。
 
-### 5.6.2 ptdbench 的文件布局与体量（决定策略）
+### 5.6.2 autorlbench 的文件布局与体量（决定策略）
 
-per-stage 挂载规则（`ptdbench/runtimes/providers/docker.py`）+ 缓存模型（`evaluation/evaluator.py`）：
+per-stage 挂载规则（`autorlbench/runtimes/providers/docker.py`）+ 缓存模型（`evaluation/evaluator.py`）：
 
 | 目录 | prepare 阶段 | agent/verifier 阶段 | 共享性 | 体量 |
 |---|---|---|---|---|
@@ -301,9 +301,9 @@ Cybertron **自动把资源池的集群文件系统挂进每个 pod 的 `/user`*
 
 - `capabilities = EnvironmentCapabilities(mounted=False)`（照 ACK）。
 - `upload/download` → §5.5 exec-agent 的 tar 通道；只喂 `/workspace` + `prepared`。
-- models/datasets **不走 upload**：backend 起 pod 时让其读集群 fs 的固定/约定路径；把 ptdbench
+- models/datasets **不走 upload**：backend 起 pod 时让其读集群 fs 的固定/约定路径；把 autorlbench
   期望的 `/ptdbench/models`、`/ptdbench/datasets` 用容器内 `ln -s`（或 entry 里 bind）指到那个
-  只读路径。ptdbench 硬链接进 workspace 的那部分权重仍随 `/workspace` 上传（多数任务几 GB，可接受）。
+  只读路径。autorlbench 硬链接进 workspace 的那部分权重仍随 `/workspace` 上传（多数任务几 GB，可接受）。
 - 若走子路 1，需先确认自动挂载路径（§7 探测）；若走子路 2，需平台开 PVC 声明。
 
 ### 5.6.6 把 agent 关进 /workspace（隐藏 /user）
@@ -327,7 +327,7 @@ tmpfs 盖 `/user`）。**❌ 已探测证否，此路不通。**
 
 **✅ 可行的替代（不需要 mount）：**
 1. **模型/数据集进 `/workspace`：用符号链接**（bind 不可用）：`ln -s /user/chenyinghao/ptdbench-cache/models
-   /workspace/models`。物理仍在 `/user`，但出现在 `/workspace/models`。（ptdbench 现用硬链接；这里免上传，软链即可。）
+   /workspace/models`。物理仍在 `/user`，但出现在 `/workspace/models`。（autorlbench 现用硬链接；这里免上传，软链即可。）
 2. **隐藏你自己的 `/user/chenyinghao`：靠文件权限**——agent 以**专用非 root uid** 跑，把家目录设 `711`
    （不可列目录、仅可穿到已知子路径）、敏感子目录 `700`、只把 cache 子目录开 `755`。这样 agent 读得到
    给它的 cache 路径，但 `ls /user/chenyinghao` 看不到你其余文件。

@@ -147,7 +147,7 @@ class TestBuildCctlCommand:
                 "--image",
                 "25607122",
                 "--git-path",
-                "git@github.com:org/ptdbench.git",
+                "git@github.com:org/AutoRLBench.git",
                 "--git-ref",
                 "main",
             ]
@@ -159,7 +159,7 @@ class TestBuildCctlCommand:
         cmd = preheat.build_cctl_command(args, entry)
         assert cmd[:3] == ["cctl", "job", "create"]
         assert "--code-type" in cmd and cmd[cmd.index("--code-type") + 1] == "git"
-        assert cmd[cmd.index("--git-path") + 1] == "git@github.com:org/ptdbench.git"
+        assert cmd[cmd.index("--git-path") + 1] == "git@github.com:org/AutoRLBench.git"
         assert cmd[cmd.index("--git-ref") + 1] == "main"
         assert cmd[cmd.index("--entry") + 1] == entry
         assert cmd[cmd.index("--image") + 1] == "25607122"

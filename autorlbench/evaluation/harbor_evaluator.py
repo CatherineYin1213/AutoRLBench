@@ -46,11 +46,11 @@ ACTIVATE_HOOK = "/etc/profile.d/ptdbench-activate.sh"
 
 
 class HarborAdapterError(RuntimeError):
-    """PTDBench 与 Harbor 交界处的配置或结果错误。"""
+    """AutoRLBench 与 Harbor 交界处的配置或结果错误。"""
 
 
 class HarborTaskMaterializer:
-    """把选定的 PTDBench evaluation 在线物化为一批 Harbor task。"""
+    """把选定的 AutoRLBench evaluation 在线物化为一批 Harbor task。"""
 
     def materialize(
         self,
@@ -186,7 +186,7 @@ if [ -f "$result_file" ]; then
   cp "$result_file" /logs/verifier/ptdbench-result.json
 fi
 
-# Harbor 只消费 reward 文件；PTDBench 的完整 metrics 仍由 result.json 承载。
+# Harbor 只消费 reward 文件；AutoRLBench 的完整 metrics 仍由 result.json 承载。
 score=""
 if [ -f "$result_file" ]; then
   score="$(tr '\n' ' ' < "$result_file" | sed -nE 's/.*"score"[[:space:]]*:[[:space:]]*(-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?).*/\1/p')"
@@ -380,7 +380,7 @@ class HarborRunner:
     """通过 CLI 启动 Harbor，避免与 Harbor 的 Python 版本和内部 API 耦合。"""
 
     _TASK_PATH_ARGS = {"-p", "--path"}
-    # 挂载由 PTDBench 按 prepare 产物决定，而 Harbor 的 --mounts 是整个 job 共用的，
+    # 挂载由 AutoRLBench 按 prepare 产物决定，而 Harbor 的 --mounts 是整个 job 共用的，
     # 所以每个 unit 单独一个 job；用户再传一份只会覆盖掉 prepared 的挂载。
     _MOUNT_ARGS = {"--mounts", "--mounts-json"}
 
@@ -426,7 +426,7 @@ class HarborRunner:
 
         started = time.monotonic()
         display_argv = shlex.join(self._redact_argv(argv))
-        print(f"[ptdbench] Starting Harbor: {display_argv}", file=sys.stderr, flush=True)
+        print(f"[autorlbench] Starting Harbor: {display_argv}", file=sys.stderr, flush=True)
         try:
             completed = self._run_streaming(argv, caller_cwd)
             command = CommandResult(
@@ -513,12 +513,12 @@ class HarborRunner:
             name = arg.split("=", 1)[0]
             if name in cls._TASK_PATH_ARGS:
                 raise ValueError(
-                    f"{name} is managed by the PTDBench task materializer; "
-                    "pass the PTDBench task as task_root"
+                    f"{name} is managed by the AutoRLBench task materializer; "
+                    "pass the AutoRLBench task as task_root"
                 )
             if name in cls._MOUNT_ARGS:
                 raise ValueError(
-                    f"{name} is managed by PTDBench (prepared / models / datasets "
+                    f"{name} is managed by AutoRLBench (prepared / models / datasets "
                     "mounts); use --models-dir / --datasets-dir instead"
                 )
 
@@ -534,7 +534,7 @@ class HarborRunner:
         """
         if len(prepared.units) != 1:
             raise HarborAdapterError(
-                "Harbor mounts apply to the whole job; run one PTDBench task per job"
+                "Harbor mounts apply to the whole job; run one AutoRLBench task per job"
             )
         unit = prepared.units[0]
         pairs = []
@@ -670,7 +670,7 @@ class HarborResultMapper:
         units: Dict[str, HarborTaskUnit],
         all_units: Sequence[HarborTaskUnit],
     ) -> HarborTaskUnit:
-        """按 Harbor 的 task_name 把 trial 归回它的 PTDBench task。"""
+        """按 Harbor 的 task_name 把 trial 归回它的 AutoRLBench task。"""
         task_name = trial.get("task_name")
         if isinstance(task_name, str) and task_name in units:
             return units[task_name]
@@ -821,7 +821,7 @@ class HarborResultMapper:
         for path in candidates:
             if not path.is_file():
                 continue
-            payload = self._read_json(path, "PTDBench verifier result")
+            payload = self._read_json(path, "AutoRLBench verifier result")
             if isinstance(payload, dict):
                 return payload
         return {}
@@ -954,7 +954,7 @@ class HarborPreparer:
         # 镜像按环境共享：已存在直接用，不存在才构建。Harbor 用的是同一个 tag。
         artifact = evaluator.runtime.ensure_environment(image)
         print(
-            f"[ptdbench] Preparing {package.task_id} in {artifact.reference or image.tag}",
+            f"[autorlbench] Preparing {package.task_id} in {artifact.reference or image.tag}",
             file=sys.stderr,
             flush=True,
         )
@@ -1026,7 +1026,7 @@ class HarborShell:
                 prepared=Path(state["prepared"]) if state.get("prepared") else None,
             )
             print(
-                f"[ptdbench] Reusing staged workspace at {unit.workspace}",
+                f"[autorlbench] Reusing staged workspace at {unit.workspace}",
                 file=sys.stderr,
                 flush=True,
             )
@@ -1051,7 +1051,7 @@ class HarborShell:
             shm_size=shm_size,
             extra_docker_args=extra_docker_args,
         )
-        print(f"[ptdbench] Entering container: {shlex.join(argv)}", file=sys.stderr, flush=True)
+        print(f"[autorlbench] Entering container: {shlex.join(argv)}", file=sys.stderr, flush=True)
         os.execvp(argv[0], argv)
 
     def _build_docker_argv(
@@ -1126,7 +1126,7 @@ class HarborShell:
 
 
 class HarborEvaluator:
-    """PTDBench 的 Harbor 执行入口，与 TaskEvaluator 并行存在。"""
+    """AutoRLBench 的 Harbor 执行入口，与 TaskEvaluator 并行存在。"""
 
     def __init__(
         self,
@@ -1174,7 +1174,7 @@ class HarborEvaluator:
                 if not batch:
                     raise
                 errors.append(f"{unit.package.task_id}: {exc}")
-                print(f"[ptdbench] {unit.package.task_id} skipped: {exc}", file=sys.stderr)
+                print(f"[autorlbench] {unit.package.task_id} skipped: {exc}", file=sys.stderr)
         if not reports:
             raise HarborAdapterError("; ".join(errors) or "no task was evaluated")
         return self._merge_reports(units, reports, config)
@@ -1189,7 +1189,7 @@ class HarborEvaluator:
         try:
             unit = self.preparer.prepare(unit, ensure_dir(root / "prep"), config)
             print(
-                f"[ptdbench] Materializing {unit.package.task_id}:{unit.evaluation.level}",
+                f"[autorlbench] Materializing {unit.package.task_id}:{unit.evaluation.level}",
                 file=sys.stderr,
                 flush=True,
             )
@@ -1198,7 +1198,7 @@ class HarborEvaluator:
                 prepared, config, job_name_suffix=unit.dir_name if batch else None
             )
             print(
-                f"[ptdbench] Reading Harbor results from {run.job_dir}",
+                f"[autorlbench] Reading Harbor results from {run.job_dir}",
                 file=sys.stderr,
                 flush=True,
             )

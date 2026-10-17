@@ -1,6 +1,6 @@
-# PTDBench
+# AutoRLBench
 
-PTDBench（PostTrainDiagnosisBench）是一个面向社区提交的后训练诊断基准框架。
+AutoRLBench（PostTrainDiagnosisBench）是一个面向社区提交的后训练诊断基准框架。
 它用来收集“带 bug 的 post-train 任务 + 环境 + verifier”，让指定的 model/agent 在受控工作区里修复问题并接受评测。
 
 ## 核心流程
@@ -20,7 +20,7 @@ PTDBench（PostTrainDiagnosisBench）是一个面向社区提交的后训练诊�
 ### 1. 先做校验
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench validate tasks/slime_retool
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench validate tasks/slime_retool
 ```
 
 ### 2. 再跑本地 + Codex
@@ -31,7 +31,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench validate tasks/slime_retool
 - `--agent codex`：用 Codex 作为 agent
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --backend local \
   --agent codex \
   --model gpt-5.5 \
@@ -71,7 +71,7 @@ export OPENAI_API_KEY='你的 API key'
 它等价于：
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --backend docker \
   --agent codex \
   --model gpt-5.5 \
@@ -91,9 +91,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
 想提前构建，或者改了 Dockerfile 之后需要重建（只改工具脚本时 tag 不变，改动不会被自动发现），用：
 
 ```bash
-python3 -m ptdbench build-images                  # 构建 docker/images/ 下所有缺失的镜像
-python3 -m ptdbench build-images verl slime-rc0   # 只构建指定的
-python3 -m ptdbench build-images --rebuild verl   # 已存在也重建
+python3 -m autorlbench build-images                  # 构建 docker/images/ 下所有缺失的镜像
+python3 -m autorlbench build-images verl slime-rc0   # 只构建指定的
+python3 -m autorlbench build-images --rebuild verl   # 已存在也重建
 ```
 
 `--backend` 是整次评测唯一的 runtime backend，agent 和 verifier 始终使用同一个 backend；
@@ -101,7 +101,7 @@ python3 -m ptdbench build-images --rebuild verl   # 已存在也重建
 task 镜像不需要预装 Codex，框架会在 agent 容器启动后安装 `@openai/codex@latest`。
 安装完成后，框架会根据 `--base-url` 在容器内生成 Codex model provider 配置，并通过 stdin
 执行 `codex login --with-api-key`；API key 不会写入命令参数或运行日志。例如默认的
-`https://yeysai.com/v1` 会配置为使用 Responses API 的通用 `ptdbench` provider。
+`https://yeysai.com/v1` 会配置为使用 Responses API 的通用 `autorlbench` provider。
 `run.sh` 默认使用 `high` 推理强度，可以通过环境变量覆盖而不必修改脚本：
 
 完成任务的 agent 模型和 verifier judge 模型可以分别设置：
@@ -121,14 +121,14 @@ Docker 已经作为 agent 的外层安全边界，因此 Docker backend 会使�
 
 ### 通过 Harbor 运行
 
-`evaluate` 和 `harbor-evaluate` 是两个并行入口：前者使用 PTDBench 原有的
+`evaluate` 和 `harbor-evaluate` 是两个并行入口：前者使用 AutoRLBench 原有的
 `TaskEvaluator`，后者在线生成临时 Harbor task 并交给 Harbor CLI 执行，最后再映射回同一个
-PTDBench 结果结构。因此不需要修改原有评测命令。
+AutoRLBench 结果结构。因此不需要修改原有评测命令。
 
 Harbor 直接用预构建镜像，不再逐任务构建：生成的 task.toml 把 `[environment] docker_image`
 设成该环境 Dockerfile 头部声明的 tag。每个 task 的流程是：
 
-1. PTDBench 在同一个镜像里先跑 `environment/prepare.sh`（联网，与 `evaluate` 的 prepare
+1. AutoRLBench 在同一个镜像里先跑 `environment/prepare.sh`（联网，与 `evaluate` 的 prepare
    阶段完全一致），镜像不存在时先构建；
 2. prepare 写过的 workspace 放进 Harbor task 的 `environment/`（不含 Dockerfile），Harbor
    起容器后把它上传到 `/workspace`；
@@ -137,7 +137,7 @@ Harbor 直接用预构建镜像，不再逐任务构建：生成的 task.toml �
 4. verifier 与 agent 共用同一个容器（shared 模式），agent / verifier 阶段对 HF / W&B 离线。
 
 Harbor 的挂载是 job 级的，所以每个 task 单独一个 `harbor run`，最后合并成一份报告。
-`--mounts`/`--mounts-json` 由 PTDBench 管理，不能再透传。Harbor 的 docker 环境没有 GPU
+`--mounts`/`--mounts-json` 由 AutoRLBench 管理，不能再透传。Harbor 的 docker 环境没有 GPU
 选项，GPU 任务需要把 Docker daemon 的默认 runtime 设为 `nvidia`。
 
 如果 Harbor 是当前仓库旁边的 clone，可以这样运行：
@@ -152,7 +152,7 @@ export OPENAI_BASE_URL='https://yeysai.com/v1'
 `uv run --project harbor harbor`。也可以直接展开它对应的 CLI 命令：
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench harbor-evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench harbor-evaluate tasks/slime_retool \
   --evaluation-level solution \
   --judge-model gpt-5.5 \
   --huggingface-mirror https://hf-mirror.com \
@@ -180,11 +180,11 @@ Harbor task 中对应阶段的 `network_mode`。
 `--huggingface-mirror`、`--models-dir`、`--datasets-dir` 只作用于 prepare 阶段和挂载，
 含义与 `evaluate` 相同。
 
-除了上述 PTDBench 转换参数，其余参数会原样传给 `harbor run`。参数名、别名和行为均保持
+除了上述 AutoRLBench 转换参数，其余参数会原样传给 `harbor run`。参数名、别名和行为均保持
 Harbor 原义，因此 Harbor 增加普通 CLI 参数时不需要同步修改 adapter：
 
 ```bash
-python3 -m ptdbench harbor-evaluate tasks/slime_retool \
+python3 -m autorlbench harbor-evaluate tasks/slime_retool \
   --evaluation-level solution \
   --judge-model gpt-4.1 \
   --agent codex \
@@ -211,7 +211,7 @@ adapter 覆盖。
 同一 task 的多次 trial（`--n-attempts`）并发仍由 Harbor 原生的 `--n-concurrent` 负责：
 
 ```bash
-python3 -m ptdbench harbor-evaluate \
+python3 -m autorlbench harbor-evaluate \
   tasks/rlve_hyper/task_001 \
   tasks/rlve_hyper/task_008 \
   --agent codex \
@@ -230,7 +230,7 @@ python3 -m ptdbench harbor-evaluate \
 `missing_task_ids`；每条 trial 仍使用单数 `task_id`。只有每个提交的 task 都至少产生一条
 trial 且所有 trial 均通过时，批次的 `passed` 才为 `true`。
 
-Python API 同样只区分 PTDBench 转换配置和 Harbor 原生 argv：
+Python API 同样只区分 AutoRLBench 转换配置和 Harbor 原生 argv：
 
 ```python
 HarborEvaluationConfig(
@@ -274,7 +274,7 @@ bash run_harbor_fit.sh \
 如果你只想先看 verifier 是否能跑通，也可以先挂一个空 agent：
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool \
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
   --backend local \
   --agent shell \
   --agent-command true \
@@ -316,7 +316,7 @@ tasks/your_task/
 
 - `agent_trace.json`：agent 的完整调用轨迹
 - `result.json`：verifier 自己写出的结构化结果
-- `report.json`：PTDBench 汇总后的总报告
+- `report.json`：AutoRLBench 汇总后的总报告
 
 ## 元数据 schema
 
@@ -410,7 +410,7 @@ environment:
   多个任务共用，不带 hash；构建上下文是 `docker/`。
 - 要加新环境就加一个 `docker/images/<name>.Dockerfile`：`FROM` 必须钉 digest
   （`image:tag@sha256:...`），文件末尾照抄其他 Dockerfile 里
-  `# ---- PTDBench tooling ...` 之后的那一段（`ptdbench_fetch_*`、`ptdbench_dataset`、
+  `# ---- AutoRLBench tooling ...` 之后的那一段（`ptdbench_fetch_*`、`ptdbench_dataset`、
   激活 hook），测试会检查每个 Dockerfile 的这一段完全一致。
 - 一个镜像是多个任务共享的，镜像内容就是这些任务的 ground truth 环境。改 Dockerfile
   等于同时改所有用它的任务；需要不同依赖的任务应该用新的镜像名，而不是改已有的。
@@ -552,6 +552,6 @@ workspace 交给 agent（Harbor 后端里它随 workspace 一起上传到 `/work
 ## 常用命令
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench validate tasks/slime_retool
-PYTHONDONTWRITEBYTECODE=1 python3 -m ptdbench evaluate tasks/slime_retool --backend local --agent codex --model gpt-5.5 --json
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench validate tasks/slime_retool
+PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool --backend local --agent codex --model gpt-5.5 --json
 ```

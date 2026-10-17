@@ -51,8 +51,8 @@ exactly that string. The snapshot now matches what the agent's own run
 produces.
 
 **`environment/` → `/ptdbench/environment`.** Mounted read-only for the agent
-stage by design (`PTDBENCH_ENVIRONMENT_DIR` in `ptdbench/core/types.py`;
-`ptdbench/agents/base.py` states the agent seeing `prepare.sh` is intentional,
+stage by design (`PTDBENCH_ENVIRONMENT_DIR` in `autorlbench/core/types.py`;
+`autorlbench/agents/base.py` states the agent seeing `prepare.sh` is intentional,
 because it describes the environment and "is not part of the answer"). This
 task's `prepare.sh` broke that contract in its comments: the leaf task path in
 the header, the legacy HF dataset repo name
@@ -82,7 +82,7 @@ must return nothing. Two near-misses are expected and must stay: the symbol
 historical run's own logged metric, i.e. the evidence the agent is meant to
 read.
 
-Not changed, harness-level: `PTDBenchEvaluator._run_directory_prefix` puts the
+Not changed, harness-level: `TaskEvaluator._run_directory_prefix` puts the
 task id in the **host** run directory name. Invisible under the Docker backend
 (the agent sees `/workspace`, `/task`, `/results`), but it would be visible
 under the local backend — which this task does not use.

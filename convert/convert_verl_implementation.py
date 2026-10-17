@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize eight Verl implementation tasks into three PTDBench families."""
+"""Materialize eight Verl implementation tasks into three AutoRLBench families."""
 
 from __future__ import annotations
 
@@ -739,7 +739,7 @@ def materialize_one(
     )
     (target / "readme.md").write_text(
         f"# {task_id}\n\n"
-        f"PTDBench B0 `{family}` implementation package.\n\n"
+        f"AutoRLBench B0 `{family}` implementation package.\n\n"
         f"- Validation stack: `{config['validation_stack']}`\n"
         f"- Metric status: `{metrics['metric_status']}`\n"
         f"- Checkpoints excluded: `{checkpoint_info['source_present']}`\n"

@@ -94,7 +94,7 @@ class TaskEvaluator:
         run = self._prepare_run(package, evaluation, config)
         self._append_run_log(
             run.results,
-            f"PTDBench task={package.task_id} backend={self.runtime.name} "
+            f"AutoRLBench task={package.task_id} backend={self.runtime.name} "
             f"evaluation_level={evaluation.level} "
             f"agent={agent_runner.kind if agent_runner else 'none'}",
         )

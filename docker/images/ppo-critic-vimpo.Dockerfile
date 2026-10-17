@@ -1,4 +1,4 @@
-# PTDBench environment `ppo-critic-vimpo`.
+# AutoRLBench environment `ppo-critic-vimpo`.
 # ptdbench-image: ptdbench/ppo-critic-vimpo:vllm0.11-torch2.8-cu128
 #
 # veRL PPO-Critic / VIMPO runtime, reconstructed from the environment that
@@ -166,7 +166,7 @@ assert transformers.__version__ == "4.57.6"
 assert "2.8.3" in flash_attn.__version__
 PY
 
-# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----
+# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
 RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets

@@ -2,7 +2,7 @@
 
 Runs Harbor trials on a long-lived Cybertron *devspace* used as a remote host.
 
-Design (see ``cybertron-harbor-impl-plan.md`` in the ptdbench repo):
+Design (see ``cybertron-harbor-impl-plan.md`` in the autorlbench repo):
 
 * Lifecycle (create / status / stop) goes through the ``cctl`` CLI.
 * ``exec`` / ``upload`` / ``download`` go through the devspace's Teleport SSH
@@ -92,7 +92,7 @@ _DEFAULT_HEARTBEAT_INTERVAL_SEC = 120
 _RUNNING_STATUSES = {"Running", "Started", "Ready"}
 _TERMINAL_STATUSES = {"Failed", "Killed", "Stopped", "Error", "Cancelled"}
 
-# Built-in ptdbench image tag (``ptdbench/<name>:<tag>``) -> Cybertron platform
+# Built-in autorlbench image tag (``ptdbench/<name>:<tag>``) -> Cybertron platform
 # image id map. Extend it per job/task via ``[environment].kwargs.image_map``
 # (inline dict) or ``image_map_path`` (a JSON file of the same shape) rather
 # than editing this default; precedence is documented on ``_resolve_image_id``.
@@ -1158,7 +1158,7 @@ class CybertronEnvironment(BaseEnvironment):
 
     async def _setup_devspace(self) -> None:
         # Build the per-trial dirs on the shared fs, symlink them to the paths
-        # ptdbench expects, and compile the Landlock launcher. Runs unconfined.
+        # autorlbench expects, and compile the Landlock launcher. Runs unconfined.
         setup = f"""
 set -e
 mkdir -p {shlex.quote(self._workspace_dir)} {shlex.quote(self._logs_dir)}

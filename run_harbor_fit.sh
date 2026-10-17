@@ -15,7 +15,7 @@ export UV_NO_PYTHON_DOWNLOADS="${UV_NO_PYTHON_DOWNLOADS:-1}"
 export UV_DEFAULT_INDEX="${UV_DEFAULT_INDEX:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 
 args=(
-  -m ptdbench harbor-evaluate
+  -m autorlbench harbor-evaluate
   "${PTDBENCH_TASK:-tasks/slime_retool}"
   --evaluation-level "${PTDBENCH_EVALUATION_LEVEL:-solution}"
   --judge-model "${PTDBENCH_JUDGE_MODEL:-${PTDBENCH_MODEL:-gpt-5.5}}"

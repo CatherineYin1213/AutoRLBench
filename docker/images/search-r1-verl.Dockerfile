@@ -1,4 +1,4 @@
-# PTDBench environment `search-r1-verl`.
+# AutoRLBench environment `search-r1-verl`.
 # ptdbench-image: ptdbench/search-r1-verl:vllm0.6.3-torch2.4-cu121
 #
 # Search-R1 (with veRL vendored inside it) as of upstream commit
@@ -93,7 +93,7 @@ print('faiss', faiss.__version__); print('transformers', transformers.__version_
 print('ray', ray.__version__)"; \
     python3 -c "import flash_attn; print('flash-attn', flash_attn.__version__)"
 
-# ---- PTDBench tooling: keep identical in every docker/images/*.Dockerfile ----
+# ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
 RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets

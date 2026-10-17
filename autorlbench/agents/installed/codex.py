@@ -14,7 +14,7 @@ from ..factory import register_agent_runner
 @register_agent_runner("codex")
 class CodexAgentRunner(AgentRunner):
     # 第一版 Codex 适配器：把任务说明拼成 prompt，然后按 CLI 调用。
-    provider_name = "ptdbench"
+    provider_name = "autorlbench"
 
     def setup(
         self,
@@ -227,7 +227,7 @@ class CodexAgentRunner(AgentRunner):
     def _build_prompt(self, context: AgentExecutionContext) -> str:
         return "\n".join(
             [
-                "You are solving a PTDBench task.",
+                "You are solving a AutoRLBench task.",
                 (
                     "Only modify files under the workspace, except for deliverables "
                     "that the task explicitly requires under $PTDBENCH_RESULTS."
