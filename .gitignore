@@ -9,5 +9,5 @@ __pycache__/
 models/
 datasets/
 
-raw_tasks/
+raw_tasks_local/
 task_construct/

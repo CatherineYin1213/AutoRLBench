@@ -1,0 +1,184 @@
+id: ppo_critic_value_head_not_zeroed_on_reload
+title: "PPO critic's value head is not zeroed after the model is reloaded"
+summary: >-
+  After a training run is restarted from a checkpoint, the PPO critic's value
+  head is rebuilt with random weights instead of zeros. The critic therefore
+  opens with large, arbitrary value predictions it never learned, and the
+  value loss reported throughout the critic warmup window is inflated by
+  roughly 77x (measured: 7.20 vs 0.094 on the first critic step). It is not
+  only a reporting problem: PPO optimises against the resulting advantages, and
+  over 30 rollouts the broken arm's held-out pass rate falls from 0.078 to
+  0.043 while the repaired arm's rises from 0.080 to 0.169.
+
+# ----------------------------------------------------------------- the setting
+algorithm: Multi-Turn PPO
+model: Qwen3-1.7B
+dataset: Endless Terminals
+framework: slime
+framework_version: v0.3.2
+backend: Megatron-LM + SGLang + Ray
+
+# -------------------------------------------------------------------- the bug
+symptom: >-
+  train/critic-value_loss is ~6-8 on the first critic optimizer step after a
+  reload and stays there for the whole warmup, instead of being bounded by the
+  reward scale (<= 1 for a 0/1 episode reward).
+root_cause: >-
+  slime/backends/megatron_utils/model_provider.py:75 -- LinearForLastLayer, the
+  class slime unconditionally installs as the critic's output layer, initialises
+  its weight with normal_(mean=0, std=init_method_std). For a [1, hidden_size]
+  value head that makes V(s) a random projection of the backbone's final hidden
+  state, whose magnitude scales with that state's norm.
+root_cause_file: slime/backends/megatron_utils/model_provider.py
+root_cause_symbol: LinearForLastLayer.__init__
+fix_summary: >-
+  Zero-initialise the value head: self.weight.data.zero_(). LinearForLastLayer
+  is only ever instantiated for the critic with output_size=1, so this is both
+  minimal and unconditionally correct.
+fix_lines_changed: 1
+
+# How the residue reaches the critic. A saved actor checkpoint has no
+# [1, hidden_size] output layer at all, so on reload the value head exists only
+# because LinearForLastLayer's constructor just created it -- the residue
+# enters at construction time, not through the checkpoint.
+residue_path: constructed-fresh-on-reload
+
+# The production incident was fixed with four layers of defence:
+#   1. zero-initialise at construction          <- the Oracle for this case
+#   2. zero again after load_checkpoint
+#   3. optimizer.reload_model_params() to resync the fp32 master weights
+#   4. an offline checker that asserts a fresh critic predicts 0
+# Only layer 1 is required here, and it is on its own sufficient -- see below
+# for why that took arranging.
+oracle_scope: init-zeroing-only
+oracle_sufficient: true
+
+# Why layer 1 alone is decisive in this scenario.
+#
+# slime v0.3.2 randomises the critic's value head in TWO places:
+#   a. LinearForLastLayer.__init__                              (construction)
+#   b. model.py:_reinitialize_critic_output_layer               (after load)
+# Path (b) fires only when `_critic_output_layer_needs_reinit` is true, which
+# requires the critic's load path to be a *Megatron* checkpoint (a `.metadata`
+# file is present) whose `output_layer` shape does not match [1, hidden_size].
+#
+# Stage B therefore loads the critic from the HuggingFace weights, not from a
+# Megatron checkpoint: `needs_reinit` is false, path (b) never runs, and the
+# constructor is the only thing that sets the head. Layer 1 is then the whole
+# fix. Pointing the critic at a Megatron checkpoint instead would additionally
+# need layer 2, which is outside this case's Oracle scope.
+#
+# The HF load path also calls `optimizer.reload_model_params()` itself, so
+# layer 3 is already covered here; and the constructor runs before the
+# optimizer exists, so there is no stale fp32 master copy to resync anyway.
+second_randomiser: slime/backends/megatron_utils/model.py:_reinitialize_critic_output_layer
+second_randomiser_active: false   # Stage B's critic loads HF weights, not a Megatron ckpt
+
+# Both workspaces share one change to model_provider.py that is NOT the fix:
+# the value head is built with bias=False. Upstream defaults it to True, and
+# then no critic can load from a HuggingFace checkpoint at all, because
+# `output_layer.bias` has no HF counterpart and the mapper raises KeyError.
+# Identical on both sides, so it cannot affect the comparison.
+shared_workaround: value-head-built-without-bias
+
+# --------------------------------------------------------------- requirements
+resources:
+  gpus: 1                 # NUM_GPUS=2 TP_SIZE=2 also works; 1 is what it was measured on
+  gpu_memory_gb: 80
+  network: none
+  # Measured on 1xH800 with the prompt set already cached: Stage A ~10 min (of
+  # which ~6 is startup), Stage B ~90 min (30 rollouts at ~94 s, plus 7 eval
+  # points at ~6 min for 1500 episodes each). The first run also validates all
+  # 2492 Endless Terminals tasks, a one-off ~40 min CPU pass whose output is
+  # reused by every later run.
+  runtime_minutes: 105
+image: "slimerl/slime:v0.3.2-cu129@sha256:39be6cbb00f9b6770e664ace0c7b9f5ecff2977a1a205e7926a720f906fbc62c"
+mounts:
+  - /models/Qwen3-1.7B
+  - /datasets/endless-terminals
+  - /ckpt
+
+# -------------------------------------------------------------------- layout
+workspaces:
+  broken: buggy_workspace
+  fixed: fixed_workspace
+entrypoint: run.sh
+evaluations:
+  - issue
+  - solution
+
+# ------------------------------------------------------------------ decider
+# The two workspaces are separated by the first critic optimizer step of
+# Stage B. See readme.md for the measured values.
+metric: first_value_loss          # tools/parse_value_loss.py, Stage B
+threshold: 1.0                    # broken > threshold, fixed < threshold
+threshold_rationale: >-
+  The episode reward is binary, so a correctly zero-initialised critic reports
+  exactly mean(R^2) = pass_rate <= 1 on its first step, while a randomly
+  initialised [1, 2048] head on Qwen3-1.7B (final hidden RMS ~2.55,
+  init_method_std 0.02) reports E[V^2] + pass_rate ~ 5.4 by that estimate and
+  5.3-7.6 in practice -- the estimate is low by ~25% because the hidden-state
+  RMS is itself approximate, but the scale is set by the backbone's activation
+  norm either way, which has nothing to do with the task's rewards. The gap is
+  ~77x with no overlap, so the threshold sits an order of magnitude from
+  either side.
+
+# Measured on 1xH800: Stage A = 2 rollouts, Stage B = 30 rollouts of which the
+# first 3 are critic-only, 128 episodes per rollout at global batch 64, so 2
+# critic optimizer steps per rollout and a 6-step warmup window. Raw artifacts
+# under results/. See readme.md for the full per-step tables.
+measured:
+  stage_b_first_value_loss:
+    broken: 7.200568675994873
+    fixed: 0.09375
+  # Over the critic-only window (6 steps), not the whole of Stage B -- past the
+  # warmup the broken critic learns its way out of the bad initialisation (down
+  # to 0.089 by step 60), which is exactly why the decider is the first step.
+  stage_b_warmup_value_loss_mean:
+    broken: 6.416253010431926
+    fixed: 0.08226189731309812
+  stage_b_warmup_value_loss_max:
+    broken: 7.645937919616699
+    fixed: 0.15223293006420135
+
+  # The end-to-end claim: held-out pass rate on the test split, 300 tasks x 4
+  # samples per eval point, paired per task. Equal budget of 30 rollouts.
+  heldout_test_episode_pass_rate:
+    at_first_eval:          # rollout 0 -- the two arms are indistinguishable
+      broken: 0.07833333333333334
+      fixed: 0.08
+      paired_mean_difference: 0.0016666666666666668
+      ci95: [-0.012166, 0.015499]
+    at_last_eval:           # rollout 29
+      broken: 0.043333333333333335
+      fixed: 0.16916666666666666
+      paired_mean_difference: 0.12583333333333332
+      ci95: [0.093717, 0.157950]
+      permutation_p: 5.0e-05          # sign-flip, 20000 draws, seed 20261009
+      mcnemar_p: 8.049e-16            # solved-at-least-once: broken-only 1, fixed-only 56
+  heldout_val_episode_pass_rate:
+    at_last_eval:
+      broken: 0.04
+      fixed: 0.09666666666666666
+      paired_mean_difference: 0.056666666666666664
+      permutation_p: 0.02435
+  # 30 rollouts is an equal fixed budget, not a measured plateau: the repaired
+  # arm's validation curve was still rising at the last point (0.0933 ->
+  # 0.0967), so the gap above is a lower bound. The broken arm had flattened.
+  converged: false
+  rollout_budget: 30
+
+  # Stage A's own reward is over 256 episodes total and is not evidence of
+  # anything; the rollout-0 held-out row above is the 1200-episode-per-arm
+  # statement that the two arms start from the same place.
+  stage_a_mean_reward:
+    broken: 0.03515625
+    fixed: 0.0703125
+  dataset_tasks_admitted: 1489
+  dataset_tasks_total: 2492
+  # Deterministic split of the admitted set (et/make_splits.py, seed 20261009).
+  # Identical in both arms, so the held-out comparison is paired per task.
+  dataset_split:
+    train: 1039
+    val: 150            # 2 samples/task, read at every eval point to call convergence
+    test: 300           # 4 samples/task, carries the end-to-end claim
