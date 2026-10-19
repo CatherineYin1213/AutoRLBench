@@ -28,9 +28,9 @@ The effective run must use:
 MODEL_PATH=/workspace/verl/Llama-3.2-1B-instruct
 TRAIN_FILE=/workspace/DAPO-Math-17k_verl/train.parquet
 TEST_FILE=/workspace/DAPO-Math-17k_verl/test.parquet
-LOG_DIR=$PTDBENCH_RESULTS/experiment_logs
+LOG_DIR=$AUTORLBENCH_RESULTS/experiment_logs
 WANDB_MODE=offline
-WANDB_DIR=$PTDBENCH_RESULTS/experiment_logs
+WANDB_DIR=$AUTORLBENCH_RESULTS/experiment_logs
 WANDB_API_KEY=offline
 ```
 
@@ -38,9 +38,9 @@ Keep the launch script's training-step budget and evaluation frequency at
 their defaults, so the run still produces a held-out evaluation at the final
 step. The run is scored from that final evaluation point.
 
-Create `$PTDBENCH_RESULTS/experiment_logs` first. Write the training and
+Create `$AUTORLBENCH_RESULTS/experiment_logs` first. Write the training and
 evaluation log into that directory. Offline W&B data must be created below
-`$PTDBENCH_RESULTS/experiment_logs/wandb`. The run is scored only from files
-under `$PTDBENCH_RESULTS/experiment_logs`; logs written anywhere else are
+`$AUTORLBENCH_RESULTS/experiment_logs/wandb`. The run is scored only from files
+under `$AUTORLBENCH_RESULTS/experiment_logs`; logs written anywhere else are
 ignored. Do not copy, edit, or fabricate log metrics. Otherwise the run is
 scored 0.

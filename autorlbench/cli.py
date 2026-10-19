@@ -9,7 +9,13 @@ import subprocess
 from pathlib import Path
 
 from .core.harbor_types import HarborEvaluationConfig
-from .core.types import AgentSpec, EnvironmentImage, EvaluationConfig, known_images
+from .core.types import (
+    TASK_FILE,
+    AgentSpec,
+    EnvironmentImage,
+    EvaluationConfig,
+    known_images,
+)
 from .evaluation.evaluator import TaskEvaluator
 from .evaluation.harbor_evaluator import HarborEvaluator, HarborShell
 from .runtimes.providers.docker import DockerRuntime
@@ -33,7 +39,7 @@ def _parse_env_assignments(assignments: list[str]) -> dict[str, str]:
 
 def _is_task_root(path: Path) -> bool:
     """A AutoRLBench task is identified by its metadata file, as the loader does."""
-    return any((path / name).is_file() for name in ("metadata.yaml", "metadata.yml"))
+    return (path / TASK_FILE).is_file()
 
 
 def expand_task_roots(paths: list[str]) -> list[Path]:
@@ -58,7 +64,7 @@ def expand_task_roots(paths: list[str]) -> list[Path]:
             )
         if not found:
             raise SystemExit(
-                f"{raw} is neither a task directory (no metadata.yaml) nor a "
+                f"{raw} is neither a task directory (no task.toml) nor a "
                 "directory containing task directories"
             )
         for task_root in found:
@@ -71,7 +77,7 @@ def expand_task_roots(paths: list[str]) -> list[Path]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    # 两个 evaluator 使用两个明确的入口，避免把 Harbor 混进 runtime 选择。
+    # Each evaluator gets its own explicit entry point, so Harbor stays out of runtime selection.
     ap = argparse.ArgumentParser(prog="autorlbench", allow_abbrev=False)
     sub = ap.add_subparsers(dest="command", required=True)
 
@@ -151,21 +157,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     e.add_argument(
         "--models-dir",
-        default=os.environ.get("PTDBENCH_MODELS_DIR"),
+        default=os.environ.get("AUTORLBENCH_MODELS_DIR"),
         help=(
             "host directory shared by every run as the model download cache; "
             "mounted writable into the prepare stage and read-only into the "
             "agent and verifier stages, so a model fetched by one task is not "
             "fetched again by the next (default: <repo>/models) "
-            "[env: PTDBENCH_MODELS_DIR]"
+            "[env: AUTORLBENCH_MODELS_DIR]"
         ),
     )
     e.add_argument(
         "--datasets-dir",
-        default=os.environ.get("PTDBENCH_DATASETS_DIR"),
+        default=os.environ.get("AUTORLBENCH_DATASETS_DIR"),
         help=(
             "same as --models-dir, for datasets (default: <repo>/datasets) "
-            "[env: PTDBENCH_DATASETS_DIR]"
+            "[env: AUTORLBENCH_DATASETS_DIR]"
         ),
     )
     e.add_argument("--timeout-s", type=int, default=None)
@@ -178,7 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="build the environment images under docker/images/ ahead of time",
         description=(
             "Build each environment image from docker/images/<name>.Dockerfile, "
-            "tagged as declared by its `# ptdbench-image:` header. "
+            "tagged as declared by its `# autorlbench-image:` header. "
             "`evaluate` builds a missing image on demand; this command lets a "
             "machine pay that cost up front. Images that already exist are "
             "skipped unless --rebuild is given."
@@ -231,19 +237,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     h.add_argument(
         "--models-dir",
-        default=os.environ.get("PTDBENCH_MODELS_DIR"),
+        default=os.environ.get("AUTORLBENCH_MODELS_DIR"),
         help=(
             "host model download cache; writable in prepare, mounted read-only "
             "into the Harbor container (default: <repo>/models) "
-            "[env: PTDBENCH_MODELS_DIR]"
+            "[env: AUTORLBENCH_MODELS_DIR]"
         ),
     )
     h.add_argument(
         "--datasets-dir",
-        default=os.environ.get("PTDBENCH_DATASETS_DIR"),
+        default=os.environ.get("AUTORLBENCH_DATASETS_DIR"),
         help=(
             "same as --models-dir, for datasets (default: <repo>/datasets) "
-            "[env: PTDBENCH_DATASETS_DIR]"
+            "[env: AUTORLBENCH_DATASETS_DIR]"
         ),
     )
     h.add_argument(
@@ -281,7 +287,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument(
         "task_root",
-        help="task directory (must contain metadata.yaml)",
+        help="task directory (must contain task.toml)",
     )
     s.add_argument(
         "--evaluation-level",
@@ -296,18 +302,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument(
         "--models-dir",
-        default=os.environ.get("PTDBENCH_MODELS_DIR"),
+        default=os.environ.get("AUTORLBENCH_MODELS_DIR"),
         help=(
             "host model download cache; mounted read-only into the container "
-            "(default: <repo>/models) [env: PTDBENCH_MODELS_DIR]"
+            "(default: <repo>/models) [env: AUTORLBENCH_MODELS_DIR]"
         ),
     )
     s.add_argument(
         "--datasets-dir",
-        default=os.environ.get("PTDBENCH_DATASETS_DIR"),
+        default=os.environ.get("AUTORLBENCH_DATASETS_DIR"),
         help=(
             "same as --models-dir, for datasets (default: <repo>/datasets) "
-            "[env: PTDBENCH_DATASETS_DIR]"
+            "[env: AUTORLBENCH_DATASETS_DIR]"
         ),
     )
     s.add_argument(
@@ -347,118 +353,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    g = sub.add_parser(
-        "harbor-stage",
-        help=(
-            "stage a task to the pre-agent state (prepared workspace, downloaded "
-            "weights) then stop — like harbor-shell, but also runs on a multi-GPU "
-            "Cybertron devspace via --backend cybertron"
-        ),
-        allow_abbrev=False,
-    )
-    g.add_argument("task_root", help="task directory (must contain metadata.yaml)")
-    g.add_argument(
-        "--backend",
-        choices=["docker", "cybertron"],
-        default="docker",
-        help=(
-            "where to stage: local docker (interactive shell, like harbor-shell) "
-            "or a Cybertron devspace (left running for manual experiments)"
-        ),
-    )
-    g.add_argument(
-        "--evaluation-level",
-        choices=["issue", "solution"],
-        default="solution",
-        help="evaluation level whose environment variables and workspace are used",
-    )
-    g.add_argument(
-        "--huggingface-mirror",
-        default=None,
-        help="Hugging Face mirror base URL, passed to the prepare stage as HF_ENDPOINT",
-    )
-    g.add_argument(
-        "--models-dir",
-        default=os.environ.get("PTDBENCH_MODELS_DIR"),
-        help="docker backend only: host model cache [env: PTDBENCH_MODELS_DIR]",
-    )
-    g.add_argument(
-        "--datasets-dir",
-        default=os.environ.get("PTDBENCH_DATASETS_DIR"),
-        help="docker backend only: host dataset cache [env: PTDBENCH_DATASETS_DIR]",
-    )
-    g.add_argument(
-        "--workspace-dir",
-        type=Path,
-        default=None,
-        help="docker backend only: staged workspace/state dir (default: "
-        "outputs/harbor-stage/<task-id>)",
-    )
-    g.add_argument(
-        "--force-prepare",
-        action="store_true",
-        help="docker backend only: re-run prepare.sh even if already staged",
-    )
-    g.add_argument(
-        "--shell",
-        default="bash",
-        dest="shell_cmd",
-        help="docker backend only: shell to start in the container (default: bash)",
-    )
-    g.add_argument(
-        "--gpus",
-        default=None,
-        help="docker backend: docker run --gpus value; cybertron backend: "
-        "devspace GPU count (default: 8 on cybertron)",
-    )
-    g.add_argument(
-        "--shm-size",
-        default=None,
-        help="docker backend only: docker run --shm-size value",
-    )
-    g.add_argument(
-        "--environment-kwarg",
-        action="append",
-        default=[],
-        metavar="KEY=VALUE",
-        help="cybertron backend: CybertronEnvironment kwarg (repeatable): "
-        "project, cluster, resource_pool, billing_account_id, cluster_user, …",
-    )
-    g.add_argument(
-        "--devspace-id",
-        default=None,
-        help="cybertron backend: attach to this existing devspace instead of "
-        "creating one (it is never stopped)",
-    )
-    g.add_argument(
-        "--image",
-        default=None,
-        help="cybertron backend: platform image id (e.g. 25607131), highest "
-        "precedence over the image_map",
-    )
-    g.add_argument(
-        "--keep",
-        dest="keep",
-        action="store_true",
-        default=True,
-        help="cybertron backend: leave the devspace running after staging (default)",
-    )
-    g.add_argument(
-        "--stop",
-        dest="keep",
-        action="store_false",
-        help="cybertron backend: stop an owned devspace after staging",
-    )
-    g.add_argument(
-        "--run",
-        action="store_true",
-        help="cybertron backend: actually create/attach + stage (default: dry-run)",
-    )
-    g.add_argument(
-        "--stage-command",
-        default="uv run --project harbor python harbor/scripts/cybertron_stage.py",
-        help="cybertron backend: executable for the harbor-side stager",
-    )
     return ap
 
 
@@ -473,8 +367,8 @@ def main(argv=None) -> int:
         try:
             report = evaluator.validate(args.task_root, strict=not args.lenient)
         except SchemaError as exc:
-            # 结构性错误（YAML 解析失败、environment 字段非法）本来会直接抛栈，但
-            # validate 的存在意义就是把问题讲清楚，所以也按 report 的形状输出。
+            # Structural errors (task.toml fails to parse, invalid environment field) would normally raise,
+            # but validate exists to explain problems clearly, so report them in the same shape.
             report = {
                 "ok": False,
                 "issues": [{"severity": "error", "path": args.task_root, "message": str(exc)}],
@@ -640,60 +534,6 @@ def main(argv=None) -> int:
             shm_size=args.shm_size,
         )
         return 0  # unreachable: shell() calls os.execvp
-
-    if args.command == "harbor-stage":
-        task_roots = expand_task_roots([args.task_root])
-        if len(task_roots) != 1:
-            raise SystemExit("harbor-stage accepts exactly one task directory")
-        task_root = task_roots[0]
-
-        if args.backend == "docker":
-            # Identical to harbor-shell: prepare then drop into the pre-agent
-            # container. Reused verbatim so there is one staging path for docker.
-            from .evaluation.harbor_evaluator import HarborShell
-
-            workspace_dir = (
-                Path(args.workspace_dir)
-                if args.workspace_dir is not None
-                else Path("outputs") / "harbor-stage" / task_root.name
-            )
-            HarborShell().shell(
-                task_root,
-                HarborEvaluationConfig(
-                    evaluation_level=args.evaluation_level,
-                    huggingface_mirror=args.huggingface_mirror,
-                    models_dir=(
-                        None if args.models_dir is None else Path(args.models_dir)
-                    ),
-                    datasets_dir=(
-                        None if args.datasets_dir is None else Path(args.datasets_dir)
-                    ),
-                ),
-                workspace_dir,
-                shell_cmd=args.shell_cmd,
-                force_prepare=args.force_prepare,
-                gpus=args.gpus,
-                shm_size=args.shm_size,
-            )
-            return 0  # unreachable: shell() calls os.execvp
-
-        # cybertron: shell out to the harbor-side stager (autorlbench never imports
-        # harbor as a library — same boundary harbor-evaluate uses for harbor run).
-        cmd = [*shlex.split(args.stage_command), str(task_root)]
-        cmd += ["--evaluation-level", args.evaluation_level]
-        cmd += ["--gpu", str(args.gpus) if args.gpus is not None else "8"]
-        if args.image is not None:
-            cmd += ["--image", args.image]
-        if args.huggingface_mirror is not None:
-            cmd += ["--hf-endpoint", args.huggingface_mirror]
-        if args.devspace_id is not None:
-            cmd += ["--environment-kwarg", f"devspace_id={args.devspace_id}"]
-        for pair in args.environment_kwarg:
-            cmd += ["--environment-kwarg", pair]
-        cmd.append("--keep" if args.keep else "--stop")
-        if args.run:
-            cmd.append("--run")
-        return subprocess.run(cmd).returncode
 
     return 2
 

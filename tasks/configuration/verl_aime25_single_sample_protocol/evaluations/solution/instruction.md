@@ -17,11 +17,9 @@ Concretely, update the workspace evaluation configuration
 `expected_generations: 960`.
 
 Do not modify the preserved original evaluation evidence under
-`workspace/ptdbench_case/original_eval/`. Do not modify any evaluation, oracle,
+`workspace/autorlbench_case/original_eval/`. Do not modify any evaluation, oracle,
 or verifier file. Do not use the network.
 
-> **Note (this task's solution grading differs from the other `ppo_critic`
-> tasks).** This is an evaluation-protocol repair, not a training run, so there
+> **Note.** This is an evaluation-protocol repair, not a training run, so there
 > is no metric-reconstruction grader. The verifier deterministically checks the
-> repaired protocol and that the preserved evidence is unchanged. See the
-> maintainer `readme.md`, "Evaluation design".
+> repaired protocol and that the preserved evidence is unchanged.

@@ -13,7 +13,7 @@ from ..factory import register_agent_runner
 
 @register_agent_runner("codex")
 class CodexAgentRunner(AgentRunner):
-    # 第一版 Codex 适配器：把任务说明拼成 prompt，然后按 CLI 调用。
+    # First Codex adapter: build a prompt from the task instructions, then invoke the CLI.
     provider_name = "autorlbench"
 
     def setup(
@@ -64,8 +64,8 @@ class CodexAgentRunner(AgentRunner):
             "/usr/local/bin/codex login status;"
         )
         debian_mirror_command = (
-            'if [ -n "${PTDBENCH_DEBIAN_MIRROR:-}" ]; then '
-            'mirror="${PTDBENCH_DEBIAN_MIRROR%/}"; '
+            'if [ -n "${AUTORLBENCH_DEBIAN_MIRROR:-}" ]; then '
+            'mirror="${AUTORLBENCH_DEBIAN_MIRROR%/}"; '
             "for sources in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do "
             '[ -f "$sources" ] || continue; '
             'sed -i '
@@ -84,7 +84,7 @@ class CodexAgentRunner(AgentRunner):
                 "set -euo pipefail;",
                 "echo '[setup] downloading nvm' >&2;",
                 "export NVM_DIR=/root/.nvm;",
-                'nvm_install_url="${PTDBENCH_NVM_INSTALL_URL:-https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh}";',
+                'nvm_install_url="${AUTORLBENCH_NVM_INSTALL_URL:-https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh}";',
                 "curl --fail --location --show-error --silent --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 ",
                 '"$nvm_install_url" -o /tmp/install-nvm.sh;',
                 "test -s /tmp/install-nvm.sh;",
@@ -129,7 +129,7 @@ class CodexAgentRunner(AgentRunner):
                 f"exec bash -lc {shlex.quote(bash_install)}"
             ),
             env=self._build_env(
-                {"PTDBENCH_DEBIAN_MIRROR": context.debian_mirror}
+                {"AUTORLBENCH_DEBIAN_MIRROR": context.debian_mirror}
                 if context.debian_mirror
                 else None
             ),
@@ -230,15 +230,15 @@ class CodexAgentRunner(AgentRunner):
                 "You are solving a AutoRLBench task.",
                 (
                     "Only modify files under the workspace, except for deliverables "
-                    "that the task explicitly requires under $PTDBENCH_RESULTS."
+                    "that the task explicitly requires under $AUTORLBENCH_RESULTS."
                 ),
                 "Do not touch oracle/ or verifier/.",
                 "Task instruction:",
                 context.instruction.strip(),
                 "",
-                "Workspace path: use $PTDBENCH_WORKSPACE.",
-                "Results path: use $PTDBENCH_RESULTS only for required deliverables.",
-                "Public task text path: use $PTDBENCH_VISIBLE_TASK/instruction.md.",
+                "Workspace path: use $AUTORLBENCH_WORKSPACE.",
+                "Results path: use $AUTORLBENCH_RESULTS only for required deliverables.",
+                "Public task text path: use $AUTORLBENCH_VISIBLE_TASK/instruction.md.",
             ]
         )
 
@@ -255,7 +255,7 @@ class CodexAgentRunner(AgentRunner):
         *,
         backend: str,
     ) -> None:
-        # 轨迹尽量压成一份，保留重放需要的关键字段就够了。
+        # Keep the trajectory to a single file with just the fields needed for replay.
         last_message = ""
         if last_message_path.exists():
             last_message = last_message_path.read_text(encoding="utf-8")

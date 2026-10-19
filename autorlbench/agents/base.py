@@ -18,7 +18,7 @@ from ..utils.filesystem import write_text
 
 @dataclass(frozen=True)
 class AgentExecutionContext:
-    # agent 运行时只看这个上下文，不直接依赖 evaluator 或具体 runtime。
+    # The agent runtime sees only this context, with no direct dependency on the evaluator or a specific runtime.
     task_id: str
     instruction: str
     metadata: Dict[str, Any]
@@ -30,16 +30,16 @@ class AgentExecutionContext:
     evaluation_level: str = "solution"
     log_level: str = "quiet"
     debian_mirror: Optional[str] = None
-    # 任务的 environment/ 目录和 prepare 阶段的产物目录，都以只读挂给 agent。
-    # agent 看得到 prepare.sh 是有意的：它要改的是训练代码，
-    # 而"环境里装了什么"是它做判断的前提，不是答案的一部分。
+    # The task's environment/ directory and the prepare-stage output directory are both mounted read-only for the agent.
+    # Letting the agent see prepare.sh is intentional: it is changing training code,
+    # and "what is installed in the environment" is a premise for its decisions, not part of the answer.
     environment_dir: Optional[Path] = None
     prepared_dir: Optional[Path] = None
-    # 两个下载缓存根，只读挂给 agent。看得到是为了排查时对得上账——交付路径仍然是
-    # prepare 用 --dest 写进 workspace 的那一份，任务脚本不该直接引用这两个目录。
+    # The two download cache roots, mounted read-only for the agent. Visible so debugging can reconcile them; delivery
+    # is still the copy prepare writes into workspace via --dest, and task scripts should not reference these directly.
     models_dir: Optional[Path] = None
     datasets_dir: Optional[Path] = None
-    # metadata.environment.env：逐任务不同的变量（如 CUDA_VISIBLE_DEVICES）。
+    # metadata.environment.env: per-task variables (e.g. CUDA_VISIBLE_DEVICES).
     task_env: Dict[str, str] = field(default_factory=dict)
 
     def sandbox_request(
@@ -50,7 +50,7 @@ class AgentExecutionContext:
         network: str = "bridge",
         workdir: str = "workspace",
     ) -> SandboxRequest:
-        """为 agent 创建统一的运行请求，路径细节交给 runtime 解析。"""
+        """Build a uniform run request for the agent; the runtime resolves path details."""
         return SandboxRequest(
             stage="agent",
             task_id=self.task_id,
@@ -72,7 +72,7 @@ class AgentExecutionContext:
 
 
 class AgentRunner(ABC):
-    # 每个具体 agent 都实现这个接口；evaluator 只依赖这里。
+    # Every concrete agent implements this interface; the evaluator depends only on it.
     def __init__(self, spec: AgentSpec):
         self.spec = spec
 
@@ -81,7 +81,7 @@ class AgentRunner(ABC):
         return self.spec.kind
 
     def _write_agent_trace(self, results_dir: Path, payload: Dict[str, Any]) -> Path:
-        # 统一把 agent 的最终轨迹收敛成一个 JSON 文件，减少 results 里的碎片。
+        # Collapse the agent's final trajectory into one JSON file to reduce clutter in results.
         path = results_dir / "agent_trace.json"
         write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
         return path
@@ -91,7 +91,7 @@ class AgentRunner(ABC):
         results_dir: Path,
         messages: Sequence[Dict[str, str]],
     ) -> Path:
-        """按 OpenAI message 风格逐行保存完整 agent 轨迹。"""
+        """Save the full agent trajectory line by line in OpenAI message style."""
         lines = []
         for message in messages:
             role = message.get("role")
@@ -133,5 +133,5 @@ class AgentRunner(ABC):
         artifact: Optional[EnvironmentArtifact],
         sandbox: Optional[SandboxInstance] = None,
     ) -> CommandResult:
-        # 具体 agent 只负责把 spec 翻译成命令；执行平台由 runtime 提供。
+        # Concrete agents only translate the spec into a command; the runtime provides execution.
         raise NotImplementedError

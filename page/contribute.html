@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contribute - AutoRLBench</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171716'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles.css?v=20261016-37">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles.css?v=20261019-1">
 </head>
 <body class="guide-page">
     <nav>
-        <a href="index.html" class="nav-logo">AutoRLBench</a>
+        <a href="index.html" class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></a>
         <div class="nav-links">
             <a href="index.html">HOME</a>
             <a href="index.html#tasks">TASKS</a>
@@ -85,19 +85,19 @@
             </div>
             <div class="guide-example">
                 <div>
-                    <h3>slime_retool_length_hack</h3>
+                    <h3>slime_retool_length_reward_bonus</h3>
                     <p>Training Qwen3-4B with GRPO on DAPO-Math-17k.</p>
                     <p>Issue: the model hacks the reward by generating longer answers. </p>
                     <p>Solution: remove the length bonus.</p>
-                    <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/tasks/slime_retool_length_hack" target="_blank" rel="noopener noreferrer">Open the sample <span aria-hidden="true">&rarr;</span></a>
+                    <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/tasks/reward/slime_retool_length_reward_bonus" target="_blank" rel="noopener noreferrer">Open the sample <span aria-hidden="true">&rarr;</span></a>
                 </div>
-                <pre>tasks/slime_retool_length_hack/
+                <pre>tasks/reward/slime_retool_length_reward_bonus/
 ├── environment/
 ├── workspace/             baseline run
 ├── evaluations/issue/
 ├── evaluations/solution/  solution run
-├── metadata.yaml
-└── readme.md</pre>
+├── task.toml
+└── README.md</pre>
             </div>
         </section>
 
@@ -117,7 +117,7 @@
                         </div>
                         <button type="button" id="copy-agent-prompt">Copy</button>
                     </div>
-                    <pre id="agent-prompt">Package the workspace at &lt;path&gt; as a PTDBench issue task using https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task.</pre>
+                    <pre id="agent-prompt">Package the workspace at &lt;path&gt; as a AutoRLBench issue task using https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task.</pre>
                 </article>
                 <article class="submit-way" id="pr">
                     <div class="submit-way-head">
@@ -163,7 +163,7 @@ git push -u origin contrib/your-task-name</pre>
 
     <footer id="contact">
         <div class="footer-grid">
-            <div class="footer-brand"><div class="nav-logo">AutoRLBench</div><p>A benchmark and open call for reproducible RL runs.</p></div>
+            <div class="footer-brand"><div class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></div><p>A benchmark and open call for reproducible RL runs.</p></div>
             <div class="footer-col"><h4>Benchmark</h4><a href="index.html#tasks">Tasks</a><a href="index.html#leaderboard">Leaderboard</a></div>
             <div class="footer-col"><h4>Contact</h4><a href="#levels">Issue and solution</a><a href="#agent">Agent</a><a href="#pr">Pull request</a></div>
         </div>

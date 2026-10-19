@@ -1,6 +1,6 @@
 `test.sh` is the single entry point. It does not use `submission.json`, an LLM,
 rules, or rubrics. It strips ANSI escapes and reconstructs `val/em` from
-`$PTDBENCH_RESULTS/experiment_logs`.
+`$AUTORLBENCH_RESULTS/experiment_logs`.
 
 - `metric_key`: `val/em`, exact-match accuracy on the 128 held-out HotpotQA
   questions, in `[0, 1]`. The trainer prints it on its own step lines

@@ -1,6 +1,6 @@
 `test.sh` is the single entry point. It does not use `submission.json`, an LLM,
 rules, or rubrics. It strips ANSI escapes and reconstructs `eval/aime` from
-`$PTDBENCH_RESULTS/experiment_logs`.
+`$AUTORLBENCH_RESULTS/experiment_logs`.
 
 `eval/aime` is read in the math_dapo **score** space, the `[-1, 1]` range the
 frozen historical trace was logged in (`eval_reward_key: score`, see

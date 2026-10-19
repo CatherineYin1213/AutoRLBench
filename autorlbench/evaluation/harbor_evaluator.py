@@ -28,7 +28,7 @@ from ..core.types import (
     DATASETS_DIR,
     MODELS_DIR,
     PREPARED_DIR,
-    PTDBENCH_ENVIRONMENT_DIR,
+    AUTORLBENCH_ENVIRONMENT_DIR,
     CommandResult,
     EnvironmentImage,
     EvaluationConfig,
@@ -41,16 +41,16 @@ from .evaluator import TaskEvaluator
 from ..utils.filesystem import copy_tree, ensure_dir, tree_digest, write_text
 
 
-# 镜像里 activate hook 的位置；见 docker/images/*.Dockerfile 的工具层。
-ACTIVATE_HOOK = "/etc/profile.d/ptdbench-activate.sh"
+# Location of the activate hook in the image; see the tooling layer in docker/images/*.Dockerfile.
+ACTIVATE_HOOK = "/etc/profile.d/autorlbench-activate.sh"
 
 
 class HarborAdapterError(RuntimeError):
-    """AutoRLBench 与 Harbor 交界处的配置或结果错误。"""
+    """Configuration or result error at the boundary between AutoRLBench and Harbor."""
 
 
 class HarborTaskMaterializer:
-    """把选定的 AutoRLBench evaluation 在线物化为一批 Harbor task。"""
+    """Materialize the selected AutoRLBench evaluations on the fly as a batch of Harbor tasks."""
 
     def materialize(
         self,
@@ -61,7 +61,7 @@ class HarborTaskMaterializer:
         if not units:
             raise HarborAdapterError("at least one task is required")
         root = destination.resolve()
-        # Harbor 的 -p/--path 接受"父目录下每个子目录是一个 task"，批量与单任务同构。
+        # Harbor's -p/--path accepts "each subdirectory of a parent is a task", so batch and single-task share one shape.
         tasks_dir = ensure_dir(root / "tasks")
         prepared = PreparedHarborTask(root=root, tasks_dir=tasks_dir, units=units)
         self._reject_duplicate_task_names(units)
@@ -71,7 +71,7 @@ class HarborTaskMaterializer:
 
     @staticmethod
     def _reject_duplicate_task_names(units: Sequence[HarborTaskUnit]) -> None:
-        """同名 task 会互相覆盖物化结果，也无法从 trial 反查来源。"""
+        """Tasks with the same name would overwrite each other's output and could not be traced back from trials."""
         seen: Dict[str, Path] = {}
         for unit in units:
             name = unit.harbor_task_name
@@ -106,32 +106,32 @@ class HarborTaskMaterializer:
         write_text(task_dir / "instruction.md", instruction)
 
     def _write_environment(self, unit: HarborTaskUnit, task_dir: Path) -> None:
-        """environment/ 只放 workspace 的内容，不放 Dockerfile。
+        """environment/ holds only the workspace contents, no Dockerfile.
 
-        task.toml 声明了 `docker_image`，Harbor 直接起预构建镜像；而 environment/
-        里没有 Dockerfile / docker-compose.yaml 时，Harbor 会在容器启动后把整个
-        目录上传到 workdir（/workspace）。这正好就是 agent 要改的那份副本。
+        task.toml declares `docker_image`, so Harbor starts the prebuilt image directly; and when environment/
+        has no Dockerfile / docker-compose.yaml, Harbor uploads the whole directory to the workdir
+        (/workspace) after the container starts. That is exactly the copy the agent modifies.
 
-        有 staging 就用 prepare 写过的那份（权重可能就下在里面）；硬链接复制，
-        几十 GB 的权重不会在磁盘上再占一份。
+        With staging, use the copy prepare wrote (weights may have been downloaded into it); copying via hard links
+        means tens of GB of weights are not duplicated on disk.
         """
         source = unit.workspace or unit.package.paths.workspace
         environment_dir = task_dir / "environment"
         for name in ("Dockerfile", "docker-compose.yaml"):
             if (source / name).exists():
-                # 放进 environment/ 就会被 Harbor 当成构建定义，而不是上传的文件。
+                # Anything in environment/ would be treated by Harbor as a build definition, not an uploaded file.
                 raise HarborAdapterError(
                     f"workspace of {unit.package.task_id!r} contains {name}; Harbor "
                     "would build it instead of using the prebuilt image"
                 )
         self._link_tree(source, environment_dir)
         if not any(environment_dir.iterdir()):
-            # 空目录 Harbor 不会上传，/workspace 也就不存在；留一个占位文件。
-            write_text(environment_dir / ".ptdbench-workspace", "")
+            # Harbor does not upload an empty directory, so /workspace would not exist; leave a placeholder file.
+            write_text(environment_dir / ".autorlbench-workspace", "")
 
     @staticmethod
     def _link_tree(source: Path, destination: Path) -> None:
-        """尽量硬链接，跨文件系统时退回普通复制。"""
+        """Hard link where possible, falling back to a regular copy across filesystems."""
 
         def link_or_copy(src: str, dst: str) -> None:
             try:
@@ -155,10 +155,10 @@ class HarborTaskMaterializer:
 
     @staticmethod
     def _write_solution(evaluation: EvaluationPaths, task_dir: Path) -> None:
-        """evaluations/<level>/solution/ 原样成为 Harbor 的 solution/。
+        """evaluations/<level>/solution/ becomes Harbor's solution/ as-is.
 
-        只有 `harbor run -a oracle` 会把它上传到容器并执行 solve.sh，用来端到端
-        验证"镜像 + GPU + prepare 产物 + verifier"这条链路；普通 agent 看不到。
+        Only `harbor run -a oracle` uploads it to the container and runs solve.sh, to verify end to end
+        the "image + GPU + prepare outputs + verifier" chain; regular agents never see it.
         """
         source = evaluation.root / "solution"
         if not (source / "solve.sh").is_file():
@@ -171,22 +171,22 @@ class HarborTaskMaterializer:
         return r'''#!/usr/bin/env bash
 set +e
 
-# Harbor 用 `bash -c` 而不是登录 shell 执行命令，/etc/profile.d 不会自动生效；
-# prepare.sh 写进 $PTDBENCH_PREPARED/env 的变量要靠这一行导出。
-if [ -f /etc/profile.d/ptdbench-activate.sh ]; then
-  . /etc/profile.d/ptdbench-activate.sh
+# Harbor runs commands with `bash -c`, not a login shell, so /etc/profile.d does not take effect;
+# variables prepare.sh wrote to $AUTORLBENCH_PREPARED/env are exported by this line.
+if [ -f /etc/profile.d/autorlbench-activate.sh ]; then
+  . /etc/profile.d/autorlbench-activate.sh
 fi
 
-bash "$PTDBENCH_VERIFIER/test.sh"
+bash "$AUTORLBENCH_VERIFIER/test.sh"
 verifier_status=$?
 
-# 结构化结果放进 verifier 日志，确保远程 Harbor environment 也会下载回来。
-result_file="$PTDBENCH_RESULTS/result.json"
+# Put the structured result in the verifier log so remote Harbor environments download it too.
+result_file="$AUTORLBENCH_RESULTS/result.json"
 if [ -f "$result_file" ]; then
-  cp "$result_file" /logs/verifier/ptdbench-result.json
+  cp "$result_file" /logs/verifier/autorlbench-result.json
 fi
 
-# Harbor 只消费 reward 文件；AutoRLBench 的完整 metrics 仍由 result.json 承载。
+# Harbor only consumes the reward file; AutoRLBench's full metrics still live in result.json.
 score=""
 if [ -f "$result_file" ]; then
   score="$(tr '\n' ' ' < "$result_file" | sed -nE 's/.*"score"[[:space:]]*:[[:space:]]*(-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?).*/\1/p')"
@@ -212,20 +212,20 @@ exit "$verifier_status"
             )
         return EnvironmentImage(package.environment.image).tag
 
-    # 离线开关：与 SandboxRuntime._network_policy_env 对 agent / verifier 给的一致。
-    # 联网的只有 prepare，而它在 `harbor run` 之前就跑完了。
+    # Offline switches: same as SandboxRuntime._network_policy_env gives agent / verifier.
+    # Only prepare has network, and it finishes before `harbor run`.
     _OFFLINE_ENV = {
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",
         "HF_DATASETS_OFFLINE": "1",
         "WANDB_MODE": "offline",
-        "WANDB_API_KEY": "ptdbench-offline",
+        "WANDB_API_KEY": "autorlbench-offline",
         "WANDB_SILENT": "true",
     }
 
-    # /workspace 收回来只用于留档和 workspace_after_hash；判分在 shared 容器里读的
-    # 是真实的 /workspace。权重和训练 checkpoint 动辄几十上百 GB，而带 exclude 的
-    # 下载是容器里一次 `tar czf`（Harbor 给它 120s），所以按后缀挡掉。
+    # /workspace is collected only for archiving and workspace_after_hash; grading in the shared container reads
+    # the real /workspace. Weights and training checkpoints are often tens to hundreds of GB, and a download with
+    # excludes is a single `tar czf` in the container (Harbor allows 120s), so filter by suffix.
     _WORKSPACE_ARTIFACT_EXCLUDE = (
         "*.safetensors",
         "*.bin",
@@ -249,43 +249,43 @@ exit "$verifier_status"
         title = str(package.metadata.get("title") or package.task_id)
         docker_image = self._docker_image(package)
 
-        # 两个 stage 共用的部分：挂载路径、离线开关，以及让 `bash -c` 也加载
-        # activate hook 的 BASH_ENV（Harbor 不起登录 shell）。
+        # Shared by both stages: mount paths, offline switches, and BASH_ENV so `bash -c` also loads
+        # the activate hook (Harbor does not start a login shell).
         shared_env = {
-            "PTDBENCH_TASK_ID": package.task_id,
-            "PTDBENCH_EVALUATION_LEVEL": evaluation.level,
-            "PTDBENCH_WORKSPACE": "/workspace",
-            "PTDBENCH_RESULTS": "/logs/artifacts",
-            "PTDBENCH_VISIBLE_TASK": "/ptdbench",
-            "PTDBENCH_PREPARED": PREPARED_DIR,
-            "PTDBENCH_MODELS": MODELS_DIR,
-            "PTDBENCH_DATASETS": DATASETS_DIR,
-            "PTDBENCH_ENVIRONMENT": (
-                PTDBENCH_ENVIRONMENT_DIR if package.paths.environment.is_dir() else ""
+            "AUTORLBENCH_TASK_ID": package.task_id,
+            "AUTORLBENCH_EVALUATION_LEVEL": evaluation.level,
+            "AUTORLBENCH_WORKSPACE": "/workspace",
+            "AUTORLBENCH_RESULTS": "/logs/artifacts",
+            "AUTORLBENCH_VISIBLE_TASK": "/autorlbench",
+            "AUTORLBENCH_PREPARED": PREPARED_DIR,
+            "AUTORLBENCH_MODELS": MODELS_DIR,
+            "AUTORLBENCH_DATASETS": DATASETS_DIR,
+            "AUTORLBENCH_ENVIRONMENT": (
+                AUTORLBENCH_ENVIRONMENT_DIR if package.paths.environment.is_dir() else ""
             ),
             "BASH_ENV": ACTIVATE_HOOK,
             **self._OFFLINE_ENV,
         }
         agent_env = {
             **shared_env,
-            "PTDBENCH_TASK_ROOT": "/ptdbench",
-            "PTDBENCH_STAGE": "agent",
+            "AUTORLBENCH_TASK_ROOT": "/autorlbench",
+            "AUTORLBENCH_STAGE": "agent",
         }
         verifier_env = {
             **shared_env,
-            "PTDBENCH_TASK_ROOT": "/tests",
-            "PTDBENCH_ORACLE": oracle_path,
-            "PTDBENCH_VERIFIER": "/tests/verifier",
-            "PTDBENCH_STAGE": "verifier",
-            "PTDBENCH_JUDGE_PROVIDER": "openai-compatible",
+            "AUTORLBENCH_TASK_ROOT": "/tests",
+            "AUTORLBENCH_ORACLE": oracle_path,
+            "AUTORLBENCH_VERIFIER": "/tests/verifier",
+            "AUTORLBENCH_STAGE": "verifier",
+            "AUTORLBENCH_JUDGE_PROVIDER": "openai-compatible",
             "OPENAI_BASE_URL": "${OPENAI_BASE_URL:-https://api.openai.com/v1}",
             "OPENAI_API_KEY": "${OPENAI_API_KEY:-}",
         }
         if config.judge_model:
-            verifier_env["PTDBENCH_JUDGE_MODEL"] = config.judge_model
+            verifier_env["AUTORLBENCH_JUDGE_MODEL"] = config.judge_model
 
-        # 任务声明的 env（CUDA_VISIBLE_DEVICES 之类）两个 stage 都要给。PTDBENCH_*
-        # 进不来，EnvironmentPlan 已经挡过一道。
+        # Task-declared env (CUDA_VISIBLE_DEVICES and the like) goes to both stages. AUTORLBENCH_*
+        # cannot get in; EnvironmentPlan already filtered it.
         for key, value in package.environment.env.items():
             agent_env[key] = value
             verifier_env[key] = value
@@ -302,8 +302,8 @@ name = {self._toml_string(task_name)}
 description = {self._toml_string(title)}
 
 [metadata]
-ptdbench_task_id = {self._toml_string(package.task_id)}
-ptdbench_evaluation_level = {self._toml_string(evaluation.level)}
+autorlbench_task_id = {self._toml_string(package.task_id)}
+autorlbench_evaluation_level = {self._toml_string(evaluation.level)}
 
 [agent]
 network_mode = {self._toml_string(config.agent_network)}
@@ -325,17 +325,17 @@ build_timeout_sec = {self._environment_start_timeout(task_dir / "environment")}
 '''
         write_text(task_dir / "task.toml", task_toml)
 
-    # Harbor 的默认值；预构建镜像不 build，这段时间几乎全花在上传 workspace 上。
+    # Harbor's default; prebuilt images skip the build, so this time goes almost entirely to uploading workspace.
     _ENVIRONMENT_START_BASE_SEC = 600
-    # `docker compose cp` 的保守吞吐：每 GB 给 60s。
+    # Conservative `docker compose cp` throughput: 60s per GB.
     _ENVIRONMENT_START_SEC_PER_GB = 60
 
     @classmethod
     def _environment_start_timeout(cls, environment_dir: Path) -> int:
-        """build_timeout_sec 在 Harbor 里罩住整个环境启动，包括 environment/ 上传。
+        """In Harbor, build_timeout_sec covers the whole environment startup, including the environment/ upload.
 
-        prepare 把权重下进 workspace 的任务（slime_retool 约 16GB）按默认 600s
-        会在 agent 开始前就超时，所以按实际上传量放宽。
+        Tasks where prepare downloads weights into workspace (slime_retool, about 16GB) would time out under the
+        default 600s before the agent even starts, so it is relaxed according to the actual upload size.
         """
         size = sum(
             path.stat().st_size
@@ -363,7 +363,7 @@ build_timeout_sec = {self._environment_start_timeout(task_dir / "environment")}
         config: HarborEvaluationConfig,
     ) -> None:
         payload = {
-            "adapter": "ptdbench-harbor",
+            "adapter": "autorlbench-harbor",
             "task_id": package.task_id,
             "evaluation_level": evaluation.level,
             "verifier_mode": "shared",
@@ -377,11 +377,11 @@ build_timeout_sec = {self._environment_start_timeout(task_dir / "environment")}
 
 
 class HarborRunner:
-    """通过 CLI 启动 Harbor，避免与 Harbor 的 Python 版本和内部 API 耦合。"""
+    """Launch Harbor via its CLI to avoid coupling to Harbor's Python version and internal API."""
 
     _TASK_PATH_ARGS = {"-p", "--path"}
-    # 挂载由 AutoRLBench 按 prepare 产物决定，而 Harbor 的 --mounts 是整个 job 共用的，
-    # 所以每个 unit 单独一个 job；用户再传一份只会覆盖掉 prepared 的挂载。
+    # AutoRLBench decides mounts from prepare outputs, while Harbor's --mounts applies to the whole job,
+    # so each unit gets its own job; a user-supplied copy would only override the prepared mount.
     _MOUNT_ARGS = {"--mounts", "--mounts-json"}
 
     def run(
@@ -398,9 +398,9 @@ class HarborRunner:
         jobs_dir_value = self._option_value(harbor_args, "-o", "--jobs-dir")
         config_path = self._option_value(harbor_args, "-c", "--config")
         injected_args = []
-        # 没有 job config 时补全结果位置；使用 config 时完全尊重 Harbor 的配置。
+        # Without a job config, fill in the result location; with one, fully respect Harbor's config.
         if job_name is not None and job_name_suffix:
-            # 批量时用户给的 job 名要按 unit 区分，否则第二个 job 会撞上第一个。
+            # In a batch, the user's job name must be distinguished per unit, or the second job collides with the first.
             job_name = f"{job_name}-{job_name_suffix}"
             harbor_args = self._replace_option(harbor_args, "--job-name", job_name)
         if config_path is None:
@@ -461,7 +461,7 @@ class HarborRunner:
         argv: Sequence[str],
         cwd: Path,
     ) -> subprocess.CompletedProcess:
-        """实时转发 Harbor 输出，同时保留一份用于评测报告和结果定位。"""
+        """Stream Harbor output live while keeping a copy for the evaluation report and locating results."""
         with subprocess.Popen(
             argv,
             cwd=str(cwd),
@@ -508,7 +508,7 @@ class HarborRunner:
 
     @classmethod
     def _validate_harbor_args(cls, args: Sequence[str]) -> None:
-        """--path 必须指向在线生成的 task，其他参数保持 Harbor 原义。"""
+        """--path must point to the generated tasks; other arguments keep their Harbor meaning."""
         for arg in args:
             name = arg.split("=", 1)[0]
             if name in cls._TASK_PATH_ARGS:
@@ -527,10 +527,10 @@ class HarborRunner:
         prepared: PreparedHarborTask,
         config: HarborEvaluationConfig,
     ) -> list[Dict[str, Any]]:
-        """prepare 产物、任务 environment/ 和两个下载缓存，全部只读。
+        """Prepare outputs, the task environment/, and both download caches, all read-only.
 
-        与 docker 评测里 agent / verifier 看到的挂载一致；可写的只有 Harbor 上传
-        的 /workspace。
+        Matches the mounts agent / verifier see in docker evaluation; the only writable one is the
+        /workspace Harbor uploads.
         """
         if len(prepared.units) != 1:
             raise HarborAdapterError(
@@ -541,7 +541,7 @@ class HarborRunner:
         if unit.prepared is not None:
             pairs.append((unit.prepared, PREPARED_DIR))
         if unit.package.paths.environment.is_dir():
-            pairs.append((unit.package.paths.environment, PTDBENCH_ENVIRONMENT_DIR))
+            pairs.append((unit.package.paths.environment, AUTORLBENCH_ENVIRONMENT_DIR))
         pairs.append((config.models_dir, MODELS_DIR))
         pairs.append((config.datasets_dir, DATASETS_DIR))
         return [
@@ -556,12 +556,12 @@ class HarborRunner:
 
     @staticmethod
     def _compose_overlay_args(prepared: PreparedHarborTask) -> list[str]:
-        """任务的 environment/docker-compose.yaml 作为 compose overlay 交给 Harbor。
+        """Pass the task's environment/docker-compose.yaml to Harbor as a compose overlay.
 
-        GPU 任务靠它拿到设备预留和 shm_size：Harbor 的 docker 环境声明不支持
-        GPU，task.toml 里写 `gpus` 会被拒，能生效的只有 `main` 服务上的 compose
-        覆盖。它不能放进生成 task 的 environment/——那里有 compose 文件时 Harbor
-        就不再上传 workspace——所以走 `--extra-docker-compose`，与 job 一一对应。
+        GPU tasks get device reservations and shm_size from it: Harbor's docker environment declaration does not
+        support GPUs, `gpus` in task.toml is rejected, and only a compose override on the `main` service
+        takes effect. It cannot go in the generated task's environment/ (with a compose file there, Harbor
+        stops uploading workspace), so it goes through `--extra-docker-compose`, one per job.
         """
         overlays = []
         for unit in prepared.units:
@@ -609,7 +609,7 @@ class HarborRunner:
 
     @staticmethod
     def _reported_job_dir(stdout: str, cwd: Path) -> Optional[Path]:
-        """从 Harbor 的稳定完成提示中读取实际结果目录。"""
+        """Read the actual result directory from Harbor's stable completion message."""
         for line in reversed(stdout.splitlines()):
             match = re.search(r"Results written to (.+?result\.json)\s*$", line)
             if match is None:
@@ -623,11 +623,11 @@ class HarborRunner:
     @staticmethod
     def _job_name() -> str:
         timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
-        return f"ptdbench-{timestamp}-{uuid.uuid4().hex[:8]}"
+        return f"autorlbench-{timestamp}-{uuid.uuid4().hex[:8]}"
 
 
 class HarborResultMapper:
-    """读取一个 Harbor job，并转换其中的所有 trial 结果。"""
+    """Read one Harbor job and convert all of its trial results."""
 
     def map(
         self,
@@ -659,7 +659,7 @@ class HarborResultMapper:
             command=run.command,
         )
         write_text(
-            run.job_dir / "ptdbench-report.json",
+            run.job_dir / "autorlbench-report.json",
             json.dumps(report.to_dict(), indent=2, ensure_ascii=False),
         )
         return report
@@ -670,11 +670,11 @@ class HarborResultMapper:
         units: Dict[str, HarborTaskUnit],
         all_units: Sequence[HarborTaskUnit],
     ) -> HarborTaskUnit:
-        """按 Harbor 的 task_name 把 trial 归回它的 AutoRLBench task。"""
+        """Map a trial back to its AutoRLBench task by Harbor's task_name."""
         task_name = trial.get("task_name")
         if isinstance(task_name, str) and task_name in units:
             return units[task_name]
-        # 单任务批次里 task_name 缺失仍可无歧义归属，历史 Harbor 版本依赖这一点。
+        # In a single-task batch a missing task_name can still be attributed unambiguously; older Harbor versions rely on this.
         if task_name is None and len(all_units) == 1:
             return all_units[0]
         raise HarborAdapterError(
@@ -687,7 +687,7 @@ class HarborResultMapper:
         job_dir: Path,
         job_result: Dict[str, Any],
     ) -> list[Dict[str, Any]]:
-        """当前 Harbor 将完整结果写在各 trial 目录，job 结果只保留汇总。"""
+        """Current Harbor writes full results in each trial directory; the job result keeps only the summary."""
         trials = []
         try:
             children = sorted(job_dir.iterdir(), key=lambda path: path.name)
@@ -707,7 +707,7 @@ class HarborResultMapper:
         if trials:
             return trials
 
-        # 兼容仍把 trial_results 内嵌在 job/result.json 的旧版 Harbor。
+        # Support older Harbor versions that still embed trial_results in job/result.json.
         embedded = job_result.get("trial_results")
         if isinstance(embedded, list) and embedded:
             return embedded
@@ -725,9 +725,9 @@ class HarborResultMapper:
         trial_dir = self._trial_dir(run.job_dir, trial.get("trial_name"))
 
         artifact_error = self._workspace_artifact_error(trial_dir)
-        ptdbench_result = self._read_ptdbench_result(trial_dir)
+        autorlbench_result = self._read_autorlbench_result(trial_dir)
         rewards = self._rewards(trial)
-        metrics = self._metrics(ptdbench_result, rewards, trial, config)
+        metrics = self._metrics(autorlbench_result, rewards, trial, config)
 
         infrastructure_errors = []
         if run.command.returncode != 0 or run.command.timed_out:
@@ -759,7 +759,7 @@ class HarborResultMapper:
             score=score if not infrastructure_errors else 0.0,
             metrics=metrics,
             report_dir=trial_dir,
-            # Agent/model/backend 等信息以 Harbor 原生命令和 job config 为准。
+            # Agent/model/backend and similar info follow Harbor's native command and job config.
             agent_spec=None,
             agent_setup=None,
             agent=None,
@@ -813,9 +813,9 @@ class HarborResultMapper:
             return "Harbor /workspace artifact directory is missing"
         return None
 
-    def _read_ptdbench_result(self, trial_dir: Path) -> Dict[str, Any]:
+    def _read_autorlbench_result(self, trial_dir: Path) -> Dict[str, Any]:
         candidates = (
-            trial_dir / "verifier" / "ptdbench-result.json",
+            trial_dir / "verifier" / "autorlbench-result.json",
             trial_dir / "artifacts" / "logs" / "artifacts" / "result.json",
         )
         for path in candidates:
@@ -840,19 +840,19 @@ class HarborResultMapper:
 
     @staticmethod
     def _metrics(
-        ptdbench_result: Dict[str, Any],
+        autorlbench_result: Dict[str, Any],
         rewards: Dict[str, float],
         trial: Dict[str, Any],
         config: HarborEvaluationConfig,
     ) -> Dict[str, Any]:
         metrics: Dict[str, Any] = {}
-        nested = ptdbench_result.get("metrics")
+        nested = autorlbench_result.get("metrics")
         if isinstance(nested, dict):
             metrics.update(nested)
         for key in ("passed", "score"):
-            if key in ptdbench_result:
-                metrics[key] = ptdbench_result[key]
-        for key, value in ptdbench_result.items():
+            if key in autorlbench_result:
+                metrics[key] = autorlbench_result[key]
+        for key, value in autorlbench_result.items():
             if key not in {"metrics", "passed", "score"} and key not in metrics:
                 metrics[key] = value
         metrics["harbor_rewards"] = rewards
@@ -902,7 +902,7 @@ class HarborResultMapper:
         result: EvaluationResult,
     ) -> None:
         write_text(
-            trial_dir / "ptdbench-harbor-command.json",
+            trial_dir / "autorlbench-harbor-command.json",
             json.dumps(command.to_dict(), indent=2, ensure_ascii=False),
         )
         write_text(
@@ -912,11 +912,11 @@ class HarborResultMapper:
 
 
 class HarborPreparer:
-    """在 `harbor run` 之前，用同一个镜像跑任务的 prepare.sh。
+    """Run the task's prepare.sh in the same image before `harbor run`.
 
-    prepare 是唯一联网的阶段，下模型、下数据集、写 prepared/env。它不进 Harbor：
-    Harbor 的 agent / verifier 都是离线的，而且一个 job 里没有"先跑一段准备"的
-    位置。复用 TaskEvaluator 的 staging 和 prepare 逻辑，与 docker 评测完全一致。
+    Prepare is the only stage with network: it downloads models and datasets and writes prepared/env. It stays out of Harbor:
+    Harbor's agent / verifier are offline, and a job has no slot for "run a setup step first".
+    It reuses TaskEvaluator's staging and prepare logic, identical to docker evaluation.
     """
 
     def __init__(self, evaluator: Optional[TaskEvaluator] = None) -> None:
@@ -951,7 +951,7 @@ class HarborPreparer:
             keep_artifacts=True,
         )
         run = evaluator._prepare_run(package, unit.evaluation, eval_config)
-        # 镜像按环境共享：已存在直接用，不存在才构建。Harbor 用的是同一个 tag。
+        # Images are shared per environment: reuse if present, build only if missing. Harbor uses the same tag.
         artifact = evaluator.runtime.ensure_environment(image)
         print(
             f"[autorlbench] Preparing {package.task_id} in {artifact.reference or image.tag}",
@@ -969,18 +969,18 @@ class HarborPreparer:
 
 
 class HarborShell:
-    """prepare → docker run -it でインタラクティブシェルを起動する。
+    """prepare, then launch an interactive shell via docker run -it.
 
-    harbor-evaluate の agent フェーズと完全に同じ環境を用意しながら、Harbor と
-    agent を起動せずにインタラクティブシェルを渡す。HarborPreparer でステージング
-    し、HarborRunner._mounts() や HarborTaskMaterializer._write_task_config() と
-    同じマウント・env 構成を docker run に変換する。
+    Sets up exactly the same environment as the agent phase of harbor-evaluate, but hands over an
+    interactive shell instead of starting Harbor and the agent. Stages with HarborPreparer
+    and converts the same mounts and env as HarborRunner._mounts() and HarborTaskMaterializer._write_task_config()
+    into docker run arguments.
 
-    workspace のステージング結果は state_file に記録され、次回起動時に
-    --force-prepare なしで再利用できる。16GB 超の prepare を毎回走らせないためのもの。
+    The workspace staging result is recorded in state_file and reused on the next launch
+    without --force-prepare, so a 16GB+ prepare does not run every time.
     """
 
-    _STATE_FILE = "ptdbench-shell.json"
+    _STATE_FILE = "autorlbench-shell.json"
 
     def __init__(self, preparer: Optional[HarborPreparer] = None) -> None:
         self.preparer = preparer or HarborPreparer()
@@ -997,7 +997,7 @@ class HarborShell:
         shm_size: Optional[str] = None,
         extra_docker_args: Sequence[str] = (),
     ) -> None:
-        """prepare して docker run -it に exec する。os.execvp で置き換わるため戻らない。"""
+        """prepare and exec into docker run -it. Does not return, since os.execvp replaces the process."""
         package = load_task_package(Path(task_root))
         if not package.report.ok:
             raise SchemaError(f"task package failed validation: {package.paths.root}")
@@ -1068,8 +1068,8 @@ class HarborShell:
     ) -> list[str]:
         argv = ["docker", "run", "--rm", "-it"]
 
-        # GPU 予約と shm_size は docker-compose.yaml のオーバーレイから来る値を踏襲する。
-        # 明示的に引数を渡した場合のみその値を使い、なければオーバーレイの有無で判定する。
+        # GPU reservation and shm_size follow the values from the docker-compose.yaml overlay.
+        # Explicit arguments win; otherwise decide based on whether an overlay exists.
         overlay = package.paths.environment / "docker-compose.yaml"
         has_overlay = overlay.is_file()
         effective_gpus = gpus if gpus is not None else ("all" if has_overlay else None)
@@ -1079,38 +1079,38 @@ class HarborShell:
         if effective_shm:
             argv.extend(["--shm-size", effective_shm])
 
-        # workspace は書き込み可；その他はすべて読み取り専用 — harbor-evaluate と同じ方針。
+        # workspace is writable; everything else is read-only, same policy as harbor-evaluate.
         assert unit.workspace is not None
         argv.extend(["-v", f"{unit.workspace}:/workspace"])
         if unit.prepared is not None and Path(unit.prepared).is_dir():
             argv.extend(["-v", f"{unit.prepared}:{PREPARED_DIR}:ro"])
         if package.paths.environment.is_dir():
             argv.extend(
-                ["-v", f"{package.paths.environment.resolve()}:{PTDBENCH_ENVIRONMENT_DIR}:ro"]
+                ["-v", f"{package.paths.environment.resolve()}:{AUTORLBENCH_ENVIRONMENT_DIR}:ro"]
             )
         argv.extend(["-v", f"{config.models_dir}:{MODELS_DIR}:ro"])
         argv.extend(["-v", f"{config.datasets_dir}:{DATASETS_DIR}:ro"])
 
         argv.extend(["-w", "/workspace"])
 
-        # _write_task_config() の agent_env と同じ構成。PTDBENCH_RESULTS は
-        # /workspace 配下の書き込み可能な場所にする（/logs/artifacts は存在しない）。
+        # Same setup as agent_env in _write_task_config(). AUTORLBENCH_RESULTS points to a
+        # writable location under /workspace (/logs/artifacts does not exist).
         env: Dict[str, str] = {
-            "PTDBENCH_TASK_ID": package.task_id,
-            "PTDBENCH_EVALUATION_LEVEL": unit.evaluation.level,
-            "PTDBENCH_WORKSPACE": "/workspace",
-            "PTDBENCH_RESULTS": "/workspace/ptdbench-results",
-            "PTDBENCH_TASK_ROOT": "/workspace",
-            "PTDBENCH_STAGE": "agent",
-            "PTDBENCH_PREPARED": PREPARED_DIR,
-            "PTDBENCH_MODELS": MODELS_DIR,
-            "PTDBENCH_DATASETS": DATASETS_DIR,
-            "PTDBENCH_ENVIRONMENT": (
-                PTDBENCH_ENVIRONMENT_DIR if package.paths.environment.is_dir() else ""
+            "AUTORLBENCH_TASK_ID": package.task_id,
+            "AUTORLBENCH_EVALUATION_LEVEL": unit.evaluation.level,
+            "AUTORLBENCH_WORKSPACE": "/workspace",
+            "AUTORLBENCH_RESULTS": "/workspace/autorlbench-results",
+            "AUTORLBENCH_TASK_ROOT": "/workspace",
+            "AUTORLBENCH_STAGE": "agent",
+            "AUTORLBENCH_PREPARED": PREPARED_DIR,
+            "AUTORLBENCH_MODELS": MODELS_DIR,
+            "AUTORLBENCH_DATASETS": DATASETS_DIR,
+            "AUTORLBENCH_ENVIRONMENT": (
+                AUTORLBENCH_ENVIRONMENT_DIR if package.paths.environment.is_dir() else ""
             ),
             "BASH_ENV": ACTIVATE_HOOK,
             **self._OFFLINE_ENV,
-            # task 宣言の env（CUDA_VISIBLE_DEVICES 等）で上書きする。
+            # Override with task-declared env (CUDA_VISIBLE_DEVICES, etc.).
             **package.environment.env,
         }
         for key, value in env.items():
@@ -1121,12 +1121,12 @@ class HarborShell:
         argv.append(shell_cmd)
         return argv
 
-    # harbor-evaluate の離線フラグと同一セット。
+    # Same set of offline flags as harbor-evaluate.
     _OFFLINE_ENV = HarborTaskMaterializer._OFFLINE_ENV
 
 
 class HarborEvaluator:
-    """AutoRLBench 的 Harbor 执行入口，与 TaskEvaluator 并行存在。"""
+    """AutoRLBench's Harbor execution entry point, alongside TaskEvaluator."""
 
     def __init__(
         self,
@@ -1152,17 +1152,17 @@ class HarborEvaluator:
         config: Optional[HarborEvaluationConfig] = None,
         strict: bool = True,
     ) -> HarborEvaluationReport:
-        """逐个 task：prepare → 物化 → 一个 Harbor job，最后合并成一份报告。
+        """Per task: prepare, materialize, one Harbor job; finally merge into one report.
 
-        每个 task 单独一个 job，是因为 Harbor 的挂载是 job 级的，而 prepared 目录
-        是逐任务的。某个 task 的 prepare 失败只让它缺席报告，不拖累其余的。
+        Each task gets its own job because Harbor mounts are job-level, while the prepared directory
+        is per task. A task whose prepare fails is just missing from the report and does not hold back the rest.
         """
         config = config or HarborEvaluationConfig()
         units = [
             self._load_unit(task_root, config.evaluation_level, strict)
             for task_root in self._normalize_task_roots(task_roots)
         ]
-        # 同名 task 放进各自的 job 也会互相覆盖报告，先整批拦下。
+        # Same-named tasks would overwrite each other's reports even in separate jobs, so reject the whole batch up front.
         self.materializer._reject_duplicate_task_names(units)
         batch = len(units) > 1
         reports: list[HarborEvaluationReport] = []
@@ -1204,7 +1204,7 @@ class HarborEvaluator:
             )
             return self.result_mapper.map(prepared, run, config)
         finally:
-            # Harbor job 保存在原生 --jobs-dir；这里只清理 prepare staging 和临时 task。
+            # Harbor jobs stay in the native --jobs-dir; only prepare staging and temporary tasks are cleaned up here.
             shutil.rmtree(root, ignore_errors=True)
 
     @staticmethod
@@ -1269,9 +1269,9 @@ class HarborEvaluator:
         if len(units) == 1:
             unit = units[0]
             safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", unit.package.task_id).strip("-.")
-            prefix = f"ptdbench-harbor-{safe_id or 'task'}-{unit.evaluation.level}-"
+            prefix = f"autorlbench-harbor-{safe_id or 'task'}-{unit.evaluation.level}-"
         else:
-            prefix = f"ptdbench-harbor-batch-{len(units)}-"
+            prefix = f"autorlbench-harbor-batch-{len(units)}-"
         parent = ensure_dir(temp_dir).resolve() if temp_dir is not None else None
         return Path(
             tempfile.mkdtemp(

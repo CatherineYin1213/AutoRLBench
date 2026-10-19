@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoRLBench - Benchmark Tasks</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171716'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles.css?v=20261018-1">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles.css?v=20261019-1">
 </head>
 <body class="home-page">
     <nav>
-        <a href="index.html" class="nav-logo">AutoRLBench</a>
+        <a href="index.html" class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></a>
         <div class="nav-links">
             <a href="index.html">HOME</a>
             <a href="#tasks">TASKS</a>
@@ -28,7 +28,7 @@
         <p>A benchmark and open call for valuable, reproducible RL runs. We welcome both problematic runs and healthy reference runs. Issue evaluation is available now; Solution evaluation is coming soon.</p>
         <div class="hero-stats">
             <div class="stat">
-                <div class="stat-number">20</div>
+                <div class="stat-number" id="hero-task-count">6</div>
                 <div class="stat-label">Tasks</div>
             </div>
             <div class="stat">
@@ -40,7 +40,7 @@
                 <div class="stat-label">Live evaluation</div>
             </div>
             <div class="stat">
-                <div class="stat-number">9</div>
+                <div class="stat-number" id="hero-system-count">7</div>
                 <div class="stat-label">Evaluated systems</div>
             </div>
         </div>
@@ -62,7 +62,7 @@
             </div>
             <div class="task-overview-stat-divider" aria-hidden="true"></div>
             <div class="task-overview-stat">
-                <strong id="active-task-count">20</strong>
+                <strong id="active-task-count">6</strong>
                 <span>TASKS</span>
                 <em class="collecting-note">Actively collecting</em>
             </div>
@@ -115,7 +115,7 @@
     <footer id="contact">
         <div class="footer-grid">
             <div class="footer-brand">
-                <div class="nav-logo">AutoRLBench</div>
+                <div class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></div>
                 <p>A benchmark and open call for complete, reproducible RL runs.</p>
             </div>
             <div class="footer-col">
@@ -140,8 +140,7 @@
         </div>
     </footer>
 
-    <script src="task-data.js?v=20261018-3"></script>
-    <script src="app.js?v=20261018-2"></script>
-    <script src="site.js?v=20261016-3"></script>
+    <script src="task-data.js?v=20261019-1"></script>
+    <script src="app.js?v=20261019-1"></script>
 </body>
 </html>

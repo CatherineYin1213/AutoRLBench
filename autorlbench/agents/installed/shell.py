@@ -10,7 +10,7 @@ from ..factory import register_agent_runner
 
 @register_agent_runner("shell")
 class ShellAgentRunner(AgentRunner):
-    # 最轻量的兜底 runner：直接执行一条 shell 命令。
+    # Minimal fallback runner: run a single shell command directly.
 
     def setup(
         self,

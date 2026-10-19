@@ -1,4 +1,4 @@
-const TASKS = window.RSIBENCH_RL_TASKS || [];
+const TASKS = window.AUTORLBENCH_TASKS || [];
 
 const TASK_CATEGORIES = [
     'Configuration',
@@ -18,27 +18,10 @@ const DOMAIN_BLURBS = {
     Infrastructure: 'Runtime, engine, and systems failures.'
 };
 
-const DOMAIN_COUNTS = {
-    Configuration: 6,
-    Reward: 7,
-    Data: 1,
-    Environment: 1,
-    Algorithm: 1,
-    Infrastructure: 4
-};
-
-const RESULT_TASK_IDS = [
-    'verl_hyper/qwen_dapo_hparam/task_hparam_overlong_023',
-    'verl_implementation/data_format/task_agent_loop_022-llama-dapo-math',
-    'verl_implementation/llama_dapo_implementation/task_monkey_patch_011',
-    'verl_implementation/verl_reward_implementation/task_engine_base_025',
-    'rlve_hyper/task_001',
-    'rlve_hyper/task_008',
-    'rlve_hyper/task_012',
-    'rlve_hyper/task_019',
-    'reward_design/task_evaluator',
-    'reward_design/task_function_call'
-];
+// Tasks per domain: the samples in task-data.js. Collection is ongoing.
+const DOMAIN_COUNTS = Object.fromEntries(
+    TASK_CATEGORIES.map(family => [family, TASKS.filter(task => task.family === family).length])
+);
 
 const ISSUE_RESULTS = [
     { model: 'GPT-6-Astra', agent: 'Codex', score: 0.62 },
@@ -49,8 +32,6 @@ const ISSUE_RESULTS = [
     { model: 'Kimi-K3', agent: 'Claude Code', score: 0.77 },
     { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.69 }
 ];
-
-let activeResultTask = 'all';
 
 function tasksForFamily(family) {
     return TASKS.filter(task => task.family === family);
@@ -64,6 +45,10 @@ function renderDomainCards() {
     const activeCount = document.getElementById('active-task-count');
     if (domainCount) domainCount.textContent = String(TASK_CATEGORIES.length);
     if (activeCount) activeCount.textContent = String(Object.values(DOMAIN_COUNTS).reduce((sum, count) => sum + count, 0));
+    const heroTasks = document.getElementById('hero-task-count');
+    const heroSystems = document.getElementById('hero-system-count');
+    if (heroTasks) heroTasks.textContent = String(TASKS.length);
+    if (heroSystems) heroSystems.textContent = String(ISSUE_RESULTS.length);
 
     mount.innerHTML = TASK_CATEGORIES.map((family, index) => {
         const count = DOMAIN_COUNTS[family] || 0;
@@ -103,14 +88,6 @@ function renderTaskCatalog() {
             </a>
         `;
     }).join('');
-}
-
-function resultTaskLabel(taskId) {
-    return TASKS.find(task => task.id === taskId)?.title || taskId;
-}
-
-function average(scores) {
-    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 }
 
 function renderLeaderboard() {

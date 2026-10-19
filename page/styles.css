@@ -4495,3 +4495,18 @@ body.home-page .task-overview-stat strong {
     border-radius: inherit;
     background: var(--brick);
 }
+
+/* Image wordmark */
+.nav-logo img {
+    display: block;
+    height: 24px;
+    width: auto;
+}
+
+.nav-logo:has(img)::after {
+    content: none;
+}
+
+.footer-brand .nav-logo img {
+    height: 22px;
+}

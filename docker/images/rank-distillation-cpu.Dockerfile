@@ -1,7 +1,7 @@
 # AutoRLBench environment `rank-distillation-cpu`.
-# ptdbench-image: ptdbench/rank-distillation-cpu:torch2.13-cpu-py3.12
+# autorlbench-image: autorlbench/rank-distillation-cpu:torch2.13-cpu-py3.12
 #
-# CPU-only Python 3.12 slim environment for the ptdbench_rank_distillation_collapse
+# CPU-only Python 3.12 slim environment for the rank_distillation_collapse
 # issue task.  No GPU, no CUDA required.
 #
 # Issue profile installs: torch 2.13.0+cpu, numpy 1.26.4, PyYAML 6.0.3, and the
@@ -11,7 +11,7 @@
 # CPU tensor probes without any GPU driver present.
 #
 # GPU training profile is NOT baked here; it requires Linux x86_64 + CUDA 13 and
-# is driven by prepare.sh with PTDBENCH_PREPARE_PROFILE=training.
+# is driven by prepare.sh with AUTORLBENCH_PREPARE_PROFILE=training.
 #
 # The workspace verl source is NOT baked here: the harness bind-mounts each task's
 # workspace at /workspace, and PYTHONPATH=/workspace/verl (written to prepared/env
@@ -51,7 +51,7 @@ RUN python -m pip config set global.index-url \
 #     --python-platform x86_64-unknown-linux-gnu
 #     --extra-index-url https://download.pytorch.org/whl/cpu
 #     --index-strategy unsafe-best-match --generate-hashes
-# Inline (not COPY'd): docker/.dockerignore allowlists only ptdbench-activate.sh,
+# Inline (not COPY'd): docker/.dockerignore allowlists only autorlbench-activate.sh,
 # so requirements must be inlined.  Same pattern as ppo-critic-vimpo.Dockerfile.
 RUN python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
         --index-strategy unsafe-best-match \
@@ -920,25 +920,25 @@ PY
 # ---- AutoRLBench tooling: keep identical in every docker/images/*.Dockerfile ----
 # Build context is docker/ (see docker/.dockerignore for what it may COPY).
 
-RUN mkdir -p /ptdbench/prepared /ptdbench/models /ptdbench/datasets
+RUN mkdir -p /autorlbench/prepared /autorlbench/models /autorlbench/datasets
 
 # Every command the harness runs goes through `sh -lc`, and a login shell's
 # /etc/profile may reset PATH. Record the image's own PATH so the hook can put
 # back whatever it drops (/usr/local/cuda/bin, /root/.cargo/bin, ...).
-RUN printf '%s\n' "$PATH" > /etc/ptdbench-image-path
-COPY ptdbench-activate.sh /etc/profile.d/ptdbench-activate.sh
+RUN printf '%s\n' "$PATH" > /etc/autorlbench-image-path
+COPY autorlbench-activate.sh /etc/profile.d/autorlbench-activate.sh
 RUN set -eux; \
-    sed -i 's/\r$//' /etc/profile.d/ptdbench-activate.sh; \
-    chmod 0644 /etc/profile.d/ptdbench-activate.sh; \
-    sh -n /etc/profile.d/ptdbench-activate.sh
+    sed -i 's/\r$//' /etc/profile.d/autorlbench-activate.sh; \
+    chmod 0644 /etc/profile.d/autorlbench-activate.sh; \
+    sh -n /etc/profile.d/autorlbench-activate.sh
 
 ENV CUDA_DEVICE_ORDER=PCI_BUS_ID \
     TOKENIZERS_PARALLELISM=false
 
-# The prepare-stage fetch/dataset tooling (ptdbench_fetch.py, ptdbench_dataset.py,
-# ptdbench_datasets/) is deliberately NOT baked here. docker/install-ptdbench-tooling.sh
+# The prepare-stage fetch/dataset tooling (autorlbench_fetch.py, autorlbench_dataset.py,
+# autorlbench_datasets/) is deliberately NOT baked here. docker/install-autorlbench-tooling.sh
 # installs it into /usr/local at the start of every prepare run, from the repo's
-# current copy (mounted RO locally, uploaded on Cybertron). That keeps a fix to
+# current copy (mounted read-only into the container). That keeps a fix to
 # those files reaching running jobs without an image rebuild. Only the activate
 # hook above stays baked -- it must exist in the agent/verifier containers too,
 # which never run prepare-time provisioning.

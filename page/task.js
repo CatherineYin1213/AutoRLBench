@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const tasks = window.RSIBENCH_RL_TASKS || window.PTDBENCH_TASKS || [];
+    const tasks = window.AUTORLBENCH_TASKS || [];
     const params = new URLSearchParams(window.location.search);
     const taskId = params.get('id');
     const task = tasks.find(item => item.id === taskId);

@@ -1,6 +1,6 @@
 # Metric-only solution verifier
 
-`test.sh` extracts the task metric only from fresh `$PTDBENCH_RESULTS/experiment_logs`, including offline W&B files under `$PTDBENCH_RESULTS/experiment_logs/wandb`. It does not grade `submission.json`, code rules, rubrics, or an LLM judgment.
+`test.sh` extracts the task metric only from fresh `$AUTORLBENCH_RESULTS/experiment_logs`, including offline W&B files under `$AUTORLBENCH_RESULTS/experiment_logs/wandb`. It does not grade `submission.json`, code rules, rubrics, or an LLM judgment.
 
 It reads every log under `experiment_logs` and scores the `val-core/math_dapo/acc/mean@1` point at **step 200** (`final_step` in `grader_spec.json`). That value must be at least `0.060` (6.0%). Pass is score `1`; all failures are score `0`. A run whose logs contain no step-200 point fails with `missing ... at step 200`. Earlier steps are parsed and reported (`peak_step` / `peak_score` in `metrics.json`) but are never graded.
 

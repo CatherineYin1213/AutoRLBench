@@ -26,7 +26,7 @@ run.py
 Run it exactly like this, from `/workspace`:
 
 ```bash
-python3 run.py --run-name graded --runs-dir "$PTDBENCH_RESULTS/experiment_logs"
+python3 run.py --run-name graded --runs-dir "$AUTORLBENCH_RESULTS/experiment_logs"
 ```
 
 That entry point owns the whole run: it starts the local retrieval server on
@@ -54,7 +54,7 @@ needs at least 10 GiB of free disk, and it refuses a GPU that already has
 memory in use. Release anything you started on the GPU before launching, and do
 not reuse a `--run-name` that already exists.
 
-The run is scored only from files under `$PTDBENCH_RESULTS/experiment_logs`;
+The run is scored only from files under `$AUTORLBENCH_RESULTS/experiment_logs`;
 logs written anywhere else are ignored. `run.py` creates
 `experiment_logs/graded/` with `train.log`, `retrieval_server.log`,
 `retrieval.jsonl`, `rollouts/`, `run_config.json`, `exit_status.json` and the

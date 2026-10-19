@@ -13,7 +13,7 @@ from autorlbench.core.types import (
     DATASETS_DIR,
     MODELS_DIR,
     PREPARED_DIR,
-    PTDBENCH_ENVIRONMENT_DIR,
+    AUTORLBENCH_ENVIRONMENT_DIR,
     AgentSpec,
     CommandResult,
     EnvironmentPlan,
@@ -55,7 +55,7 @@ class RecordingRuntime(SandboxRuntime):
             "results": "/results",
             "oracle": "/task/oracle",
             "verifier": "/task/verifier",
-            "environment": PTDBENCH_ENVIRONMENT_DIR,
+            "environment": AUTORLBENCH_ENVIRONMENT_DIR,
             "prepared": PREPARED_DIR,
             "models": MODELS_DIR,
             "datasets": DATASETS_DIR,
@@ -138,11 +138,11 @@ class SandboxLifecycleTests(unittest.TestCase):
 
     def test_sensitive_docker_env_uses_name_only(self):
         argv, process_env = DockerRuntime._docker_env(
-            {"OPENAI_API_KEY": "secret", "PTDBENCH_STAGE": "agent"}
+            {"OPENAI_API_KEY": "secret", "AUTORLBENCH_STAGE": "agent"}
         )
         self.assertEqual(
             argv,
-            ["-e", "OPENAI_API_KEY", "-e", "PTDBENCH_STAGE=agent"],
+            ["-e", "AUTORLBENCH_STAGE=agent", "-e", "OPENAI_API_KEY"],
         )
         self.assertEqual(process_env["OPENAI_API_KEY"], "secret")
         self.assertNotIn("secret", " ".join(argv))
@@ -210,7 +210,7 @@ class SandboxLifecycleTests(unittest.TestCase):
             )
         )
         argv, process_env = DockerRuntime._docker_env(env)
-        self.assertEqual(env["PTDBENCH_JUDGE_MODEL"], "judge-model")
+        self.assertEqual(env["AUTORLBENCH_JUDGE_MODEL"], "judge-model")
         self.assertEqual(env["OPENAI_BASE_URL"], "https://api.example.test/v1")
         self.assertIn("-e", argv)
         self.assertNotIn("secret-key", " ".join(argv))
@@ -245,7 +245,7 @@ class SandboxLifecycleTests(unittest.TestCase):
                     {
                         "task_id": "task",
                         "environment": EnvironmentPlan(),
-                        # _environment_mount 读的是 paths.environment。
+                        # _environment_mount reads paths.environment.
                         "paths": type("Paths", (), {"environment": root / "environment"})(),
                     },
                 )(),
@@ -284,7 +284,7 @@ class SandboxLifecycleTests(unittest.TestCase):
             )
 
         self.assertEqual(runtime.request.env["HTTPS_PROXY"], "http://proxy:7890")
-        self.assertEqual(runtime.request.env["PTDBENCH_JUDGE_MODEL"], "gpt-5.5")
+        self.assertEqual(runtime.request.env["AUTORLBENCH_JUDGE_MODEL"], "gpt-5.5")
         self.assertEqual(
             runtime.request.env["OPENAI_BASE_URL"],
             "https://api.example.test/v1",
@@ -326,10 +326,10 @@ class SandboxLifecycleTests(unittest.TestCase):
         )
         with patch.dict(
             "os.environ",
-            {"PTDBENCH_DOCKER_PROXY": "http://host.docker.internal:7890"},
+            {"AUTORLBENCH_DOCKER_PROXY": "http://host.docker.internal:7890"},
             clear=False,
         ):
-            env = DockerRuntime._proxy_env(request, {"PTDBENCH_STAGE": "agent"})
+            env = DockerRuntime._proxy_env(request, {"AUTORLBENCH_STAGE": "agent"})
         self.assertEqual(env["HTTP_PROXY"], "http://host.docker.internal:7890")
         self.assertEqual(env["HTTPS_PROXY"], "http://host.docker.internal:7890")
         self.assertEqual(env["ALL_PROXY"], "http://host.docker.internal:7890")
@@ -344,11 +344,11 @@ class SandboxLifecycleTests(unittest.TestCase):
         )
         with patch.dict(
             "os.environ",
-            {"PTDBENCH_DOCKER_PROXY": "http://host.docker.internal:7890"},
+            {"AUTORLBENCH_DOCKER_PROXY": "http://host.docker.internal:7890"},
             clear=False,
         ):
             verifier_env = DockerRuntime._proxy_env(
-                verifier_request, {"PTDBENCH_STAGE": "verifier"}
+                verifier_request, {"AUTORLBENCH_STAGE": "verifier"}
             )
         self.assertEqual(
             verifier_env["HTTPS_PROXY"], "http://host.docker.internal:7890"
@@ -391,8 +391,8 @@ class SandboxLifecycleTests(unittest.TestCase):
         self.assertEqual(runtime.setup_spec.live_log_name, "agent_setup")
         self.assertFalse(runtime.setup_spec.live_log_to_stderr)
         self.assertIn("[setup] downloading nvm", shell)
-        self.assertIn("PTDBENCH_DEBIAN_MIRROR", shell)
-        self.assertIn("PTDBENCH_NVM_INSTALL_URL", shell)
+        self.assertIn("AUTORLBENCH_DEBIAN_MIRROR", shell)
+        self.assertIn("AUTORLBENCH_NVM_INSTALL_URL", shell)
         self.assertIn("[setup] installing @openai/codex@latest", shell)
         self.assertIn("[setup] complete", shell)
 
@@ -438,7 +438,7 @@ class SandboxLifecycleTests(unittest.TestCase):
             "https://npmmirror.com/mirrors/node",
         )
         self.assertEqual(
-            runtime.setup_spec.env["PTDBENCH_DEBIAN_MIRROR"],
+            runtime.setup_spec.env["AUTORLBENCH_DEBIAN_MIRROR"],
             "https://mirrors.tuna.tsinghua.edu.cn",
         )
         self.assertEqual(runtime.setup_spec.env["OPENAI_API_KEY"], "secret")
@@ -502,11 +502,11 @@ class SandboxLifecycleTests(unittest.TestCase):
         )
         self.assertRegex(
             prefix,
-            r"^ptdbench-run-swe_slugfix-001-trial-issue-\d{8}-\d{6}-\d{6}-$",
+            r"^autorlbench-run-swe_slugfix-001-trial-issue-\d{8}-\d{6}-\d{6}-$",
         )
 
     def test_huggingface_mirror_reaches_the_prepare_stage_as_hf_endpoint(self):
-        # 下载发生在 prepare 阶段，镜像源也就只能从这个阶段的环境变量进去。
+        # Downloads happen in the prepare stage, so mirror settings can only enter through that stage's env vars.
         env = TaskEvaluator._prepare_mirror_env(
             EvaluationConfig(huggingface_mirror="https://hf-mirror.com")
         )
@@ -531,7 +531,7 @@ class SandboxLifecycleTests(unittest.TestCase):
             context = self.context(Path(temp_dir))
             prompt = CodexAgentRunner(AgentSpec(kind="codex"))._build_prompt(context)
         self.assertIn("deliverables", prompt)
-        self.assertIn("$PTDBENCH_RESULTS", prompt)
+        self.assertIn("$AUTORLBENCH_RESULTS", prompt)
 
     def test_codex_keeps_workspace_sandbox_for_local_runtime(self):
         runner = CodexAgentRunner(AgentSpec(kind="codex"))

@@ -12,9 +12,9 @@ from ..factory import register_agent_runner
 
 @register_agent_runner("opencode")
 class OpenCodeAgentRunner(AgentRunner):
-    """通过 OpenCode CLI 调用 OpenAI-compatible 模型。"""
+    """Call an OpenAI-compatible model through the OpenCode CLI."""
 
-    # 使用一个固定的 provider 名称，避免要求每个 task 额外提供 OpenCode 配置文件。
+    # Use a fixed provider name so tasks need not supply an OpenCode config file.
     provider_name = "autorlbench"
 
     def run(
@@ -83,8 +83,8 @@ class OpenCodeAgentRunner(AgentRunner):
         return argv
 
     def _model_name(self) -> str:
-        # SGLang 当前默认返回 /model；保留斜杠后 selector 会自然变成
-        # autorlbench//model。若服务使用 --served-model-name，则直接使用新名称。
+        # SGLang currently returns /model by default; keeping the slash makes the selector
+        # autorlbench//model. If the server uses --served-model-name, that name is used directly.
         return self.spec.model or "/model"
 
     def _model_selector(self) -> str:
@@ -96,14 +96,14 @@ class OpenCodeAgentRunner(AgentRunner):
                 "You are solving a AutoRLBench task.",
                 (
                     "Only modify files under the workspace, except for deliverables "
-                    "that the task explicitly requires under $PTDBENCH_RESULTS."
+                    "that the task explicitly requires under $AUTORLBENCH_RESULTS."
                 ),
                 "Do not touch oracle/ or verifier/.",
                 "Task instruction:",
                 context.instruction.strip(),
                 "",
                 f"Workspace absolute path: {workspace_path}",
-                "Use $PTDBENCH_RESULTS only for deliverables required by the task.",
+                "Use $AUTORLBENCH_RESULTS only for deliverables required by the task.",
                 "Use that exact absolute path when calling file tools.",
                 "Do not guess or construct a different workspace path.",
                 "The task instruction above is the complete public task description.",
@@ -119,7 +119,7 @@ class OpenCodeAgentRunner(AgentRunner):
         *,
         backend: str,
     ) -> None:
-        """把 OpenCode JSON 事件流转换成逐行的 role/content 消息。"""
+        """Convert the OpenCode JSON event stream into line-by-line role/content messages."""
         metadata = {
             "type": "run_metadata",
             "agent": self.kind,
@@ -152,7 +152,7 @@ class OpenCodeAgentRunner(AgentRunner):
         self._write_agent_trace_jsonl(results_dir, messages)
 
     def _event_messages(self, event: Dict[str, Any]) -> list[Dict[str, str]]:
-        """将一个 OpenCode event 转成一条或多条标准 message。"""
+        """Convert one OpenCode event into one or more standard messages."""
         event_type = event.get("type")
         part = event.get("part")
         if not isinstance(part, dict):
@@ -190,8 +190,8 @@ class OpenCodeAgentRunner(AgentRunner):
                 self._message("tool", tool_result),
             ]
 
-        # step_start/step_finish 中包含 snapshot、token 用量和停止原因。
-        # 这些不是自然语言消息，但属于完整轨迹，因此作为 system 事件保留。
+        # step_start/step_finish carry the snapshot, token usage, and stop reason.
+        # They are not natural-language messages but belong to the full trajectory, so keep them as system events.
         return [self._message("system", {"type": event_type, "event": event})]
 
     @staticmethod
@@ -204,7 +204,7 @@ class OpenCodeAgentRunner(AgentRunner):
 
     @staticmethod
     def _redact_config(config: Dict[str, Any]) -> Dict[str, Any]:
-        # trace 中保留连接地址和模型名，但不保存 API key。
+        # The trace keeps the endpoint and model name but never the API key.
         copied = json.loads(json.dumps(config))
         provider = copied.get("provider", {}).get("autorlbench", {})
         options = provider.get("options", {})

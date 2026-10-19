@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 from ..agents import AgentExecutionContext, AgentRunner, create_agent_runner, resolve_agent_spec
 from ..core.types import (
     DOCKER_DIR,
-    PTDBENCH_ENVIRONMENT_DIR,
+    AUTORLBENCH_ENVIRONMENT_DIR,
     TOOLING_INSTALLER,
     AgentSpec,
     TaskPackage,
@@ -36,15 +36,15 @@ from ..utils.filesystem import copy_tree, ensure_dir, tree_digest, write_text
 
 @dataclass(frozen=True)
 class PreparedRun:
-    """一次评测的隔离 staging 目录。"""
+    """Isolated staging directory for one evaluation."""
 
     root: Path
     visible_task: Path
     workspace: Path
     results: Path
-    # prepare 阶段的产物落点。prepare 可写，agent / verifier 只读挂同一个目录。
+    # Where prepare-stage outputs land. Writable in prepare; agent / verifier mount the same directory read-only.
     prepared: Path
-    # 跨 run、跨任务共享的下载缓存。prepare 可写，agent / verifier 只读。
+    # Download caches shared across runs and tasks. Writable in prepare, read-only for agent / verifier.
     models: Path
     datasets: Path
 
@@ -56,12 +56,12 @@ class AgentRunOutcome:
 
 
 class TaskEvaluator:
-    """负责安排 task、agent、runtime 和 verifier 的执行顺序。"""
+    """Orchestrates the execution order of task, agent, runtime, and verifier."""
 
     def __init__(self, backend: str = "docker"):
         self.backend = backend
         self.log_level = "quiet"
-        # evaluator 只选择 runtime，不直接处理 Docker 或本机进程细节。
+        # The evaluator only picks a runtime and never handles Docker or local process details directly.
         self.runtime = create_runtime(backend)
 
     def load(self, task_root: str | Path, strict: bool = True) -> TaskPackage:
@@ -76,7 +76,7 @@ class TaskEvaluator:
         config: EvaluationConfig | None = None,
         strict: bool = True,
     ) -> EvaluationResult:
-        """运行一次 agent + verifier 评测。"""
+        """Run one agent + verifier evaluation."""
         config = config or EvaluationConfig(backend=self.backend)
         self.log_level = config.log_level
         if self.log_level not in {"quiet", "debug"}:
@@ -108,11 +108,11 @@ class TaskEvaluator:
                 image = package.environment.environment_image
                 if image is None:
                     raise SchemaError(
-                        f"{package.paths.metadata_yaml}: metadata.environment.image "
+                        f"{package.paths.task_toml}: metadata.environment.image "
                         f"is required by the {self.runtime.name} backend"
                     )
-                # 镜像按环境名共享：已存在就直接用，不存在才照
-                # docker/images/<image>.Dockerfile 构建。
+                # Images are shared by environment name: reuse if present, otherwise build from
+                # docker/images/<image>.Dockerfile.
                 artifact = self.runtime.ensure_environment(image)
                 self._append_run_log(
                     run.results,
@@ -125,8 +125,8 @@ class TaskEvaluator:
                 package, evaluation, run, config, artifact
             )
             if prepare_result is not None and prepare_result.returncode != 0:
-                # prepare 失败了还往下跑，agent 会在一个没有模型的 workspace 里作业，
-                # 最后的失败会被记成 agent 的失败——那是一条查半天的假线索。
+                # If we kept going after prepare failed, the agent would work in a workspace with no model,
+                # and the final failure would be blamed on the agent: a misleading lead that wastes hours.
                 self._append_run_log(
                     run.results, "[SKIP] agent reason=prepare_failed"
                 )
@@ -220,7 +220,7 @@ class TaskEvaluator:
         evaluation: EvaluationPaths,
         config: EvaluationConfig,
     ) -> PreparedRun:
-        """创建运行目录，只向 agent 暴露 instruction 和 workspace 副本。"""
+        """Create the run directory, exposing only the instruction and a workspace copy to the agent."""
         parent = config.work_dir
         if parent is not None:
             parent = parent.resolve()
@@ -235,12 +235,12 @@ class TaskEvaluator:
         workspace = ensure_dir(root / "workspace")
         results = ensure_dir(root / "results")
         prepared = ensure_dir(root / "prepared")
-        # 缓存留在 run 目录之外才有意义：run 目录跑完就删，模型下一次还得重下。
-        # EvaluationConfig 保证这两个值一定有（默认是仓库根的 models/ 和 datasets/），
-        # 所以这里没有"这次没有缓存"的分支。
+        # Caches only make sense outside the run directory: it is deleted afterwards, and models would be redownloaded.
+        # EvaluationConfig guarantees both values are set (defaulting to models/ and datasets/ at the repo root),
+        # so there is no "no cache this time" branch here.
         models = ensure_dir(config.models_dir)
         datasets = ensure_dir(config.datasets_dir)
-        # Agent 改的是这份副本，不是仓库里的任务目录。
+        # The agent modifies this copy, not the task directory in the repo.
         copy_tree(package.paths.workspace, workspace)
         write_text(
             visible_task / "instruction.md",
@@ -256,7 +256,7 @@ class TaskEvaluator:
         safe_task_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", task_id).strip("-._")
         safe_task_id = safe_task_id or "task"
         timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
-        return f"ptdbench-run-{safe_task_id}-{evaluation_level}-{timestamp}-"
+        return f"autorlbench-run-{safe_task_id}-{evaluation_level}-{timestamp}-"
 
     def _build_agent_context(
         self,
@@ -286,16 +286,16 @@ class TaskEvaluator:
 
     @staticmethod
     def _environment_mount(package: TaskPackage) -> Optional[Path]:
-        """任务的 environment/ 目录，没有就不挂。"""
+        """The task's environment/ directory, or nothing to mount if absent."""
         return package.paths.environment if package.paths.environment.is_dir() else None
 
     @staticmethod
     def _prepare_script(package: TaskPackage) -> Optional[str]:
-        """prepare.sh 在容器里的路径，任务没有这个脚本就返回 None。
+        """Container path of prepare.sh, or None if the task has no such script.
 
-        脚本必须待在任务的 `environment/` 目录里，因为那是唯一被挂进容器的那一份。
-        声明一个在外面的路径会在容器里变成"文件不存在"，报错点离原因很远，所以在
-        这里就拦掉。
+        The script must live in the task's `environment/` directory, since that is the only copy mounted into the container.
+        A path outside it would become "file not found" in the container, far from the real cause, so
+        it is rejected here.
         """
         prepare = package.environment.prepare
         if prepare is None:
@@ -313,7 +313,7 @@ class TaskEvaluator:
                 f"{package.paths.environment}; only that directory is mounted into the "
                 f"prepare container"
             ) from exc
-        return f"{PTDBENCH_ENVIRONMENT_DIR}/{relative.as_posix()}"
+        return f"{AUTORLBENCH_ENVIRONMENT_DIR}/{relative.as_posix()}"
 
     def _run_prepare(
         self,
@@ -323,11 +323,11 @@ class TaskEvaluator:
         config: EvaluationConfig,
         artifact: Optional[EnvironmentArtifact],
     ) -> Optional[CommandResult]:
-        """跑任务的 prepare.sh：下模型、下数据集、写 prepared/env。
+        """Run the task's prepare.sh: download models and datasets, write prepared/env.
 
-        这是三个阶段里**唯一**联网的一个。放在 agent 之前而不是烘进镜像，是因为
-        下载的东西是逐任务的，烘进去就等于每个任务一个几十 GB 的镜像层——那正是
-        这次改造要去掉的东西。
+        This is the **only** one of the three stages with network. It runs before the agent instead of being baked
+        into the image because downloads are per task; baking them in would mean a tens-of-GB image layer per task,
+        which is exactly what this redesign removes.
         """
         script = self._prepare_script(package)
         if script is None:
@@ -344,11 +344,11 @@ class TaskEvaluator:
             host_prepared=run.prepared,
             host_models=run.models,
             host_datasets=run.datasets,
-            # 仓库 docker/ 只读挂进 prepare 容器；跑脚本前用它装最新 fetch/dataset 工具。
-            # 目录不在（装成 wheel 时 docker/ 可能不跟着走）就不挂，下面的调用也兜底跳过。
+            # The repo's docker/ is mounted read-only into the prepare container; used to install the latest fetch/dataset tools first.
+            # If the directory is missing (docker/ may not ship with a wheel install), skip the mount; the call below also skips.
             host_tooling=DOCKER_DIR if DOCKER_DIR.is_dir() else None,
             env=self._prepare_mirror_env(config),
-            # prepare 是唯一该联网的阶段；把它也断网，模型就没人下了。
+            # Prepare is the only stage that should have network; cut it too and nobody downloads the model.
             network="bridge",
             timeout_s=config.timeout_s,
             workdir="workspace",
@@ -363,10 +363,10 @@ class TaskEvaluator:
         )
         sandbox = self.runtime.create_sandbox(request, artifact=artifact)
         try:
-            # prepare.sh 调的 ptdbench_fetch_* / ptdbench_dataset 是 shim，exec 的是
-            # /usr/local/libexec 下的工具。装成镜像烤进去的那份可能是旧的，所以挂了
-            # 仓库 docker/（host_tooling）就先跑安装脚本，把当前版本装进去再跑脚本。
-            # 安装脚本不在（没挂）时跳过，行为与旧版一致。
+            # The autorlbench_fetch_* / autorlbench_dataset commands prepare.sh calls are shims that exec
+            # tools under /usr/local/libexec. The copy baked into the image may be stale, so if the repo's
+            # docker/ is mounted (host_tooling), run the installer first to install the current version, then the script.
+            # If the installer is absent (not mounted), skip it, matching the old behavior.
             shell = f"bash {shlex.quote(script)}"
             if request.host_tooling is not None:
                 shell = (
@@ -390,10 +390,10 @@ class TaskEvaluator:
 
     @staticmethod
     def _prepare_mirror_env(config: EvaluationConfig) -> Dict[str, str]:
-        """把镜像源交给 prepare 阶段。
+        """Pass mirror settings to the prepare stage.
 
-        以前这些是构建参数，因为下载发生在 Dockerfile 里；下载搬到 prepare 之后，
-        它们就得跟着搬到这个阶段的环境变量里，否则在墙内的机器上一个模型都下不来。
+        These used to be build args because downloads happened in the Dockerfile; once downloads moved to prepare,
+        they had to move into this stage's environment too, or machines without direct access could not fetch any model.
         """
         env: Dict[str, str] = {}
         if config.huggingface_mirror:
@@ -493,19 +493,19 @@ class TaskEvaluator:
             timeout_s=config.timeout_s,
             workdir="task_root",
             host_environment=self._environment_mount(package),
-            # verifier 也要看得到 prepare 交付的东西：判分脚本经常要读 checkpoint
-            # 或对齐数据集里的样本。只读挂，所以读到的一定是 prepare 写的那一份。
+            # The verifier also needs to see what prepare delivered: grading scripts often read a checkpoint
+            # or match samples against a dataset. Mounted read-only, so what it reads is always what prepare wrote.
             host_prepared=run.prepared,
-            # 下载缓存只读挂：判分脚本要对着模型或数据集的原始副本核对时用得上，
-            # 而只读保证它核对的不是一份 agent 能改的东西。
+            # Download caches are mounted read-only: useful when grading checks against the original model or dataset,
+            # and read-only ensures it is not checking a copy the agent can change.
             host_models=run.models,
             host_datasets=run.datasets,
-            # 任务声明的 env 两个阶段都给：verifier 判分时往往要按同样的卡数
-            # 加载 checkpoint，少了 CUDA_VISIBLE_DEVICES 会跟 agent 看到的不是一台机器。
+            # Task-declared env goes to both stages: the verifier often loads the checkpoint on the same number of GPUs,
+            # and without CUDA_VISIBLE_DEVICES it would not see the same machine the agent did.
             task_env=dict(package.environment.env),
         )
         command = CommandSpec(
-            shell=config.verifier_cmd or 'bash "$PTDBENCH_VERIFIER/test.sh"',
+            shell=config.verifier_cmd or 'bash "$AUTORLBENCH_VERIFIER/test.sh"',
             timeout_s=config.timeout_s,
         )
         if artifact is None:
@@ -568,12 +568,12 @@ class TaskEvaluator:
         if agent_spec is None:
             return {}
         env = {
-            "PTDBENCH_CENTRAL_AGENT_KIND": agent_spec.kind,
-            "PTDBENCH_JUDGE_PROVIDER": "openai-compatible",
+            "AUTORLBENCH_CENTRAL_AGENT_KIND": agent_spec.kind,
+            "AUTORLBENCH_JUDGE_PROVIDER": "openai-compatible",
         }
         judge_model = agent_spec.judge_model or agent_spec.model
         if judge_model:
-            env["PTDBENCH_JUDGE_MODEL"] = judge_model
+            env["AUTORLBENCH_JUDGE_MODEL"] = judge_model
         env["OPENAI_BASE_URL"] = agent_spec.base_url or "https://api.openai.com/v1"
         if agent_spec.api_key:
             env["OPENAI_API_KEY"] = agent_spec.api_key
@@ -583,7 +583,7 @@ class TaskEvaluator:
         write_text(path, json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
 
     def _extract_metrics(self, results_dir: Path, verifier_result: Any) -> Dict[str, Any]:
-        """优先读取 verifier 的 JSON 结果，否则退回退出码。"""
+        """Prefer the verifier's JSON result; otherwise fall back to the exit code."""
         metrics: Dict[str, Any] = {}
         for filename in ("result.json", "metrics.json"):
             path = results_dir / filename
