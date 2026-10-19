@@ -4510,3 +4510,12 @@ body.home-page .task-overview-stat strong {
 .footer-brand .nav-logo img {
     height: 22px;
 }
+
+/* Hero logo */
+.hero-logo {
+    display: block;
+    margin: 0 auto 2rem;
+    max-width: 500px;
+    width: 100%;
+    height: auto;
+}

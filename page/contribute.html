@@ -78,8 +78,8 @@
                     <h3>Solution</h3>
                     <p>Everything in Issue, plus the run that shows the fix.</p>
                     <div class="guide-file-rows">
-                        <div><span>Issue</span><strong>Instruction, baseline run, and environment.</strong></div>
-                        <div><span>Solution run</span><strong>The repaired launch path, logs, and metrics.</strong></div>
+                        <div><span>Issue</span><strong>Diagnosis instruction, workspace, and environment.</strong></div>
+                        <div><span>Solution</span><strong>Fix instructions and threshold. Adds repair-and-rerun evaluation.</strong></div>
                     </div>
                 </article>
             </div>
@@ -93,9 +93,9 @@
                 </div>
                 <pre>tasks/reward/slime_retool_length_reward_bonus/
 ├── environment/
-├── workspace/             baseline run
-├── evaluations/issue/
-├── evaluations/solution/  solution run
+├── workspace/             the recorded run
+├── evaluations/issue/     diagnosis
+├── evaluations/solution/  repair and rerun
 ├── task.toml
 └── README.md</pre>
             </div>
@@ -139,7 +139,7 @@
                             <span>02</span>
                             <div>
                                 <strong>Add only what you have</strong>
-                                <p>Instruction, baseline run, and environment. Add the solution run when it exists.</p>
+                                <p>Diagnosis instruction, workspace, and environment. Solution adds repair-and-rerun evaluation.</p>
                             </div>
                         </li>
                         <li>
