@@ -1,64 +1,52 @@
-# data diagnosis: task_train_too_hard
+# verl_taco_difficulty_mismatch
 
-## Case overview
+| | |
+| --- | --- |
+| **Author** | benchmark_evaluation |
+| **Domain** | `data` |
+| **Tags** | `taco` `difficulty` `data-mismatch` `verl` `issue-only` |
+| **Framework** | `verl` |
+| **Model** | Qwen2.5-1.5B-Instruct |
+| **Dataset** | TACO `VERY_HARD` 训练集 + TACO `EASY` 验证集（184 行） |
+| **Environment** | `verl` 镜像；`prepare.sh` 拉取模型与数据归档 |
+| **Resources** | 无 GPU 声明（issue-only，不跑训练栈） |
+| **Recorded runs** | 一次历史训练，400/400 步跑完 |
+| **Recorded runtime** | 约 8 h 41 min（78.10 s / 步） |
 
-- Evaluation key: `task_train_too_hard`
-- Case family: `data`
-- Schema version: `2`
-- Evaluation levels: `issue`
-- Model: `Qwen2.5-1.5B-Instruct`
-- Training framework: `verl`
-- Primary source evaluation metric: `val-core/taco/acc/mean@1`
+## Task abstract
 
-This document is for maintainers and reviewers. It is not exposed to the
-agent during evaluation.
+训练集太难，且难度与验证集不匹配：`workspace/taco_verl/train.parquet` 只含 TACO
+`VERY_HARD` 行，而 `test.parquet` 是既有的 TACO `EASY` 验证集。held-out 准确率因此
+**低于起点**——最后一步 0.0380（7/184），step 0 是 0.0489（9/184），峰值在 step 50 的
+0.0978。训练奖励从 step 201 起稳定在约 0.15，而验证准确率不再恢复。
 
-There is no solution level. Issue grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md`.
+这是 **issue-only** 任务，没有 solution 档。
 
-## Canonical failure reason
+## The defect
 
-The training set is too hard, and its difficulty does not match the validation
-set. `workspace/taco_verl/train.parquet` contains only TACO `VERY_HARD` rows.
-`workspace/taco_verl/test.parquet` is the existing TACO `EASY` validation set.
+数据选择本身：训练集只取 TACO `VERY_HARD`，验证集是 `EASY`。代码、启动超参、模型都
+是健康的，不构成根因。
 
-## Workspace and hidden evaluations
+### Why nothing catches it
 
-| Path                 | Visibility and purpose                                              |
-| -------------------- | ------------------------------------------------------------------- |
-| `workspace/`         | Agent-visible experiment snapshot. Code is the healthy baseline.   |
-| `environment/`       | Agent-visible, read-only at `/ptdbench/environment`; `prepare.sh` fetches the model and dataset. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and issue verifier.   |
+- **代码是健康基线。** 没有注入缺陷，workspace 就是正常实现的快照。
+- **训练奖励看起来在涨。** `critic/rewards/mean` 从 0.008 一路升到约 0.15 并稳住。
+- **只有 held-out 在跌，且跌得不夸张。** 0.0489 → 0.0380 的回落很容易被当成噪声。
+- **难度的因果需要看分布。** 要比较 train/test 的难度构成才能下结论。
 
-The agent cannot read oracle or verifier paths.
+## Evidence
 
-## Canonical expected outcome
+日志：`workspace/logs/qwen2_5_1.5b_instruct_taco_fsdp_20261010_073442.log`。
+W&B：`workspace/logs/wandb/offline-run-20261010_073718-kovw4pvq`。
 
-Verdict: **unhealthy**.
+run 完成 400/400 步，进度条约 8:40:39。每 epoch 145 步，`total_training_steps` 400，
+所以步数上限让 job 停在第三个 epoch 中途：epoch 0 覆盖 1–145，epoch 1 从 146 起，
+epoch 2 从 291 起。
 
-Essential root cause, either formulation:
+held-out 为 184 行 TACO `EASY`，计数为 `round(acc * 184)`：
 
-- the training set is too hard
-- the training set and the validation set do not match in difficulty
-
-Code, launch hyperparameters, and the model are not the root cause.
-
-## Historical training run
-
-Log: `workspace/logs/qwen2_5_1.5b_instruct_taco_fsdp_20261010_073442.log`.
-Wandb: `workspace/logs/wandb/offline-run-20261010_073718-kovw4pvq`.
-
-The run finished `400/400` steps. The progress bar records `8:40:39`
-(about 8 hours 41 minutes, 78.10 seconds per step). The train dataloader has
-145 steps per epoch and `total_training_steps` is 400, so the step cap stops
-the job during the third epoch. Epoch index 0 covers steps 1–145, epoch index
-1 starts at step 146, and epoch index 2 starts at step 291.
-
-Held-out `val-core/taco/acc/mean@1` on 184 TACO `EASY` rows. Counts are
-`round(acc * 184)`.
-
-| Step | Fully correct | acc | pass_rate |
-| ---- | ------------- | --- | --------- |
+| Step | 全对 | acc | pass_rate |
+| ---- | ---- | --- | --------- |
 | 0 | 9/184 | 0.0489 | 0.1967 |
 | 50 | 18/184 | 0.0978 | 0.2887 |
 | 100 | 17/184 | 0.0924 | 0.2918 |
@@ -69,16 +57,11 @@ Held-out `val-core/taco/acc/mean@1` on 184 TACO `EASY` rows. Counts are
 | 350 | 5/184 | 0.0272 | 0.1433 |
 | 400 | 7/184 | 0.0380 | 0.1351 |
 
-The last validation accuracy, 0.0380 (7/184), is below the step-0 value,
-0.0489 (9/184). The peak is step 50 at 0.0978 (18/184). After step 200 the
-curve stays below the step-0 baseline.
+`critic/rewards/mean` 在 1–400 步平均 0.0938，前 100 步平均约 0.0082；400 步中有 96 步
+为 0，最大值 0.4375（step 299），step 400 为 0.1250。五十步均值：
 
-`critic/rewards/mean` over training steps 1–400 averages 0.0938. Steps 1–100
-average about 0.0082. Of the 400 steps, 96 are 0. The maximum is 0.4375 at
-step 299. Step 400 is 0.1250. Fifty-step means:
-
-| Steps | Mean training reward |
-| ----- | -------------------- |
+| Steps | 平均训练奖励 |
+| ----- | ------------ |
 | 1–50 | 0.0081 |
 | 51–100 | 0.0083 |
 | 101–150 | 0.0188 |
@@ -88,115 +71,84 @@ step 299. Step 400 is 0.1250. Fifty-step means:
 | 301–350 | 0.1470 |
 | 351–400 | 0.1495 |
 
-The 101–150 mean is exactly 0.01875. From step 201 onward the fifty-step
-means stay near 0.15 while held-out accuracy does not recover.
+101–150 的均值恰为 0.01875。从 step 201 起五十步均值稳定在约 0.15，而 held-out 不再
+恢复。
 
-## Evaluation design
+## Reference answer
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden `oracle.md`.
-The judge scores verdict, root-cause, and evidence agreement
-(weights 0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
+### `issue` — the diagnosis
 
-Root-cause credit is full when the diagnosis states that the training set is
-too hard, or that the training and validation sets do not match in difficulty.
-Either formulation is enough. A code defect is not required.
+两种表述都算完整根因：
 
-## External dataset asset
+- 训练集太难
+- 训练集与验证集难度不匹配
 
-- Repository: `LIF1014/ptdbench-data-task-train-too-hard-dataset`
-- Publication status: `published`
-- Pinned revision: `22a1fee0ea2527f514c4115f6c792216a99d7e6f`
-- Dataset license: `Apache-2.0`
-- Provenance: TACO `VERY_HARD` training rows and the existing TACO `EASY` validation snapshot.
+代码、启动超参和模型都不是根因。**不需要**代码缺陷。
 
+### `solution`
 
-| Runtime path                            | Size              | SHA-256                                                            |
-| --------------------------------------- | ----------------- | ------------------------------------------------------------------ |
-| `workspace/taco_verl/test.parquet`      | 61,082,426 bytes  | `0593078d24134d204b305dd0373acfc33daed9a2c73fdad7304a2fde191daea3` |
-| `workspace/taco_verl/train.parquet`     | 168,834,942 bytes | `8640b3e6c7a5ff3d5b51aa46e74f74147f3c565cd89b73676d5113f8e546d573` |
+不存在（issue-only）。
 
+## Verification
 
-The archive `artifacts/workspace-assets.tar.gz` is 167,612,568 bytes, SHA-256
-`eddeece8c2828e21b581d5168dd4604470165cb061a53e68d50b26d49ce6d916`.
-It contains 2329 `VERY_HARD` training rows, all `stdin`, and the unchanged
-184-row `EASY` validation set. `VERY_HARD` has no call-based problems. The
-converter was checked against the existing EASY `train.parquet`: 5996 `stdin`
-rows and 2372 `call_based` rows matched. Rows above 2048 prompt tokens are
-dropped; 4 `VERY_HARD` rows were dropped that way.
+`issue` 比对 `$PTDBENCH_RESULTS/agent_answer.md` 与隐藏 `oracle.md`，judge 按
+verdict / root-cause / evidence 打分，权重 0.2 / 0.6 / 0.2，通过线 0.8。只要点出
+"训练集太难"或"训练与验证难度不匹配"，`root_cause_score` 即满分。
 
-The agent-visible parquet files and this archive revision do not store
-`extra_info.difficulty`. Prompts, `reward_model`, `index`, `split`,
-`code_type`, and `fn_name` are unchanged. `environment/prepare.sh` downloads
-this revision in the prepare stage, verifies the archive, unpacks
-`workspace/taco_verl/` into `$PTDBENCH_WORKSPACE/taco_verl`, and re-verifies the
-two parquet files after unpacking.
+## Running it
 
-## External model asset
+`metadata.environment.image: verl` → `docker/images/verl.Dockerfile`
+（`verlai/verl:vllm017.latest`，按 digest 钉死），与其他 verl + TACO 任务同一个镜像。
 
-- Repository: `LIF1014/ptdbench-verl-implementation-torch-functional`
-- Publication status: `published`
-- Pinned revision: `36a4c226ef70aef2c38df173a7cf86a47ad3ad00`
-- Model: `Qwen2.5-1.5B-Instruct` (`model.safetensors` SHA-256 `dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee`)
+启动脚本：`examples/grpo_trainer/run_qwen2_5_1.5b_instruct_taco_fsdp.sh`。指定实验使用
+8 卡、400 步预算。issue 评测不启动训练。
 
-This snapshot repository is shared with `verl_implementation/torch_functional`
-and is not specific to this task. `environment/prepare.sh` fetches it to
-`$PTDBENCH_WORKSPACE/Qwen2.5-1.5B-Instruct`, the `MODEL_PATH` default of the
-launch script.
+`environment/prepare.sh` 是唯一联网阶段，拉取模型与数据归档：
 
-## Environment requirement
+- 数据仓库 `LIF1014/ptdbench-data-task-train-too-hard-dataset`，revision
+  `22a1fee0ea2527f514c4115f6c792216a99d7e6f`，Apache-2.0
+- `workspace/taco_verl/test.parquet`，61,082,426 bytes，sha256 `0593078d24134d204b305dd0373acfc33daed9a2c73fdad7304a2fde191daea3`
+- `workspace/taco_verl/train.parquet`，168,834,942 bytes，sha256 `8640b3e6c7a5ff3d5b51aa46e74f74147f3c565cd89b73676d5113f8e546d573`
+- 归档 `artifacts/workspace-assets.tar.gz`，167,612,568 bytes，sha256 `eddeece8c2828e21b581d5168dd4604470165cb061a53e68d50b26d49ce6d916`，
+  含 2329 行 `VERY_HARD` 训练数据（全为 `stdin`）与未改动的 184 行 `EASY` 验证集
 
-- `metadata.environment.image: verl` resolves to the shared image
-  `docker/images/verl.Dockerfile` (`verlai/verl:vllm017.latest` pinned by
-  digest), the same image the other verl + TACO tasks use.
-- `environment/prepare.sh` is the only networked stage. It fetches the model
-  and the dataset archive recorded above; nothing is baked into an image.
-- Launch script: `examples/grpo_trainer/run_qwen2_5_1.5b_instruct_taco_fsdp.sh`
-- The designated experiment uses 8 GPUs and a 400-step budget.
-- Issue evaluation does not launch training.
+`VERY_HARD` 没有 call-based 题。转换器对着既有 EASY `train.parquet` 校验过：5996 行
+`stdin`、2372 行 `call_based` 匹配。超过 2048 prompt token 的行被丢弃，因此丢了 4 行
+`VERY_HARD`。agent 可见的 parquet 与归档 revision 都不存 `extra_info.difficulty`；
+prompt、`reward_model`、`index`、`split`、`code_type`、`fn_name` 均未改动。
 
-**No GPU declaration, on purpose.** `metadata.environment.env` is empty, unlike
-the sibling verl tasks. This task has only an `issue` level: the agent reads a
-historical snapshot and the verifier judges `agent_answer.md`, so neither stage
-runs the training stack. Declaring `NVIDIA_VISIBLE_DEVICES` would make the
-docker runtime pass `--gpus` to the agent and verifier containers
-(`autorlbench/runtimes/providers/docker.py::_gpu_args`), which fails outright on a
-GPU-less host. To re-run the recorded 8-GPU experiment, set
-`PTDBENCH_DOCKER_GPUS` on the host; a Harbor-side rerun additionally needs the
-GPU/shm compose override that the sibling tasks ship as
-`environment/docker-compose.yaml`. Add both here if a `solution` level is ever
-added.
+模型仓库 `LIF1014/ptdbench-verl-implementation-torch-functional`，revision
+`36a4c226ef70aef2c38df173a7cf86a47ad3ad00`，`model.safetensors` sha256
+`dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee`——与 `torch_functional` 共享，不专属本任务。prepare 拉到
+`$PTDBENCH_WORKSPACE/Qwen2.5-1.5B-Instruct`，即启动脚本的 `MODEL_PATH` 默认值。
 
-**`pyext` is not installed.** `verl/utils/reward_score/taco.py` tries
-`from pyext import RuntimeModule` and falls back to its own complete
-`_FallbackRuntimeModule` on `ImportError`, and the stdin path every row takes
-goes through it, so the choice reaches the reward. The frozen dependency list of
-the recorded run (`workspace/logs/wandb/*/files/requirements.txt`) does not list
-`pyext`, and that list — not the legacy Dockerfile — is the reference for
-reproducing this run. `reward_design/task_evaluator` installs it because its own
-frozen list has `pyext==0.7`; to do the same here, copy the vendored-install
-block from that task's `prepare.sh`. Do not edit `docker/images/verl.Dockerfile`
-— that image is shared by every verl task.
+**刻意不声明 GPU。** `metadata.environment.env` 为空，与其他 verl 任务不同。本任务只有
+issue 档：agent 读历史快照、verifier 评 `agent_answer.md`，两个阶段都不跑训练栈。
+声明 `NVIDIA_VISIBLE_DEVICES` 会让 docker runtime 给 agent 与 verifier 容器加
+`--gpus`，在无 GPU 的宿主上直接失败。要复跑那 8 卡实验，在宿主设
+`PTDBENCH_DOCKER_GPUS`；Harbor 侧重跑还需兄弟任务那种 `environment/docker-compose.yaml`
+的 GPU/shm 覆盖。
 
-### Notes moved out of `environment/prepare.sh`
+**不装 `pyext`。** `verl/utils/reward_score/taco.py` 尝试
+`from pyext import RuntimeModule`，`ImportError` 时回退到自带的
+`_FallbackRuntimeModule`，而所有行走的 stdin 路径都经过它，所以装不装会改变奖励。
+录制运行的冻结依赖清单没有 `pyext`——那才是复现这份运行的依据，而不是 legacy
+Dockerfile。`reward_design/task_evaluator` 装了它，因为那份清单里有 `pyext==0.7`。
+不要改 `docker/images/verl.Dockerfile`，那是所有 verl 任务共享的。
 
-`prepare.sh` is mounted read-only into the agent container at
-`/ptdbench/environment`, so it must not carry maintainer background that names
-the defect or the grading thresholds. Those notes live here. Keep it that way.
+### 从 `prepare.sh` 移出的说明
 
-**Migration.** `prepare.sh` replaced `environment/{Dockerfile,hydrate-assets.sh}`
-on 2026-10-16, matching the house scheme the other tasks moved to on 2026-09-23.
-The legacy Dockerfile built a task-specific image from `verlai/verl:vllm017.latest`
-that installed a patched `pyext`, downloaded the model and the dataset archive at
-build time, and hydrated `/workspace` from `/opt/ptdbench-assets` in the agent
-stage. Repositories, revisions, byte counts and SHA-256 values carried over
-verbatim; the hydration target paths are unchanged. The archive layout was
-re-checked against the published revision: it holds exactly
-`workspace/taco_verl/train.parquet` and `workspace/taco_verl/test.parquet`.
+`prepare.sh` 以只读挂进 agent 容器，所以不得携带点明缺陷或评分门槛的维护者背景。
 
-**Task id leak.** Both the task directory name and the published dataset
-repository name (`...-task-train-too-hard-dataset`) state the answer, and the
-agent sees both: `PTDBENCH_TASK_ID` is exported into the agent stage
-(`autorlbench/runtimes/base.py::standard_env`) and `prepare.sh` is readable at
-`/ptdbench/environment`. Closing this needs a task rename plus a republished
-dataset repository under a neutral name, so it is recorded here rather than
-worked around in `prepare.sh`.
+**迁移：** 2026-10-16 用 `prepare.sh` 替换了 `environment/{Dockerfile,hydrate-assets.sh}`。
+legacy Dockerfile 从 `verlai/verl:vllm017.latest` 构建专用镜像、装补丁版 `pyext`、
+build 时下载模型与数据归档，并在 agent 阶段从 `/opt/ptdbench-assets` hydrate
+`/workspace`。仓库、revision、字节数与 SHA-256 逐字搬过来，hydrate 目标路径不变。
+归档布局已对着已发布的 revision 复核：恰好只有
+`workspace/taco_verl/train.parquet` 与 `test.parquet`。
+
+**任务名泄漏（未修）：** 任务目录名与已发布的数据仓库名
+（`...-task-train-too-hard-dataset`）都写着答案，而 agent 两个都能看到——
+`PTDBENCH_TASK_ID` 会导出到 agent 阶段，`prepare.sh` 在
+`/ptdbench/environment` 可读。关闭它需要任务改名并重新发布一个中性名字的数据仓库，
+所以记在这里而不是在 `prepare.sh` 里绕过。

@@ -29,38 +29,100 @@
             <div class="guide-hero-copy">
                 <span class="guide-eyebrow">Call for contributions</span>
                 <h1>Contribute a valuable RL run.</h1>
-                <p>We collect real runs for diagnosing and repairing RL failures. An idea for how to construct the run is enough. We do the packaging.</p>
-                <a class="guide-hero-link" href="#levels">View the two levels <span aria-hidden="true">&darr;</span></a>
+                <p>Bring the run you broke and the run where you fixed it. An agent turns that into a task, so you never hand-build the benchmark layout.</p>
+                <a class="guide-hero-link" href="#raw">Start with a raw task <span aria-hidden="true">&darr;</span></a>
             </div>
-            <aside class="guide-hero-card" aria-label="Required materials">
-                <span class="guide-card-label">Required</span>
-                <div class="guide-hero-row"><span>01</span><strong>Instruction</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>02</span><strong>Baseline run</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>03</span><strong>Environment</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>04</span><strong>Solution run</strong><em>solution</em></div>
+            <aside class="guide-hero-card" aria-label="What a raw task contains">
+                <span class="guide-card-label">A raw task</span>
+                <div class="guide-hero-row"><span>01</span><strong>buggy_workspace/</strong><em>broken</em></div>
+                <div class="guide-hero-row"><span>02</span><strong>fixed_workspace/</strong><em>repaired</em></div>
+                <div class="guide-hero-row"><span>03</span><strong>Dockerfile</strong><em>environment</em></div>
+                <div class="guide-hero-row"><span>04</span><strong>README.md</strong><em>the write-up</em></div>
             </aside>
         </section>
 
-        <section class="guide-overview" aria-label="Where a contribution can start">
+        <section class="guide-overview" aria-label="The three steps">
             <div class="guide-overview-item">
                 <span class="guide-overview-mark">01</span>
-                <div><strong>An idea</strong><p>Describe the failure and how the run would be built. Nothing else is required yet.</p></div>
+                <div><strong>Prepare a raw task</strong><p>Two workspaces, the environment they ran on, and a README. No benchmark format to learn.</p></div>
             </div>
             <div class="guide-overview-item">
                 <span class="guide-overview-mark">02</span>
-                <div><strong>The materials</strong><p>Bring the issue pieces. Add a solution run only when the repair already exists.</p></div>
+                <div><strong>Let an agent package it</strong><p>The packaging skill in the repo turns that bundle into a task directory.</p></div>
             </div>
             <div class="guide-overview-item">
                 <span class="guide-overview-mark">03</span>
-                <div><strong>A workspace</strong><p>If the code is already there, an agent can package the task in one step.</p></div>
+                <div><strong>Open a pull request</strong><p>With the generated task. The validator has to pass before it lands.</p></div>
+            </div>
+        </section>
+
+        <section class="guide-section" id="raw">
+            <div class="guide-section-heading">
+                <span class="guide-eyebrow">01 / Prepare</span>
+                <h2>A raw task is four things.</h2>
+                <p>Put them in a folder. This is everything we need from you &mdash; no metadata schema, no verifier, no instruction files.</p>
+            </div>
+            <div class="guide-package-layout">
+                <ul class="guide-workflow-list">
+                    <li><span>buggy_workspace/</span><div><strong>The run that broke</strong><p>Complete code that reproduces the defect, plus that run's own artifacts &mdash; left where the run wrote them.</p></div></li>
+                    <li><span>fixed_workspace/</span><div><strong>The run that worked</strong><p>The same tree with the defect repaired, plus its own run. The two must differ <em>only</em> by the fix; anything else that differs is something the comparison is also measuring.</p></div></li>
+                    <li><span>Dockerfile</span><div><strong>Where they ran</strong><p>Pin the versions, and say in a comment which recorded run they came from.</p></div></li>
+                    <li><span>README.md</span><div><strong>What you found</strong><p>The defect, the fix as a diff, and the measured outcome of both arms.</p></div></li>
+                </ul>
+                <div class="guide-package-notes">
+                    <div><strong>Keep the artifacts</strong><p>The <code>wandb</code> offline directory, the full command-line output, and every per-step metric file. Those are what a threshold gets calibrated against.</p></div>
+                    <div><strong>Leave it raw</strong><p>Absolute paths, hostnames and <code>broken</code>/<code>fixed</code> labels in your logs are expected. Sanitizing them is step 02.</p></div>
+                    <div><strong>Say how many runs</strong><p>One run per side supports margins, not variance. Whoever sets the threshold needs to know which you have.</p></div>
+                </div>
+            </div>
+            <div class="guide-example">
+                <div>
+                    <h3>raw_task_example</h3>
+                    <p>A Search-R1 GRPO run whose retriever returns an all-zero query vector.</p>
+                    <p>Every document scores 0.0, so the same three documents come back for every question. Nothing raises.</p>
+                    <p>Held-out EM stalls at 15.62% against 32.81% once the embedding is copied to the host.</p>
+                    <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/raw_tasks/raw_task_example" target="_blank" rel="noopener noreferrer">Open the worked example <span aria-hidden="true">&rarr;</span></a>
+                </div>
+                <pre>raw_tasks/raw_task_example/
+├── buggy_workspace/
+│   ├── data/
+│   ├── results/baseline32/   the broken run
+│   └── run.py
+├── fixed_workspace/          same, repaired
+├── Dockerfile
+└── README.md</pre>
+            </div>
+        </section>
+
+        <section class="guide-section" id="agent">
+            <div class="guide-section-heading">
+                <span class="guide-eyebrow">02 / Package</span>
+                <h2>An agent builds the task.</h2>
+                <p>The repo ships a <code>package-task</code> skill. Point an agent at your raw task and it produces the directory above &mdash; one workspace instead of two, the fix sealed into the oracle, assets moved into <code>prepare.sh</code>, your Dockerfile mapped onto a shared image, and the logs sanitized and thinned.</p>
+            </div>
+            <div class="guide-command-box">
+                <div class="guide-prompt-bar"><span>Prompt</span><button type="button" id="copy-agent-prompt">Copy</button></div>
+                <pre><code id="agent-prompt">Use the package-task skill to turn raw_tasks/&lt;my_task&gt; into an
+AutoRLBench task under tasks/. Read its README.md for the defect,
+the fix, and the measured results of both runs. Ask me for anything
+the README does not already answer.</code></pre>
+                <p>It finishes by running the structural validator, which must report zero errors.</p>
+            </div>
+        </section>
+
+        <section class="guide-section" id="pr">
+            <div class="guide-section-heading">
+                <span class="guide-eyebrow">03 / Submit</span>
+                <h2>Open a pull request.</h2>
+                <p>Against the main repository, with the generated task. Keep the raw task out of the PR unless it is small enough to be useful as evidence. An idea or a half-built case is also welcome as an issue &mdash; we would rather see it early than not at all.</p>
             </div>
         </section>
 
         <section class="guide-section" id="levels">
             <div class="guide-section-heading">
-                <span class="guide-eyebrow">The rule</span>
+                <span class="guide-eyebrow">What it becomes</span>
                 <h2>Two levels</h2>
-                <p>Issue is a diagnosis. Solution is that same diagnosis plus a run that applies the fix. We turn either one into the task.</p>
+                <p>Your raw task becomes one or both of these. Issue is a diagnosis. Solution is that same diagnosis plus a run that applies the fix. A bundle with both workspaces supports both; without a repaired run, it stops at Issue.</p>
             </div>
             <div class="guide-evaluation-grid">
                 <article class="guide-evaluation-card">
@@ -85,34 +147,26 @@
             </div>
             <div class="guide-example">
                 <div>
-                    <h3>slime_retool_length_hack</h3>
+                    <h3>slime_retool_length_reward_bonus</h3>
                     <p>Training Qwen3-4B with GRPO on DAPO-Math-17k.</p>
-                    <p>Issue: the model hacks the reward by generating longer answers. </p>
+                    <p>Issue: the model hacks the reward by generating longer answers.</p>
                     <p>Solution: remove the length bonus.</p>
-                    <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/tasks/slime_retool_length_hack" target="_blank" rel="noopener noreferrer">Open the sample <span aria-hidden="true">&rarr;</span></a>
+                    <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/tasks/reward/slime_retool_length_reward_bonus" target="_blank" rel="noopener noreferrer">Open the sample <span aria-hidden="true">&rarr;</span></a>
                 </div>
-                <pre>tasks/slime_retool_length_hack/
-├── environment/
-├── workspace/             baseline run
-├── evaluations/issue/
-├── evaluations/solution/  solution run
+                <pre>tasks/reward/slime_retool_length_reward_bonus/
+├── environment/           prepare.sh
+├── workspace/             the broken side only
+├── evaluations/issue/     diagnose it
+├── evaluations/solution/  fix it, oracle sealed here
 ├── metadata.yaml
 └── readme.md</pre>
             </div>
         </section>
 
-        <section class="guide-section" id="submit">
-            <div class="guide-section-heading">
-                <span class="guide-eyebrow">Submit</span>
-                <h2>Two ways</h2>
-                <p>Use an agent when the workspace already exists. Open a pull request for an idea, the materials, or a folder that is already built.</p>
-            </div>
-        </section>
-
         <section class="guide-section guide-publish" id="checklist">
-            <div class="guide-section-heading"><span class="guide-eyebrow">05 / BEFORE YOU PUBLISH</span><h2>Run the same checks the catalog will run.</h2><p>Resolve every structural error locally, then exercise both evaluation levels with a known-good fixture.</p></div>
+            <div class="guide-section-heading"><span class="guide-eyebrow">Before you publish</span><h2>Run the same checks the catalog will run.</h2><p>Resolve every structural error locally, then exercise both evaluation levels with a known-good fixture.</p></div>
             <div class="guide-publish-layout">
-                <ol class="guide-publish-steps"><li><span>01</span><div><strong>Freeze the case</strong><p>Capture the workspace, environment, configuration, logs, and held-out evidence.</p></div></li><li><span>02</span><div><strong>Write the contracts</strong><p>State the action, constraints, deliverables, and scoring behavior in each instruction.</p></div></li><li><span>03</span><div><strong>Validate and exercise</strong><p>Run the structural validator and test each verifier against a known result.</p></div></li></ol>
+                <ol class="guide-publish-steps"><li><span>01</span><div><strong>Freeze the case</strong><p>Capture the workspace, environment, configuration, logs, and held-out evidence.</p></div></li><li><span>02</span><div><strong>Replay both sides</strong><p>Run the grader against each recorded run: the broken one must fail and the repaired one must pass. This is the only offline check a threshold gets.</p></div></li><li><span>03</span><div><strong>Validate and exercise</strong><p>Run the structural validator and test each verifier against a known result.</p></div></li></ol>
                 <div class="guide-command-box"><span>Structural validation</span><pre><code>PYTHONDONTWRITEBYTECODE=1 \
 python3 -m autorlbench validate path/to/your_task</code></pre><p>A task is ready for the catalog when the command passes and its public workspace is usable offline.</p></div>
             </div>
@@ -123,7 +177,7 @@ python3 -m autorlbench validate path/to/your_task</code></pre><p>A task is ready
         <div class="footer-grid">
             <div class="footer-brand"><div class="nav-logo">AutoRLBench</div><p>A benchmark and open call for reproducible RL runs.</p></div>
             <div class="footer-col"><h4>Benchmark</h4><a href="index.html#tasks">Tasks</a><a href="index.html#leaderboard">Leaderboard</a></div>
-            <div class="footer-col"><h4>Contact</h4><a href="#levels">Issue and solution</a><a href="#agent">Agent</a><a href="#pr">Pull request</a></div>
+            <div class="footer-col"><h4>Contribute</h4><a href="#raw">Raw task</a><a href="#agent">Packaging agent</a><a href="#pr">Pull request</a></div>
         </div>
         <div class="footer-bottom">&copy; 2026 AutoRLBench. Released under Apache-2.0 License.</div>
     </footer>

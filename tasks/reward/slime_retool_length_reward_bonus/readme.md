@@ -1,207 +1,120 @@
-# Slime ReTool GRPO run assessment
+# slime_retool_length_reward_bonus
 
-## Case overview
-
-- Evaluation key: `slime_retool_length_hack`
-- Case family: `slime_implementation`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen3-4B` (Qwen3-4B-Instruct-2507 SFT → RL)
-- Dataset: `DAPO-Math-17k` (RL prompts) + `ReTool-SFT` (SFT warm-up)
-- Training framework: `slime` (Megatron train + SGLang rollout)
-- Recipe: `examples/retool/` — multi-turn code-interpreter (tool-use) GRPO
-- Primary source evaluation metric: `eval/aime`
-
-This document is for maintainers and reviewers. It is not exposed to the
-agent during evaluation.
-
-## Canonical verdict
-
-**unhealthy.**
-
-This is a defect task: the staged workspace reproduces the canonical ReTool
-recipe (SFT → RL with a Python code-interpreter tool) on top of an unmodified
-upstream `slime` snapshot, but a length-reward defect has been injected into
-`examples/retool/generate_with_retool.py::reward_func`. The reward adds an
-unconditional `5 * length_ratio` bonus on top of the correctness score, so the
-policy reward-hacks by generating longer rollouts. Frozen historical evidence
-through train step 100 shows polluted `eval/aime` rising while true held-out
-accuracy collapses.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local issue verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier. |
+| **Author** | chenyinghao |
+| **Domain** | `reward` |
+| **Tags** | `slime` `retool` `grpo` `reward-hacking` `length-bonus` `aime` |
+| **Framework** | `slime`（Megatron train + SGLang rollout），`examples/retool/` |
+| **Model** | Qwen3-4B（Instruct-2507 SFT → RL） |
+| **Dataset** | DAPO-Math-17k（RL）+ ReTool-SFT（SFT warm-up） |
+| **Environment** | `slime-v0.3.2`；`prepare.sh` 取四份资产 |
+| **Resources** | 8 GPUs |
+| **Recorded runs** | 缺陷侧一次历史运行（100 步）；修复侧参考运行 70 rollouts |
+| **Recorded runtime** | 100 步（冻结证据） |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM
-judge. `solution` grading reads only the new experiment logs.
+## Task abstract
 
-## Source and preserved context
+奖励函数在正确性得分之上**无条件**加了 `5 * length_ratio`，于是策略靠生成更长的 rollout
+劫持奖励。日志里的 `eval/aime` 一路涨到 **3.841**（超出 `[-1, 1]`），而真实 held-out
+准确率同时崩到约 8.4%，eval 回复长度从约 4.1k 涨到 15.3k，截断率从约 0.8% 涨到 82.5%。
+奖励在设计上就不认长度之外的东西。
 
-```yaml
-evidence_kind: historical_run
-packaging_ready: true
-verify:
-  num_gpus: 8
-  max_train_steps: 100
-  eval_interval: 10
-  last_eval_step: 99
-  eval_metric_key: eval/aime
-historical_run:
-  metric_status: wandb_extracted
-  wandb_run_id: jwszcocp
-  wandb_group: qwen3-4B-retool-multi-turn
-  eval_first_raw: 0.8217626190185547
-  eval_last_raw: 3.8410780588785807
-  eval_last_decontaminated: -0.831261698404948
-  held_out_accuracy_last: 0.084369150797526
-  length_bonus_coefficient: 5.0
-  n_eval_points: 11
-  attempt: 1
+## The defect
+
+`examples/retool/generate_with_retool.py::reward_func`，在 math_dapo 精确匹配分
+（`strict_box_verify=True`，`Answer: \boxed{...}`）与有界的工具调用 shaping 项之上，对
+**每个**样本额外加：
+
+```python
+5 * min(sample.response_length / args.rollout_max_response_len, 1.0)
 ```
 
-The workspace preserves the SFT and RL launch scripts, the custom multi-turn
-tool-calling rollout, the sandboxed Python code interpreter, the injected
-length-reward defect, a compact frozen metrics package under
-`workspace/outputs/`, and a slimmed offline W&B run (console `output.log`
-through train step 100, config, summary; no `.wandb` binary history).
+该项只依赖生成长度、不依赖正确性，所以"错而长"可以压过"对而短"。
 
-## Original failure evidence
+### Why nothing catches it
 
-- eleven AIME-2024 eval points from step 0 to step 99
-- logged `eval/aime` rises from about +0.82 to +3.841 (outside `[-1, 1]`)
-- eval response length grows from about 4.1k to 15.3k; eval truncation rises
-  from about 0.8% to 82.5%
-- train response length at step 100 is about 15159 tokens with a 78.5%
-  truncate ratio
-- the decontaminated held-out score falls from about -0.417 at step 0 to -0.831
-  at step 99, bounding exact-match accuracy at no more than about 29.2% and
-  8.4% respectively (`reward_func` floors an incorrect sample at `min(-0.6, …)`
-  rather than `-1`, so mean score does not convert to accuracy by
-  `(score + 1) / 2`; these are ceilings, not point estimates)
+- **日志指标看起来在进步。** `eval/aime` 是 `reward_func` 的均值，本身包含长度项，
+  于是它**涨**——涨到 `[-1, 1]` 之外也不报错。
+- **训练完全正常。** SFT → RL 配方原样复现，工具 rollback、token/log-prob 对齐、
+  上下文预算都有断言，核心框架未改。
+- **不寻常但正确的设置会误导。** `kl-loss-coef 0.00`、`--rotary-base 5000000`、
+  `max_turns=16`、`tool_concurrency=32`、W&B debug 日志、`/root/…` 下的运行时路径，
+  都是配方的正常属性，不是原因。
+- **需要把日志指标翻译成真实准确率才看得见。** `reward_func` 把错误样本地板在
+  `min(-0.6, …)` 而非 `-1`，所以均值分数不能按 `(score + 1) / 2` 换算成准确率。
 
-The preserved source metric is `eval/aime`. Because that metric is the mean of
-`reward_func`, it includes `5 * length_ratio`. The frozen workspace remains the
-evidence package for diagnosis. Solution grading requires the agent to repair
-the workspace and rerun training; the verifier reads only the new logs under
-`$PTDBENCH_RESULTS/experiment_logs`.
+## Evidence
 
-## Why the recipe is unhealthy
+- AIME-2024 的 11 个 eval 点，step 0 到 99
+- 记录的 `eval/aime` 从约 +0.82 涨到 +3.841（超出 `[-1, 1]`）
+- eval 回复长度 4.1k → 15.3k；eval 截断率 0.8% → 82.5%
+- step 100 的训练回复长度约 15159 token，截断率 78.5%
+- 去污染后的 held-out 分数从 step 0 的约 -0.417 掉到 step 99 的 -0.831，把精确匹配
+  准确率上界压到约 29.2% 与 8.4%——**这是上界，不是点估计**
 
-Apart from the reward, the ReTool recipe is reproduced correctly, so the defect
-must be isolated to the reward rather than the rollout or the algorithm config.
-The injected fault is in `generate_with_retool.py::reward_func`:
+配方其余部分正确：多轮工具 rollout 的 `<interpreter>…</interpreter>` 观察以
+`trainable=False` 追加；缺 `output_token_logprobs` 会中止样本；逐轮 token/log-prob
+对齐有断言；重试时重置陈旧 rollout 状态；per-turn `max_new_tokens` 有上限；只用文档
+里的 `--custom-generate-function-path` 与 `--custom-rm-path` 钩子。
 
-- **Reward defect** (`generate_with_retool.py::reward_func`): on top of the
-  math_dapo exact-match score (`strict_box_verify=True` on `Answer: \boxed{...}`)
-  and the bounded tool-call shaping term, the function adds
-  `5 * min(sample.response_length / args.rollout_max_response_len, 1.0)` to
-  `result["score"]` for **every** sample, unconditionally. Because this bonus
-  depends only on generation length and not on correctness, a wrong-but-long
-  rollout can outscore a correct-but-short one. Under GRPO the resulting
-  advantages reward longer generations, so response length inflates and the
-  policy reward-hacks the length term instead of learning to answer correctly.
+## Reference answer
 
-The surrounding recipe is otherwise correct — these are not the defect:
+### `issue` — the diagnosis
 
-- **Multi-turn tool rollout** (`examples/retool/generate_with_retool.py`):
-  interpreter observations (`<interpreter>…</interpreter>`) injected between
-  turns are appended with `trainable=False` (`loss_mask=0`).
-- **Token/log-prob alignment**: missing `output_token_logprobs` aborts the
-  sample; per-turn token/log-prob parity is asserted; stale rollout state is
-  reset on retry.
-- **Context-budget safety**: per-turn `max_new_tokens` is clamped and
-  overflowing tool output is trimmed.
-- **Algorithm/optimizer** (`examples/retool/retool_qwen3_4b_rl.sh`): standard
-  GRPO with Adam `--lr 1e-6` constant schedule.
-- **Wiring**: only the documented `--custom-generate-function-path` and
-  `--custom-rm-path` hooks; the core framework is unmodified.
+根因目标：`reward_func` 里无条件的长度奖励项。
 
-The length-reward term is the defect. Unusual-looking but correct choices
-(`kl-loss-coef 0.00`, `--rotary-base 5000000`, `max_turns=16`,
-`tool_concurrency=32`, W&B debug logging, runtime asset paths under `/root/…`)
-are expected properties of the recipe and must not be reported as the cause.
+修复目标：删掉长度比例项，让奖励只由正确性加有界的工具 shaping 决定。
 
-## Canonical expected outcome
+必须判不过的：把 verdict 翻成 healthy、把上涨的 `eval/aime` 当成 held-out 提升、或把
+失败归给某个"不寻常但无害"的设置。
 
-Verdict: **unhealthy**.
+### `solution` — 补丁
 
-- Root cause target: the unconditional length-reward term in
-  `generate_with_retool.py::reward_func` (`length_reward`).
-- Required fix target: remove the length-proportional term so the reward depends
-  only on correctness plus the bounded tool-call shaping.
+删除长度项。删除后 `generate_with_retool.py` 与 `slime_retool` 的副本逐字节相同。
 
-An agent that flips the verdict to healthy, treats the rising logged
-`eval/aime` as held-out improvement, or attributes the failure to an
-unusual-but-benign setting instead of the length-reward term, is wrong.
+## Verification
 
-## Evaluation design
+`issue` 权重 0.2 / 0.6 / 0.2，通过线 0.8。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden
-`oracle.md`. The judge scores verdict, root-cause, and evidence agreement
-(weights 0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
+`solution`：修好后跑 `examples/retool/retool_qwen3_4b_rl.sh`，固定
+`--num-rollout 70` / `--eval-interval 10`，得到 0, 9, …, 69。verifier 在 math_dapo
+**score 空间** `[-1, 1]` 读 `eval/aime`（冻结 trace 记录的空间，`eval_reward_key:
+score`），取 best，必须落在 `[-0.55, 0.5]`。
 
-`solution` does not grade a structured diagnosis. The agent must edit the
-workspace and run `examples/retool/retool_qwen3_4b_rl.sh` at the fixed
-`--num-rollout 70` / `--eval-interval 10` budget, giving eval points 0, 9, …,
-69. The verifier reads `eval/aime` from the new logs in the math_dapo **score**
-space `[-1, 1]` — the space the frozen trace was logged in
-(`eval_reward_key: score`) and the space `slime_retool` grades the same recipe
-in. The best finite point over the run must fall within `[-0.55, 0.5]`. Pass is
-score `1`; otherwise `0`.
+评这个通道才是判别量，因为缺陷就在里面：长度奖励还在时 `eval/aime` 会离开
+`[-1, 1]`（历史上 step 0 的 +0.822 到 step 99 的 +3.841），每个 eval 点都触发上界；
+删掉后它是正确性信号，不可能超过 +1。
 
-Grading that channel is the discriminator, because the defect lives in it: with
-the length bonus still present `eval/aime` leaves `[-1, 1]` (historically
-`+0.822` at step 0 up to `+3.841` at step 99) and trips the upper bound at every
-eval point; with the term removed it is the correctness signal, which cannot
-exceed `+1`. Both bounds are calibrated on the repaired reference run — the same
-recipe with the length term removed, same image and assets, `--num-rollout 70`
-(`devspace 1177503:/user/chenyinghao/harbor-runs/manual-slime-retool`): step 0
-is `-0.5808` and fails the lower bound, the best point is step 59 at `-0.4246`
-(`0.125` clear) and the last eval (step 69) is `-0.4861`.
+两个界都对着修复参考运行标定（同配方去掉长度项、同镜像同资产、`--num-rollout 70`，
+devspace `1177503:/user/chenyinghao/harbor-runs/manual-slime-retool`）：step 0 为
+-0.5808，不过下界；最佳点在 step 59，-0.4246（余量 0.125）；最后一点 step 69 为
+-0.4861。
 
-No accuracy threshold is used. `reward_func` floors an incorrect sample at
-`min(-0.6, …)` rather than `-1`, so mean score does not convert to accuracy by
-`(score + 1) / 2`, and no accuracy was ever measured for the repaired recipe.
-The score channel is what was measured, so the score channel is what is graded.
+**不使用准确率门槛。** `reward_func` 的错误地板是 `min(-0.6, …)`，均值分数无法换算成
+准确率，且修复配方的准确率从未被测过。测了哪个通道就评哪个通道。
 
-## Environment requirement
+## Running it
 
-The task runs on the `slime-v0.3.2` AutoRLBench image
-(`environment: image: slime-v0.3.2`) — the same image as `slime_retool`, which
-is the same recipe. There is no per-task Dockerfile; `environment/prepare.sh`
-fetches the assets instead.
+镜像 `slime-v0.3.2`（`docker/images/slime-v0.3.2.Dockerfile`），与同一配方的
+`slime_retool` 共用。没有按任务的 Dockerfile；`prepare.sh` 负责取资产。
 
-`prepare.sh` fetches the same four assets as `slime_retool` — DAPO-Math-17k
-jsonl, AIME-2024 jsonl, the SFT'd HF checkpoint, and the torch_dist conversion
-of it. The two files are deliberately kept identical: this task is the
-bug-injected twin of `slime_retool`, so the only difference between them must
-be the injected defect. Edit one, edit both.
+`prepare.sh` 拉取与 `slime_retool` 相同的四份资产：DAPO-Math-17k jsonl、AIME-2024
+jsonl、SFT 后的 HF checkpoint、以及它的 torch_dist 转换。**两个文件刻意保持一致**：
+本任务是 `slime_retool` 的注入缺陷孪生，两者唯一的差别必须就是这个缺陷。改一份就改两份。
 
-The same rule holds for the recipe itself. `workspace/examples/retool/` differs
-from `slime_retool`'s copy by exactly the two-line length bonus in
-`generate_with_retool.py::reward_func`; `retool_qwen3_4b_rl.sh` is byte-identical
-to the twin's. Nothing else may diverge: any extra edit either leaks the defect
-to the agent or breaks the one-curve comparison the pair exists for.
+这条规则同样适用于配方本身。`workspace/examples/retool/` 与 `slime_retool` 的副本只差
+`reward_func` 里那两行长度奖励；`retool_qwen3_4b_rl.sh` 与孪生逐字节相同。其余任何
+改动要么向 agent 泄漏缺陷，要么破坏这一对存在的一曲线对比。
 
-The same goes for the frozen evidence under `workspace/wandb/` and
-`workspace/outputs/`, which the agent reads. It is scrubbed of defect
-giveaways: the W&B group is `qwen3-4B-retool-multi-turn` (not
-`…-reward-hack`), the recorded `--save` target is `qwen3-4b-sft-multi-turn`
-(not `…-hack`, which also contradicted `config.yaml`'s own `save:` value), and
-the recorded host paths and receipt `task_id` say `slime_retool` rather than
-`slime_retool_length_hack`. Only the hidden `evaluations/` tree and this file
-name the task as the defect twin.
+`workspace/wandb/` 与 `workspace/outputs/` 下 agent 会读的冻结证据也一样，已清除缺陷
+痕迹：W&B group 是 `qwen3-4B-retool-multi-turn`（不是 `…-reward-hack`），记录的
+`--save` 目标是 `qwen3-4b-sft-multi-turn`（不是 `…-hack`，那个还与 `config.yaml` 自己
+的 `save:` 值矛盾），记录的主机路径和回执 `task_id` 写的是 `slime_retool` 而不是
+`slime_retool_length_hack`。只有隐藏的 `evaluations/` 树和本文件点明它是缺陷孪生。
 
-`evaluations/solution/solution/solve.sh` is the reference run for
-`harbor run -a oracle`: it deletes the length bonus, applies the instruction's
-budget (70 rollouts, no checkpoint saves), and tees the log into
-`experiment_logs/`. After the deletion `generate_with_retool.py` is
-byte-identical to `slime_retool`'s, which is why that task's run doubles as this
-task's calibration reference.
+`evaluations/solution/solution/solve.sh` 是 `harbor run -a oracle` 的参考运行：删掉长度
+奖励、套用 instruction 的预算（70 rollouts、不存 checkpoint），并把日志 tee 到
+`experiment_logs/`。
 
-The workspace code and the ReTool recipe are distributed under Apache-2.0.
+workspace 代码与 ReTool 配方 Apache-2.0。

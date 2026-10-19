@@ -231,7 +231,7 @@ grep -rIl 'broken\|fixed\|<原路径片段>\|<原用户名>' workspace/
 2. 原样复制 issue 的 `instruction.md`、`judge_prompt.md`、`judge.py`、`test.sh`，以及 solution 的 `verifier/test.sh`。来源见 [reference.md](reference.md)。复制后用 `cmp` 确认与来源一致，并保持 LF。
 3. 用过滤后的 diff 重写 `evaluations/issue/oracle.md`、`evaluations/solution/oracle/README.md`、`task.yaml`、`standard_answer.txt`。`metadata.yaml` 的 `failure_reason` 与 `readme.md` 的 Canonical failure reason 也按这份 diff 写成几句话，并写上用户给出的指标现象。用户若另写了失败原因，不作为根因依据。
 4. 用用户本次输入重写 `solution/instruction.md`、`grader_spec.json`、`resources/README.md`，并把失败运行的指标序列落成 `oracle/historical_evidence_manifest.json`。`grade_submission.py` 先按下面「grader 能不能复用」判断要新写还是照抄。
-5. 组 workspace（形态 2 要按「只发布有缺陷的那一侧」分好去处）、冻结证据的瘦身与脱敏、`environment/prepare.sh`、`metadata.yaml`、`readme.md`。
+5. 组 workspace（形态 2 要按「只发布有缺陷的那一侧」分好去处）、冻结证据的瘦身与脱敏、`environment/prepare.sh`、`metadata.yaml`、`readme.md`。`readme.md` 按 [readme-format.md](readme-format.md) 的六节格式写，空白骨架见 [readme-template.md](readme-template.md)。
 6. 用用户给的 log 样例跑一次提取，确认能抽出所填的键与数字。抽不到就改 `grade_submission.py`，直到样例通过。来源带对照侧时，**两侧的历史 log 各回放一次**：缺陷侧必须不过，对照侧必须过。这是门槛唯一的离线自检。
 7. 跑 `python3 -m autorlbench validate <task_dir>`，必须零 error。有 docker 和网络的机器上再用 `./docker/warm-cache.sh` 跑一遍 `prepare.sh`（它会按需构建镜像，并把全部任务的 prepare 各跑一次）。
 8. 本机没有 GPU 时，把没验过的东西逐条写进 `validation/status.json`：镜像构建、prepare 全流程、派生资产真的建得出来、一次真实重跑、门槛的方差。每一项写清楚「为什么没验」和「下一步怎么验」。

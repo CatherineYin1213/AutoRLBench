@@ -1,107 +1,53 @@
-# rlve_hyper hyperparameter diagnosis: task_019
+# task_019
 
-## Case overview
-
-- Evaluation key: `rlve_hyper/task_019`
-- Case family: `rlve_hyper`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen2.5-0.5B-Instruct`
-- Dataset: `RLVE held-out environments`
-- Training framework: `RLVE / slime + GRPO`
-- Primary source evaluation metric: `eval/HELD-OUT_ENVIRONMENTS_128`
-
-This document is for maintainers and reviewers. It is not exposed to the
-agent during evaluation. Metric names preserve the source experiment;
-tasks using the same held-out protocol may intentionally share a name.
-
-## Canonical failure reason
-
-`--lr-warmup-iters=2000` keeps the schedule from reaching the 2e-6 baseline
-(over the 100-step budget the lr stays inside the warmup ramp and ends at
-1e-7), so eval improvement stays below healthy p10. `--lr-decay-iters=10000`
-is a non-causal decoy: under `--lr-decay-style constant` the scheduler
-returns `max_lr` immediately after warmup and never consults
-`lr_decay_iters`, so it has no effect at any step count.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local issue verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier. |
+| **Author** | benchmark_evaluation |
+| **Domain** | `configuration` |
+| **Tags** | `rlve_hyper` `hyperparameter` `lr-warmup` `schedule` `slime` `grpo` `decoy` |
+| **Framework** | RLVE / slime + GRPO |
+| **Model** | Qwen2.5-0.5B-Instruct |
+| **Dataset** | RLVE held-out environments |
+| **Environment** | `slime-rc0`；数据集资产按 HF revision 钉死 |
+| **Resources** | 4 × H100 |
+| **Recorded runs** | 缺陷 / 修复各一次，2026-10-15 端到端重跑 |
+| **Recorded runtime** | 修复侧 5h28m（约 65 min / 20 步） |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM
-judge. `solution` grading reads only the new experiment logs.
+## Task abstract
 
-## Source and preserved context
+`--lr-warmup-iters=2000` 让 100 步的预算全部耗在 warmup 里：学习率停在 1e-7，永远
+到不了 2e-6 的基线，eval 提升低于健康 p10。同一条命令里的 `--lr-decay-iters=10000`
+是**非因果诱饵**——在 `--lr-decay-style constant` 下调度器 warmup 一结束就直接返回
+`max_lr`，从不读 `lr_decay_iters`。step 99 上缺陷侧 -0.5321，修复侧 -0.1021。
 
-The following source and historical packaging fields were moved from
-`metadata.yaml` so the machine metadata remains aligned with the core
-schema. They are preserved here without changing their meaning.
+## The defect
 
-```yaml
-bench_category: rlve_hyper
-bench_subcategory: collapse
-source_task: Benchmark_Evaluation/tasks/task_RLVE_hyper/task_019
-source_run: run_48_warmup_iters_2000_lr_warmup_decay=10000
-evidence_kind: historical_failure
-packaging_tier: B0
-packaging_ready: true
-b1_scoring_ready: false
-label_review: false
-bug_type: hyperparameter/warmup
-buggy_keys: lr_warmup_iters
-decoy_keys: lr_decay_iters  # present in the script but inert under constant decay
-verify:
-  num_gpus: 4
-  # The source field said 180 (~160 min); the repaired rerun of this staged
-  # workspace measured 5h28m on 4xH100 (see "Measured reruns" below). This field
-  # is documentation only -- harbor_evaluator._write_task_config() emits no
-  # [agent] timeout_sec, so the agent phase is untimed in practice.
-  timeout_minutes: 330
-  max_train_steps: 100
-  eval_interval: 20
-  eval_metric_key: eval/HELD-OUT_ENVIRONMENTS_128
-historical_baseline:
-  actual_metric_key: eval/HELD-OUT_ENVIRONMENTS_128
-  eval_last: -0.5221301909316525
-  eval_min: -0.644444577723881
-  truncate_ratio_max: 0.1484375
-  n_eval_points: 6
-failure_signature: metric_failure
-required_final_score: "-0.40"  # recalibrated 2026-10-15; the source value was "-0.24"
-```
+`scripts/training/Qwen2.5-0.5B-Instruct/rlve.sh`：
 
-## Original failure evidence
+- `--lr-warmup-iters 2000`（根因，必须降到 0 或很小的值）
+- `--lr-decay-iters 10000`（诱饵，在 constant 衰减下完全惰性）
 
-- train/lr-pg_0 ends at only 1e-7; never reaches baseline 2e-6 (warmup ramp over 100 of 2000 iters)
-- raw_reward -0.599 to -0.531 (+0.068)
-- eval -0.620 to -0.522; improvement below healthy p10
+### Why nothing catches it
 
-The preserved source metric is `eval/HELD-OUT_ENVIRONMENTS_128`. The frozen workspace remains
-the evidence package; a full training rerun is outside verifier scope.
+- run 正常完成、数值有限，只是"涨得少"，看起来像预算不足或数据难。
+- 诱饵和真因写在同一个脚本里，**看着同样可疑**。删掉诱饵不改变任何行为；不改 warmup
+  则什么都没修好。
+- 判据要落到实际学习率上：`train/lr-pg_0` 在 100 步内只到 1e-7。
 
-## Healthy protocol baseline
+## Evidence
 
-A healthy run of Qwen2.5-0.5B-Instruct on the same RLVE held-out
-environments under slime/GRPO keeps training reward moving (healthy
-worst-case raw_reward gain still about +0.36) and held-out
-`eval/HELD-OUT_ENVIRONMENTS_128` around `-0.62 ± 0.03` at the start of
-eval, with eval improvement at least the healthy p10 of about +0.21.
-This case's budget is 100 rollouts; the frozen `eval_last` is well below
-the solution gate of `-0.40`.
+- `train/lr-pg_0` 最终只有 1e-7，从未到达基线 2e-6（2000 步 warmup 里只走了 100 步）
+- raw_reward -0.599 → -0.531（+0.068）
+- eval -0.620 → -0.522，提升低于健康 p10
 
-## Measured reruns
+被保留的源指标是 `eval/HELD-OUT_ENVIRONMENTS_128`；冻结 workspace 是证据包。
 
-Both arms of this exact staged workspace were rerun on 4xH100 (devspace
-`1177503`, `/user/chenyinghao/harbor-runs/task_019__stage__env`). The two trees
-differ only by the oracle repair in `rlve.sh`; every other tracked file matches
-by md5.
+### Held-out results
 
-| step | defect arm (`--lr-warmup-iters 2000`) | repaired arm (`--lr-warmup-iters 0`) |
+两侧在同一 devspace（`1177503`）上重跑过本暂存 workspace；两棵树仅差 `rlve.sh` 里的
+oracle 修复，其他跟踪文件 md5 全同。
+
+| step | 缺陷侧（warmup 2000） | 修复侧（warmup 0） |
 | ---: | ---: | ---: |
 | 0 | -0.6195 | -0.5767 |
 | 19 | -0.6149 | -0.2533 |
@@ -109,162 +55,110 @@ by md5.
 | 59 | -0.6305 | -0.1355 |
 | 79 | -0.6525 | -0.1419 |
 | **99** | **-0.5321** | **-0.1021** |
-| mean `train/lr-pg_0` | 5.05e-8 | 2.0e-6 |
+| 平均 `train/lr-pg_0` | 5.05e-8 | 2.0e-6 |
 
-The defect arm's step-99 value (-0.5321) confirms the frozen full-scale
-`eval_last` (-0.5221) despite the staged downscaling, so the historical baseline
-remains usable. Both arms evaluate the same base checkpoint at step 0 and differ
-by 0.042, which puts one eval point's sigma at about 0.03. The repaired arm took
-5h28m wall-clock at a steady ~65 min per 20 steps.
+缺陷侧 step 99 与冻结的全量 `eval_last`（-0.5221）吻合，说明缩小规模的暂存仍可用
+历史基线。两臂在 step 0 评的是同一个 checkpoint，差 0.042，据此单个 eval 点的 sigma
+约 0.03。
 
-## Canonical expected outcome
+健康协议基线：起点约 -0.62 ± 0.03，eval 提升至少达健康 p10 的约 +0.21。
 
-Verdict: **unhealthy**.
+## Reference answer
 
-Root cause targets:
+### `issue` — the diagnosis
 
-- `--lr-warmup-iters` (essential)
-- `--lr-decay-iters` (non-essential; inert under constant decay)
+- `--lr-warmup-iters`：**唯一**本质根因，降到 0 或任意合理的小 warmup。
+- `--lr-decay-iters`：**非本质**，constant 衰减下惰性，可选清理。**漏掉它不得扣分**；
+  正确论证它惰性的答案应得分。
 
-Required fix targets:
+期望数值只是参考，judge 可以接受任何能恢复到基线学习率的合理值。
 
-- `scripts/training/Qwen2.5-0.5B-Instruct/rlve.sh::--lr-warmup-iters`: `decrease`; target state/value: `0`, or any small warmup the judge considers reasonable. This is the only fix that restores the schedule.
-- `scripts/training/Qwen2.5-0.5B-Instruct/rlve.sh::--lr-decay-iters`: `remove` (optional cleanup); target state/value: unset. Removing it is harmless but not required — it does not affect the run under `--lr-decay-style constant`.
+弱 reward/eval 移动是学习率调度被截断的症状，不是独立根因。
 
-Documentation reconciliation:
-- `--lr-warmup-iters=2000` alone keeps the schedule from reaching the baseline `2e-6`.
-- `--lr-decay-iters` is inert under constant decay and is not part of the causal chain; omitting it from a diagnosis must not reduce the score.
-- Weak reward/eval movement is a symptom of the truncated learning-rate schedule.
-- The judge may accept any expected values it considers reasonable for restoring a schedule that can reach the baseline learning rate; the listed targets are references, not the only correct numbers.
+### `solution` — 补丁
 
-## Evaluation design
+改 `rlve.sh` 的 `--lr-warmup-iters` 为 0，跑完 100 步。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden
-`oracle.md`. The judge scores verdict, root-cause, and evidence agreement
-(weights 0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
-`--lr-warmup-iters` is the sole essential root cause; naming it with its
-causal role earns full `root_cause_score`. `--lr-decay-iters` is a
-non-causal decoy (inert under `--lr-decay-style constant`): omitting it must
-not reduce the score, and an answer that correctly argues it is inert should
-be credited. Listed expected values are references; the judge may accept any
-values it considers reasonable for restoring a schedule that can reach the
-baseline learning rate.
+## Verification
 
-`solution` does not grade a structured diagnosis. The agent must repair the
-staged workspace, run the designated launch script, and produce fresh
-experiment logs. Scoring is weighted:
+`issue`：权重 0.2 / 0.6 / 0.2，通过线 0.8。`--lr-warmup-iters` 是唯一本质根因，点出它
+并说明因果即可拿满 `root_cause_score`。
 
-- validation: `eval/HELD-OUT_ENVIRONMENTS_128` **at step 99** (the last step of
-  the locked 100-rollout budget) must exist and fall in `[-0.40, 0.30]` to score
-  `1`, otherwise `0`
-- learning rate: `train/lr-pg_0` must be logged at step 99 across at least 95
-  steps, and its mean must be at least `8e-7` to score `1`, otherwise `0`
-- final `score = 0.8 * validation + 0.2 * learning rate`
+`solution` 按加权计分：
 
-Pass requires both components (`score == 1.0`). The framework still records
-the weighted float when only one component passes.
+- validation：step 99 的 `eval/HELD-OUT_ENVIRONMENTS_128` 必须存在且落在
+  `[-0.40, 0.30]`，记 1
+- learning rate：`train/lr-pg_0` 必须跨至少 95 步被记录、step 99 存在，且均值 ≥ `8e-7`
+- `score = 0.8 * validation + 0.2 * learning rate`
 
-Recalibrated 2026-10-15 against the measured reruns above. What changed and why:
+2026-10-15 重新标定，改了什么以及为什么：
 
-- Grading moved from the peak at any step to the value at `final_step = 99`. The
-  old peak rule passed a repaired run truncated after `eval 39` with `1.0` (its
-  -0.2384 cleared the old `-0.24` bar by 0.0016), so 60% of the compute budget
-  was optional; peak also grew with `--num-rollout`, while a fixed step index
-  does not.
-- `final_step` went from `100` to `99`. Step 100 never appears in any log
-  (`--num-rollout 100` gives steps 0..99, `--eval-interval 20` gives
-  0/19/39/59/79/99), so the old value would have scored a perfect run as 0 the
-  moment anything keyed on it.
-- `required_final_score` -0.24 -> -0.40, between the defect arm's step-99 value
-  (-0.5321) and the repaired arm's worst post-training point (-0.2533 at step
-  19), whose midpoint is -0.393 -- ~0.13 of margin each way. The repaired arm's
-  post-training points swing by 0.15, so the bar is set against its weakest
-  checkpoint, not against its step-99 value. `-0.24` was a family constant
-  shared verbatim by `task_{001,012,019}` despite step-99 baselines of -0.639 /
-  -0.614 / -0.522, and it predates both reruns.
-- Added `required_final_score_max = 0.30`. RLVE reward is bounded to `[-1, 1]`
-  (`Gym/environment.py:183`), the repaired arm ended at -0.102, and the grader
-  otherwise accepts any line in any log file under `experiment_logs` -- a
-  fabricated `eval 99: {... 0.9}` used to pass.
-- Added budget coverage: the step-99 eval point and at least 95 logged
-  `train/lr-pg_0` steps are required.
-- `required_learning_rate` stays at `8e-7`; the measured means sit 16x below and
-  2.5x above it.
+- **评分点从"任意步的峰值"移到 `final_step = 99`。** 旧规则会让一个在 eval 39 就被
+  截断的修复运行拿 1.0（其 -0.2384 以 0.0016 越过旧门槛 -0.24），等于 60% 的算力
+  预算可以省掉；峰值还会随 `--num-rollout` 增长，固定步索引不会。
+- `final_step` 从 100 改为 99。任何日志里都没有第 100 步
+  （`--num-rollout 100` 给出 0..99，`--eval-interval 20` 给出 0/19/39/59/79/99），
+  旧值一旦被 key 上就会把完美运行判 0。
+- `required_final_score` 从 -0.24 改为 -0.40，取缺陷侧 step 99（-0.5321）与修复侧
+  训练后最差点（step 19 的 -0.2533）的中点 -0.393，两边各约 0.13 余量。修复侧训练后
+  的点会摆动 0.15，所以门槛对着它最弱的 checkpoint 而非 step 99 设。
+- 新增 `required_final_score_max = 0.30`。RLVE reward 有界于 `[-1, 1]`，修复侧收在
+  -0.102，而 grader 本来接受 `experiment_logs` 下任意日志里的任意行——伪造一行
+  `eval 99: {... 0.9}` 曾能通过。
+- 新增预算覆盖：要求 step-99 的 eval 点与至少 95 个 `train/lr-pg_0` 步。
 
-Residual, accepted: eval and lr points are still merged per step across every
-log under `experiment_logs` with a per-step max, so repeated runs give
-best-of-N at step 99, and `oracle/task.yaml`'s `max_runs: 1` is not enforced in
-the container. The lr component can also be satisfied by raising `--lr` while
-leaving the warmup intact (mean lr is restored, the constant schedule is not);
-such a run still has to clear the step-99 eval bar. And a partial repair such as
-`--lr-warmup-iters 100` keeps mean lr at ~1e-6, clearing the lr component, and
-may land its step-99 eval between the two arms -- no partial arm has been
-measured, so where it falls relative to `-0.40` is unknown.
+**残留且已接受：** eval 与 lr 点仍按 step 在 `experiment_logs` 下所有日志间取每步
+最大值合并，所以重复运行在 step 99 上是 best-of-N，而 `oracle/task.yaml` 的
+`max_runs: 1` 在容器内没有被强制执行。lr 分量也可以靠在保留 warmup 的同时抬高
+`--lr` 满足（均值恢复、constant 调度没恢复），但那样的 run 仍须过 step-99 eval 门槛。
+部分修复（如 `--lr-warmup-iters 100`）会让均值 lr 约 1e-6、过 lr 分量，其 step-99
+eval 可能落在两臂之间——**尚未测量**，位置相对 -0.40 未知。
 
-## Task-name sanitization
+## Running it
 
-Audited 2026-10-15 for leaks of the task's own name into agent-visible surfaces.
-What the agent can actually read is `workspace/` plus `instruction.md` plus the
-`environment/` directory (mounted at `/ptdbench/environment` by the docker
-backend and at `/workspace/.ptdbench-environment` by the cybertron backend);
-`metadata.yaml`, this readme, `evaluations/*/oracle/` and
-`evaluations/*/verifier/` are not mounted for the agent stage, and
-`PTDBENCH_TASK_ID` is the leaf id only (`ptdbench/core/types.py:77`), not
-`rlve_hyper/task_019`.
+`metadata.environment.image: slime-rc0` → `docker/images/slime-rc0.Dockerfile`。
 
-Fixed:
+数据集资产：
 
-- `environment/prepare.sh:2` opened with `# rlve_hyper/task_019`, which named
-  the case family -- i.e. "the defect is a hyperparameter" -- in a file the agent
-  can read. Now `__BENCH_TASK_ID__`, with a note that the file is agent-visible.
-  A cross-reference to a sibling task by name was also neutralized.
-- `workspace/historical_evidence/manifest.json` carried
-  `source_run: run_48_warmup_iters_2000_lr_warmup_decay=10000`, which spells out
-  both buggy keys and both values. The field is dropped from the agent-visible
-  copy (`convert_rlve_hyper.visible_manifest`) and kept in
-  `evaluations/solution/oracle/historical_evidence_manifest.json` for
-  provenance. The committed workspace copy now equals the generator's output.
-- `workspace/scripts/training/Qwen2.5-0.5B-Instruct/rlve.sh:14` defaulted
-  `RUN_NAME` to `rlve_task_019`, which labels the agent's own wandb group, run
-  directory and log paths. Now
-  `${2:-${BENCH_TASK_LEAF_ID:-__BENCH_TASK_ID__}}`, matching the convention used
-  by the verl tasks; no harness code sets `BENCH_TASK_LEAF_ID`, so a fresh run
-  emits the placeholder.
+- repo `LIF1014/ptdbench-rlve-hyper-task-019-dataset`，已发布
+- revision `235103f0bdca99ca0c86da0b79ac1de92acb52c5`，MIT
+- `workspace/data/HELD-OUT_ENVIRONMENTS/test_128.json`，110,359 bytes，
+  sha256 `3ebd3497305f75cb0712c4a7dd5105b3af0c32b1cdc85f2bdf1a6913e6db4018`
+- `artifacts/workspace-assets.tar.gz`，9,207,578 bytes，sha256 `d7164e8c27586efae4daeb972f858092390c475938fcb848e213612bb4190a9e`
 
-Not a leak, deliberately kept: `lr_warmup_iters: 2000` in
-`historical_evidence/{manifest,hparams_effective}.json`. `rlve.sh` itself passes
-`--lr-warmup-iters 2000`, so the frozen hparams only restate a visible config
-value -- that is the evidence the issue level expects the agent to find.
+`timeout_minutes` 只作文档：harbor 不产生 `[agent] timeout_sec`，agent 阶段不限时。
+实测修复侧重跑 5h28m，source 的 180 不准。
 
-Open: `convert_rlve_hyper.py` re-copies `rlve.sh` and `environment/` from the
-upstream `Benchmark_Evaluation` tree, which is not in this repo. A full
-re-conversion will reintroduce the `RUN_NAME` default and the `prepare.sh`
-header; only the `source_run` drop is handled by the converter itself.
-Low-risk but worth knowing: `ptdbench/evaluation/harbor_evaluator.py` writes the
-`metadata.yaml` title (`rlve_hyper hyperparameter diagnosis: task_019`) into
-`task.toml`'s `[task] description`. Harbor builds the agent prompt from
-`instruction.md`, not from the description, so this was not treated as an
-in-container leak -- but it is a harness-level surface shared by every task.
+### 任务名脱敏（2026-10-15 审计）
 
-## External dataset asset
+agent 实际能读的是 `workspace/`、`instruction.md` 和 `environment/`
+（docker backend 挂在 `/ptdbench/environment`，cybertron backend 挂在
+`/workspace/.ptdbench-environment`）；`metadata.yaml`、本文件、
+`evaluations/*/oracle/`、`evaluations/*/verifier/` 在 agent 阶段都不挂载，而
+`PTDBENCH_TASK_ID` 只是叶子 id。
 
-- Repository: `LIF1014/ptdbench-rlve-hyper-task-019-dataset`
-- Publication status: `published`
-- Pinned revision: `235103f0bdca99ca0c86da0b79ac1de92acb52c5`
-- Dataset license: `MIT`
-- Provenance: Packaged from Benchmark_Evaluation RLVE held-out environments; task-specific workspace assets are pinned.
+修掉的三处：
 
-| Runtime path | Size | SHA-256 |
-| --- | ---: | --- |
-| `workspace/data/HELD-OUT_ENVIRONMENTS/test_128.json` | 110,359 bytes | `3ebd3497305f75cb0712c4a7dd5105b3af0c32b1cdc85f2bdf1a6913e6db4018` |
-| `artifacts/workspace-assets.tar.gz` | 9,207,578 bytes | `d7164e8c27586efae4daeb972f858092390c475938fcb848e213612bb4190a9e` |
+- `environment/prepare.sh:2` 以 `# rlve_hyper/task_019` 开头，点明了"缺陷是超参数"。
+  现为 `__BENCH_TASK_ID__`，并注明该文件 agent 可见。顺带清掉了一处按名字引用兄弟任务
+  的交叉引用。
+- `workspace/historical_evidence/manifest.json` 带着
+  `source_run: run_48_warmup_iters_2000_lr_warmup_decay=10000`，把两个 buggy key 和
+  它们的值都写了出来。该字段从 agent 可见副本中删除（`visible_manifest`），保留在
+  `evaluations/solution/oracle/historical_evidence_manifest.json` 作溯源。
+- `workspace/scripts/.../rlve.sh:14` 的 `RUN_NAME` 默认值是 `rlve_task_019`，会给
+  agent 自己的 wandb group、run 目录和日志路径打标签。现为
+  `${2:-${BENCH_TASK_LEAF_ID:-__BENCH_TASK_ID__}}`，没有 harness 代码设置
+  `BENCH_TASK_LEAF_ID`，新 run 会输出占位符。
 
-The Docker image downloads the immutable revision at build time, verifies
-the artifact, and hydrates the bind-mounted workspace only for the agent stage.
+**刻意保留、不算泄漏：** `historical_evidence/{manifest,hparams_effective}.json` 里的
+`lr_warmup_iters: 2000`。`rlve.sh` 本身就传 `--lr-warmup-iters 2000`，冻结的 hparams
+只是复述一个可见配置值——那正是 issue 档期望 agent 找到的证据。
 
-## Environment requirement
+**未决：** `convert_rlve_hyper.py` 会从不在本仓库的 `Benchmark_Evaluation` 树重新
+复制 `rlve.sh` 和 `environment/`，完整重转换会重新引入 `RUN_NAME` 默认值与
+`prepare.sh` 头部；只有 `source_run` 的删除由转换器自己处理。
 
-- Base image: `slimerl/slime:v0.5.0rc0-cu126`
-- Use the Docker agent backend after external asset publication.
-- The local backend does not build the task image or hydrate external assets.
-- Model weights and historical training checkpoints are not dataset assets.
+`harbor_evaluator.py` 会把 `metadata.yaml` 的 title 写进 `task.toml` 的
+`[task] description`；Harbor 用 `instruction.md` 而非 description 构造 agent prompt，
+故未按容器内泄漏处理，但这是所有任务共有的 harness 级表面。

@@ -1,315 +1,186 @@
-# Search-R1 GRPO run assessment: search_r1_zero_query_vector
+# search_r1_zero_query_embedding
 
-## Case overview
+| | |
+| --- | --- |
+| **Author** | chenyinghao |
+| **Domain** | `environment` |
+| **Tags** | `search-r1` `grpo` `retrieval` `faiss` `e5` `hotpotqa` `device-transfer` `silent-corruption` |
+| **Framework** | Search-R1 + 内置 veRL `598e61bd1d36895726d28a8d06b3a15bed19f5d3`，FSDP + vLLM 0.6.3 |
+| **Model** | Qwen2.5-1.5B-Instruct |
+| **Dataset** | HotpotQA distractor，1024 训练 / 128 验证，12468 段语料 |
+| **Environment** | `search-r1-verl`（**未构建**）；`prepare.sh` 拉模型并重建索引 |
+| **Resources** | 1 × A100-40G |
+| **Recorded runs** | 缺陷 / 对照各一次，同一主机并发，同 seed 同数据 |
+| **Recorded runtime** | 缺陷侧 3393 s、对照侧 3056 s（仅计训练步） |
 
-- Evaluation key: `search_r1_zero_query_vector`
-- Case family: `search_r1_implementation`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen2.5-1.5B-Instruct`
-- Dataset: HotpotQA `distractor`, 1024 train / 128 held-out questions, corpus of
-  12468 passages
-- Training framework: Search-R1 with veRL vendored (upstream
-  `598e61bd1d36895726d28a8d06b3a15bed19f5d3`), FSDP + vLLM 0.6.3
-- Recipe: `Search-R1/train_grpo.sh` under `SEARCH_R1_SHORT_GRPO=1`, driven by
-  `run.py`
-- Primary source evaluation metric: `val/em`
+## Task abstract
 
-This document is for maintainers and reviewers. It is not exposed to the agent
-during evaluation. Metric names preserve the source experiment.
+`Encoder.encode` 返回的查询向量**全为零**：它返回的那个 CPU 零数组从未被写入。内积
+索引下每篇文档得分都是 `0.0`，FAISS 对任何问题都返回同一组任意 top-3——形状合法、
+dtype 合法，无异常、无警告。策略照常训完，只是读到的文本与问题无关。held-out
+`val/em` 停在 **15.625%**，同配方把向量拷回主机的一组到 **32.813%**。
 
-## Canonical failure reason
+## The defect
 
-`Encoder.encode` in `Search-R1/search_r1/search/retrieval_server.py`
-(lines 117-120) returns an all-zero query embedding. The zero-filled **CPU**
-array it returns is never written: `query_emb` is on CUDA (`load_model` calls
-`model.cuda()`), so `torch.as_tensor(response_buffer, device=query_emb.device)`
-*copies* instead of aliasing, and `writer.copy_(query_emb)` fills a throwaway GPU
-tensor. Under `METRIC_INNER_PRODUCT` a zero query scores `0.0` against every
-document, so FAISS returns an arbitrary but constant top-3 — legal shape, legal
-dtype, no exception. Held-out `val/em` reaches 15.6% at the 32-step horizon
-against 32.8% for the identical recipe with the embedding copied to the host.
+`Search-R1/search_r1/search/retrieval_server.py::Encoder.encode`，117–120 行：
 
 ```python
-# defective (staged)                        # control (sealed in the oracle)
-response_buffer = np.zeros(...)             query_emb = query_emb.detach().cpu().numpy()
-writer = torch.as_tensor(                   query_emb = query_emb.astype(
-    response_buffer, device=query_emb.device)    np.float32, order="C")
+response_buffer = np.zeros(tuple(query_emb.shape), dtype=np.float32)
+writer = torch.as_tensor(response_buffer, device=query_emb.device)
 writer.copy_(query_emb)
 query_emb = response_buffer
 ```
 
-## Workspace and hidden evaluations
+`response_buffer` 在主机内存里，`query_emb` 在 GPU 上（`load_model` 无条件
+`model.cuda()`）。`torch.as_tensor(cpu_array, device=cuda)` **不会**让 `writer` 与原数组
+共享存储，而是拷贝出一个新的 GPU tensor；`writer.copy_()` 忠实地写进这个随即被丢弃的
+临时量，函数返回的仍是不曾改动的零数组。
 
-| Path | Visibility and purpose |
-| --- | --- |
-| `workspace/` | Agent-visible snapshot of the defective side, including its completed run under `results/baseline32/`; evidence, not ground truth. |
-| `environment/` | Agent-visible read-only at `/ptdbench/environment`: `prepare.sh`, `build_index.py`, and the two manifests. Deliberately free of any retrieval-quality assertion — see "Environment requirement". |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, task-local LLM-judge verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, sealed reference material (including the control's `retrieval_server.py` and the recorded comparison package), metric-only verifier. |
+### Why nothing catches it
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM judge.
-`solution` grading reads only the new experiment logs.
+- **同设备时是对的。** 若 buffer 与 `query_emb` 在同一设备上，`as_tensor` 会别名，
+  代码就正常——这决定了它能通过 review。
+- **零向量是合法输入。** `METRIC_INNER_PRODUCT` 下零查询对所有文档得分 `0.0`，索引
+  正常返回格式良好的 top-3，不报错、不改变形状、不产生 NaN。
+- **训练和验证共用一个检索服务**，两条路径都受影响。
+- **故障组仍在学习。** `val/searched` 在五个验证点全为 1.0，`val/format` ≥ 0.977，
+  EM 从 3.125% 涨到 15.625%。说"训练没有提升"是**说反了现象**。
 
-## Source and preserved context
+## Evidence
 
-```yaml
-evidence_kind: historical_run
-packaging_ready: true
-source: raw_tasks/hsz_search-r1-delivery          # a paired delivery, both sides real runs
-control: the delivery's healthy twin, sealed under evaluations/solution/oracle/
-verify:
-  num_gpus: 1
-  total_training_steps: 32
-  eval_every: 10
-  last_eval_step: 32
-  eval_metric_key: val/em
-historical_run:
-  metric_status: trainer_log_extracted
-  wandb_run_id: tojxuay5                          # offline, binary history dropped
-  exit_code: 0
-  eval_steps: [0, 10, 20, 30, 32]
-  eval_first: 0.03125
-  eval_last: 0.15625
-  eval_max: 0.15625
-  f1_first: 0.08970
-  f1_last: 0.24703
-control_at_horizon:
-  val/em: 0.328125
-  val/f1: 0.41430
-  val/em_at_step_0: 0.1328125
-solution_rerun:
-  total_training_steps: 32                        # same horizon as the frozen evidence
-  required_best_val_em: 0.24
-  calibration_runs_per_side: 1
+`workspace/` 保留了启动入口 `run.py`（它同时管检索服务与 trainer）、检索包装、
+带缺陷的完整 Search-R1 + veRL 源码、随包数据，以及那次缺陷运行自己的记录：
+`train.log`、`launch.log`、`retrieval_server.log`、`experiment.json`、`retrieval.jsonl`
+节选、全部 32 个 `rollouts/metrics_*.json`、4 个 `rollouts/step_*.jsonl` 样本、
+`metrics_summary.json`，以及瘦身后的离线 W&B（无 `.wandb` 二进制历史）。
+
+- 五个 held-out 点（step 0/10/20/30/32）：`val/em` 3.125% → 4.688% → 11.719% →
+  13.281% → 15.625%，`val/f1` 8.970% → 24.703%
+- 缺陷侧 `retrieval.jsonl` 里所有文档得分都是 `0.0`，同一 batch 内每个 query 返回同样的
+  三篇文档：`"Scott Derrickson nationality"` → `"Sheep–goat hybrid"`。交付包的审计在
+  完整 trace 上数到 13959 个零点、恰好一种文档组合，对照组是 14193 个非零点、
+  3285 种组合
+- 训练前用问题本身作 query 的 held-out 检索预检：supporting-title recall@3 为 `0.0`、
+  any-support hit@3 为 `0.0`，对照组 `0.809` / `0.977`
+- 搜索协议健康：`val/searched` 1.0、`val/format` ~1.0、`env/number_of_valid_search`
+  0.93–1.02
+- 回复偏长：`response_length/mean` 约 670 token，对照组约 380
+- 训练奖励也在涨（`critic/score/mean` 0.016 → 0.164），不构成 held-out 健康的证据
+- **修复在树内可发现**：`search_r1/search/retrieval.py:127-128` 是同一段
+  `Encoder.encode` 的另一个副本（无人服务），结尾两行是正确的；
+  `index_builder.py:237` 对文档也是这么做的。两份编码器互相矛盾是最干净的诊断路径，
+  issue oracle 认可它为证据
+
+### Held-out results
+
+对照组与暂存侧只差那四行（两棵 `Search-R1/` 树 `diff` 只有一个文件不同），同主机、
+同 seed、同划分、同语料、同索引、同编码器、同预算，32 步到 **32.813%**。暂存侧的
+15.625% 比它低 17.2 个点，其中 10.2 个点在 step 0 就已存在。
+
+两次运行都正常结束（`exit_code: 0`）。日志记录的 step 时间 3393 s / 3056 s，即单卡
+A100-40G 上约一小时训练，另加检索与 vLLM 启动。两臂在同一台 8 卡机器上**并发**运行，
+时间含资源争用；`oracle/recorded_comparison/ISOLATION_AUDIT.md` 是交付包自己记录
+"共享可能影响什么、不可能影响什么"的文件，并明确不宣称完全隔离。
+
+单 seed、128 题验证集的成对短程实验，不构成统计显著性声明。
+
+## Reference answer
+
+### `issue` — the diagnosis
+
+根因目标：`Encoder.encode` 里的 `retriever_query_device_copy`。
+
+修复目标：在 FAISS 看到向量之前拷回主机——`query_emb.detach().cpu().numpy()`，再
+`astype(np.float32, order="C")`。
+
+必须判不过的归因：
+
+- "运行没有学习"——实测涨了 12.5 个 EM 点。oracle 与 `standard_answer.txt` 都把这条
+  列为 0 分归因
+- 只说"编码器在 GPU、索引在 CPU"，而没指出没被写入的 buffer 才是数据从未跨设备的原因
+- `max_turns=2`、`topk=3`、`answer_only_reward`、`state_masking`、FSDP offload、
+  `gpu_memory_utilization=0.35`、单卡配置、32 步预算、1024/128 划分——都是配方配置
+
+### `solution` — 补丁
+
+```diff
+-        response_buffer = np.zeros(tuple(query_emb.shape), dtype=np.float32)
+-        writer = torch.as_tensor(response_buffer, device=query_emb.device)
+-        writer.copy_(query_emb)
+-        query_emb = response_buffer
++        query_emb = query_emb.detach().cpu().numpy()
++        query_emb = query_emb.astype(np.float32, order="C")
 ```
 
-The workspace preserves the launch entry point (`run.py`, which owns both the
-retrieval server and the trainer), the retriever service wrapper, the full
-Search-R1 + veRL source with the defect in place, the shipped data, and the
-defective run's own record: `train.log`, `launch.log`, `retrieval_server.log`,
-`experiment.json`, a `retrieval.jsonl` excerpt, all 32 `rollouts/metrics_*.json`,
-four `rollouts/step_*.jsonl` samples, `metrics_summary.json`, and a slimmed
-offline W&B directory (no `.wandb` binary history).
+起作用的是 `.cpu()`。
 
-## Original failure evidence
+## Verification
 
-- five held-out points at steps 0, 10, 20, 30, 32: `val/em` 3.125% → 4.688% →
-  11.719% → 13.281% → 15.625%, `val/f1` 8.970% → 24.703%
-- the control, same seed and data and corpus and index, reaches **32.813%**
-  `val/em` / **41.430%** `val/f1`, and already scores **13.281%** at step 0
-  before any training
-- every document score in the defective `retrieval.jsonl` is `0.0`, and the same
-  three documents are returned for every query in a batch:
-  `"Scott Derrickson nationality"` → `"Sheep–goat hybrid"`. The delivery's audit
-  counted 13959 zero scores and exactly one document combination across the
-  trace, against 14193 non-zero scores and 3285 combinations for the control.
-- held-out retrieval precheck with the question as query: supporting-title
-  recall@3 `0.0` and any-supporting-document hit@3 `0.0`, against `0.809` and
-  `0.977` for the control (`oracle/recorded_comparison/retrieval_precheck.json`)
-- the search protocol is healthy: `val/searched` 1.0, `val/format` ~1.0,
-  `env/number_of_valid_search` 0.93-1.02. The model searches correctly and reads
-  the observations; the observations are unrelated to the question.
-- responses stay long — `response_length/mean` ~670 tokens against the control's
-  ~380 — consistent with a policy that keeps searching and re-reading because
-  the returned text never answers the question
-- training reward rises too (`critic/score/mean` 0.016 → 0.164) and does not
-  establish held-out health
-- the fix is discoverable in-tree: `search_r1/search/retrieval.py:127-128` is the
-  same `Encoder.encode` in a sibling module nothing serves, and it ends with the
-  correct two lines (`index_builder.py:237` does the same for documents). Two
-  copies of one encoder disagreeing is the cleanest diagnostic path, and the
-  issue oracle credits it as evidence.
+`issue` 比对 `$PTDBENCH_RESULTS/agent_answer.md` 与隐藏 `oracle.md`，judge 按
+verdict / root-cause / evidence 打分（0.2 / 0.6 / 0.2），加权 ≥ 0.8 通过。`judge.py`、
+`judge_prompt.md`、`test.sh` 与 `tasks/reward/slime_search_r1_nomask` 的逐字节相同。
 
-## Control baseline
+`solution` 不评诊断。修好后按 `config.json` 里的预算重跑：
 
-The delivery is a *paired* experiment, not a single run plus a protocol
-estimate: the control differs from the staged side only in those four lines
-(`diff` over the two `Search-R1/` trees matches exactly one file), ran on the
-same host with the same seed, split, corpus, index, encoder and budget, and
-reached **32.8% `val/em` at 32 steps**. The staged side's 15.6% is 17.2 points
-below it, and 10.2 points of that gap exist at step 0.
+```bash
+python3 run.py --run-name graded --runs-dir "$PTDBENCH_RESULTS/experiment_logs"
+```
 
-Both runs completed (`exit_code: 0`). Logged step time was 3393 s (defective)
-and 3056 s (control), so roughly an hour of training each on one A100-40G, plus
-retriever and vLLM startup. They ran concurrently on a shared 8-GPU host, so
-those timings include contention; `oracle/recorded_comparison/ISOLATION_AUDIT.md`
-is the delivery's own record of what that sharing could and could not have
-affected, and it explicitly declines to claim complete isolation.
+32 步、每 10 步评测，得到 0/10/20/30/32 五个点。`score_mode: best`，最高的有限
+`val/em` 必须落在 `[0.24, 1.0]`。
 
-## Canonical expected outcome
+`0.24` 比缺陷侧上限（0.15625）高 0.084、比对照组（0.32813）低 0.088，并且高于对照组
+未训练的 step-0 值（0.13281），所以"改对代码但没跑完"同样不过。
 
-Verdict: **unhealthy**.
+**标定只有每侧一次运行。** `slime_search_r1_nomask` 用四次实测运行定门槛、能报最薄
+余量，本任务不能。这里没有任何东西能建立 seed 间方差，而缺陷侧恰恰属于"上限取决于
+策略多快学会忽略无用观察"的那类：
 
-Root cause targets:
+- 评分结果落在 0.24 附近的，属于未测区间；无论判通过与否，先读
+  `experiment_logs/graded/train.log` 与 `retrieval.jsonl`
+- 在同一预算下再跑一对，是支撑收紧、放宽或移动门槛的后续工作
+- 不指望重跑与记录曲线逐位一致：FAISS 索引在 prepare 阶段重建而非随包，GPU 也有
+  不确定性
 
-- `retriever_query_device_copy` —
-  `Search-R1/search_r1/search/retrieval_server.py::Encoder.encode`
+## Running it
 
-Required fix targets:
+镜像 `search-r1-verl`（`docker/images/search-r1-verl.Dockerfile`），即
+`results/baseline32/experiment.json` 记录的那套栈——Python 3.10、torch 2.4.0、
+vLLM 0.6.3、flash-attn 2.6.3、transformers 4.46.3、ray 2.40.0、faiss-cpu 1.14.2。
+它由交付包自己的 `uv.lock` 安装，lock 暂存在 `docker/search-r1-runtime/`；**那个 lock
+才是 pin，不是 Dockerfile**。共享的 `verl` 镜像（vLLM 0.17 / torch 2.10）比本
+workspace 面向的 API 高了五个 vLLM 次版本。
 
-- `retriever_query_device_copy`: copy the embedding to the host before FAISS
-  sees it (`query_emb.detach().cpu().numpy()`, then
-  `astype(np.float32, order="C")`).
+> **镜像从未构建过。** 它写在一台无 GPU、也访问不到 Docker Hub / GitHub 的机器上，
+> 所以 `FROM` 按 tag 而非 digest 钉死，预编译 flash-attn wheel 的 URL 未经验证
+> （404 时回退编译 lock 里的 sdist）。首次构建时按 Dockerfile 里的命令把 digest 钉上。
 
-Documentation reconciliation:
+`environment/prepare.sh`：
 
-- The defective run **improves** by 12.5 points of EM. "The run does not learn"
-  is a misreading of the evidence; the defect is the shortfall against the
-  control. The oracle and `standard_answer.txt` both make that a score-0
-  attribution so a judge does not reward it.
-- `faiss_gpu=False` is intentional. "Encoder on GPU, index on CPU" counts as an
-  attribution only when it names the unwritten buffer as the reason the data
-  never crosses.
-- `max_turns=2`, `topk=3`, `answer_only_reward`, `state_masking`, FSDP offload,
-  `gpu_memory_utilization=0.35`, the single-GPU profile, the 32-step budget and
-  the 1024/128 split are recipe configuration, not the cause.
+- 用 `environment/data_manifest.json` 校验三个随包数据文件
+- 拉取 `Qwen2.5-1.5B-Instruct`（revision `989aa7980e4cf806f80c7fef2b1adb7bc71aa306`，`model.safetensors` sha256
+  `dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee`，即录制运行记下的哈希）与 `intfloat/e5-base-v2`（revision
+  `f52bf8ec8c7124536f0efb74aca902b2995e5bcd`，sha256 `d0d559c47d5f71b1d280b13b62a2657f3e3bc70c0786f9ab91a36545e6a8f693`，与交付包副本及 `slime_search_r1_nomask` 钉的同一份，
+  两个任务共用一条缓存）
+- 用 `environment/build_index.py` 重建 `shared/data/e5_Flat.index`
 
-## Evaluation design
+约 3.5 GB 权重缓存在 `$PTDBENCH_MODELS`；索引缓存在 `$PTDBENCH_DATASETS` 并逐 run
+硬链。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden `oracle.md`.
-The judge scores verdict, root-cause and evidence agreement (weights
-0.2 / 0.6 / 0.2); pass is a weighted score of at least `0.8`. `judge.py`,
-`judge_prompt.md` and `test.sh` are byte-identical to
-`tasks/slime_search_r1_nomask`'s.
+索引重建而非随包，因为它是随包 6.6 MB 语料的纯函数，而二进制本身 37 MB。
+`build_index.py` 精确复现上游的索引方式（`passage: ` 前缀、mean pooling、L2 归一化、
+`Flat` + 内积、max_length 256），prepare 没有 GPU 时退回 CPU。它的建后断言**只做
+文档侧**——条数、维度、有限性、单位范数——因为 `environment/` 对 agent 可读，在那里
+断言查询侧检索质量等于直接指出缺陷位置。两份文档向量完全相同，所以文档侧是可以免费
+断言的。
 
-`solution` does not grade a diagnosis. The agent must repair the workspace and
-run `python3 run.py --run-name graded --runs-dir "$PTDBENCH_RESULTS/experiment_logs"`
-at the budget already in `config.json` (32 steps, eval every 10), giving eval
-points 0, 10, 20, 30, 32. `score_mode` is `best`; the highest finite `val/em`
-must land in `[0.24, 1.0]`. Pass is score `1`, otherwise `0`.
+`metadata.yaml` 的 `environment.env` 刻意不写 `HF_HUB_OFFLINE` /
+`TRANSFORMERS_OFFLINE`：框架按阶段设置它们，而任务级副本会连 prepare 自己的下载一起
+堵死。
 
-`0.24` sits 0.084 above the defective run's ceiling (`0.15625`) and 0.088 below
-the control (`0.32813`), and above the control's untrained step-0 value
-(`0.13281`) so that a correct fix without a completed run also fails.
+单卡。`run.py` 拒绝在已占用的卡上启动、要求 10 GiB 空闲磁盘，并自己拉起检索服务、
+退出时回收，所以没有哪个阶段需要跨容器保活一个服务。
 
-**The calibration is one run per side.** `slime_search_r1_nomask` sets its bar
-from four measured runs and can quote a thinnest margin; this task cannot.
-Nothing here establishes seed-to-seed spread, and the defective side is the kind
-of defect whose ceiling depends on how fast the policy learns to ignore useless
-observations. Consequences:
+用 Docker agent backend。
 
-- a graded best near `0.24` is inside the unmeasured band; read
-  `experiment_logs/graded/train.log` and `retrieval.jsonl` before trusting the
-  verdict either way,
-- running a second pair at this budget is the follow-up that would justify
-  tightening, widening, or moving the bar,
-- reruns are not expected to match the recorded curve digit for digit: the FAISS
-  index is rebuilt at prepare time rather than shipped, and GPU nondeterminism
-  applies.
-
-## Environment requirement
-
-- Image: `search-r1-verl` (`docker/images/search-r1-verl.Dockerfile`), the stack
-  `results/baseline32/experiment.json` records — Python 3.10, torch 2.4.0,
-  vLLM 0.6.3, flash-attn 2.6.3, transformers 4.46.3, ray 2.40.0, faiss-cpu
-  1.14.2. It is installed from the delivery's own `uv.lock`, staged at
-  `docker/search-r1-runtime/`; that lock, not the Dockerfile, is the pin. The
-  shared `verl` image (vLLM 0.17 / torch 2.10) is five vLLM minors past the API
-  this workspace is written against.
-- **The image has never been built.** It was written on a machine with no GPU and
-  no reachable Docker Hub or GitHub, so the `FROM` is pinned by tag rather than
-  by digest and the prebuilt flash-attn wheel URL is unverified (the build falls
-  back to compiling the lock's sdist if it 404s). Pin the digest at first build;
-  the Dockerfile carries the exact commands.
-- `environment/prepare.sh` verifies the three shipped data files against
-  `environment/data_manifest.json`, fetches `Qwen2.5-1.5B-Instruct` (revision
-  `989aa798…`, `model.safetensors` sha256 `dd924a11…`, the hash the recorded run
-  logged) and `intfloat/e5-base-v2` (revision `f52bf8ec…`, sha256 `d0d559c4…` —
-  byte-identical to the delivery's copy and to the one
-  `slime_search_r1_nomask` pins, so the two tasks share one cache entry), then
-  rebuilds `shared/data/e5_Flat.index` with `environment/build_index.py`.
-  Roughly 3.5 GB of weights, cached under `$PTDBENCH_MODELS`; the index is
-  cached under `$PTDBENCH_DATASETS` and hardlinked per run.
-- The index is rebuilt rather than shipped because it is derivable from the
-  6.6 MB corpus the task does ship and is 37 MB of binary otherwise.
-  `build_index.py` reproduces upstream's indexing exactly (the `passage: `
-  prefix, mean pooling, L2 normalisation, `Flat` + inner product, max_length
-  256) and runs on CPU when prepare gets no GPU. Its post-build assertions are
-  **document-side only** — count, dimension, finiteness, unit norm — because
-  `environment/` is agent-readable and a query-side retrieval-quality gate there
-  would point straight at the defect. The document embeddings are identical on
-  both sides of the pair, so that is exactly the part that can be asserted for
-  free.
-- `metadata.yaml`'s `environment.env` deliberately omits `HF_HUB_OFFLINE` /
-  `TRANSFORMERS_OFFLINE`: the framework sets them per stage
-  (`_network_policy_env` in `autorlbench/runtimes/base.py`), while a task-level copy
-  would also disable prepare's downloads.
-- One GPU. `run.py` refuses to start on a GPU that already has memory in use and
-  requires 10 GiB of free disk; it also starts the retrieval server itself and
-  reaps it on exit, so no stage has to keep a service alive across containers.
-- Use the Docker agent backend.
-
-The workspace code and the Search-R1 recipe are distributed under Apache-2.0.
-
----
-
-## Task card
-
-**【已构建】检索编码器把查询向量留在 GPU，FAISS 收到的是全零向量**
-
-> @chenyinghao · `tasks/search_r1_zero_query_vector`
-
-**一句话**：`Encoder.encode` 返回的查询向量全为零（返回的 CPU 零数组从未被写入），
-内积索引下所有文档得分都是 0，FAISS 对任何问题都返回同一组 top-3；同一配方下
-held-out EM 只到 15.6%，而把向量拷回主机的对照组到 32.8%，且 step 0 就已经是
-3.1% vs 13.3%。
-
-**设定**
-
-GRPO / Qwen2.5-1.5B-Instruct / HotpotQA distractor（1024 训练 + 128 验证，12468
-段语料）/ Search-R1 + 内置 veRL `598e61bd` + vLLM 0.6.3 + torch 2.4.0
-
-镜像：`search-r1-verl`（`ptdbench/search-r1-verl:vllm0.6.3-torch2.4-cu121`，未构建）
-
-训练耗时：约 1h（日志记录的 step 时间 3393 s，另加检索服务与 vLLM 启动）
-
-资源：1 x A100-40G
-
-**Bug**
-
-- 症状：检索结果与问题无关——`retrieval.jsonl` 里所有文档得分都是 0.0，每个 query
-  返回同一组文档；held-out `val/em` 32 步只到 15.6%，对照组 32.8%。搜索协议本身正常
-  （`val/searched` 1.0，`val/format` ~1.0）。
-- 根因：`Search-R1/search_r1/search/retrieval_server.py::Encoder.encode` 117-120 行。
-  `response_buffer` 是 CPU 上的零数组，而 `query_emb` 在 GPU 上
-  （`load_model` 无条件 `model.cuda()`），`torch.as_tensor(..., device=query_emb.device)`
-  因跨设备而**拷贝**出一个新的 GPU tensor，不与原数组共享存储，所以
-  `writer.copy_()` 写不回 `response_buffer`。
-- 为何复现触发：零向量在 `METRIC_INNER_PRODUCT` 下是合法输入，所有文档得分相等，
-  FAISS 正常返回 top-k 不报错；形状、dtype、HTTP 契约全都对。同一段代码在 CPU-only
-  的编码器上是正确的（那时 `as_tensor` 会共享内存），所以读起来像对的。训练和验证
-  共用一个检索服务，两条路径都受影响。
-- 修复：两行——`query_emb = query_emb.detach().cpu().numpy()` 再
-  `astype(np.float32, order="C")`。起作用的是 `.cpu()`；`.detach()` 只是解除梯度关联。
-
-**评测（两级）**
-
-- `issue` 级（复现 + 诊断）：decider = LLM judge 对 `oracle.md`，verdict/root_cause/
-  evidence 权重 0.2/0.6/0.2，加权 ≥ 0.8 通过。`agent_answer.md` 需指出
-  `Encoder.encode` 里那块没被写入的 buffer 导致查询向量为零，且**不得**说成
-  "训练没有提升"（故障组实际涨了 12.5 个点），也不得只说 "索引在 CPU、编码器在 GPU"。
-- `solution` 级（应用修复）：decider = 修好后按 `config.json` 原预算重跑 32 步，
-  只读 `$PTDBENCH_RESULTS/experiment_logs` 里的新日志。
-- 指标 / 阈值：`val/em`，`score_mode: best`，阈值 **0.24**（故障组上限 0.15625 在阈值
-  下方 0.084，对照组 0.32813 在上方 0.088；对照组 step 0 的 0.13281 也在阈值下方，
-  所以"只改代码不跑完"同样不过）。
-- 防退化：verifier 只认 `experiment_logs` 下的日志，上界 1.0 挡伪造值，`--runs-dir`
-  由 instruction 固定；`run.py` 拒绝复用 run 名、拒绝在已占用的卡上启动。
-- 已知弱点：阈值只有**每侧一次**运行作为标定，没有方差估计（对照任务
-  `slime_search_r1_nomask` 有四次）。补一对重跑是下一步。
-
-**关键结果**
-
-| 指标 | buggy | fixed |
-|---|---|---|
-| `val/em` best（decider） | 0.15625 | 0.32813 |
-| `val/em` step 0 | 0.03125 | 0.13281 |
-| `val/f1` step 32 | 0.24703 | 0.41430 |
-| supporting-title recall@3 | 0.000 | 0.809 |
-| `response_length/mean` step 32 | 668 | 390 |
-
-单 seed、128 题验证集的成对短程实验，不构成统计显著性声明。两组均 exit 0、完成
-全部 32 步、消耗同样的 1024 道训练题；两边 `Search-R1/` 源码树的差异只有
-`retrieval_server.py` 一个文件。
+workspace 代码与 Search-R1 配方 Apache-2.0。

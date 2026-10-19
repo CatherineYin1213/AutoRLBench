@@ -1,61 +1,31 @@
-# task_dapo_math_021 — GRPO loses its group baseline
-
-Maintainer-facing. Not exposed to the agent.
-
-## Case overview
+# verl_grpo_uid_after_repeat
 
 | | |
 | --- | --- |
-| evaluation key | `val-core/math_dapo/acc/mean@1` |
-| family | `verl_implementation/llama_dapo_implementation` |
-| Lark 分类 | ③ Algorithm |
-| schema version | 2 |
-| levels | `issue` only (see "Why issue-only for now") |
-| model | Llama-3.2-1B-Instruct |
-| dataset | DAPO-Math-17k |
-| framework | verl `0.9.0.dev` @ `6f2aa24abfc01cc72811b376aeb3936503885096` |
-| algo | GRPO |
-| launch script | `examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh` |
-| GPUs | 2 |
-| budget | 60 steps, eval every 20 |
+| **Author** | benchmark_evaluation |
+| **Domain** | `algorithm` |
+| **Tags** | `grpo` `advantage` `uid` `group-baseline` `verl` `silent-degeneration` `issue-only` |
+| **Framework** | verl `0.9.0.dev` @ `6f2aa24abfc01cc72811b376aeb3936503885096`，GRPO |
+| **Model** | Llama-3.2-1B-Instruct |
+| **Dataset** | DAPO-Math-17k |
+| **Environment** | `verl` 镜像；`prepare.sh` 交付权重与 parquet |
+| **Resources** | 2 × H800 |
+| **Recorded runs** | defect / control 各一次，2026-10-16 |
+| **Recorded runtime** | 约 13.5 min（60 步） |
 
-## Canonical failure reason
+## Task abstract
 
-The per-prompt `uid` assignment in
-`verl/trainer/ppo/ray_trainer.py::RayPPOTrainer.fit` was moved below
-`batch = batch.repeat(repeat_times=rollout.n, interleave=True)`, so each of
-the `train_batch_size * rollout_n` sampled responses receives its own fresh
-UUID instead of inheriting its prompt's. `uid` is the grouping key that
-`compute_advantage` hands to `compute_grpo_outcome_advantage` as `index`, so
-every GRPO group becomes a singleton. That function's `len(group) == 1` branch
-silently substitutes `id2mean = 0.0` and `id2std = 1.0` rather than raising,
-so the group baseline is never subtracted and the per-group standard
-deviation never divides: GRPO degenerates into REINFORCE with no baseline over
-the raw 0/1 reward.
+`uid` 的赋值被挪到了 `batch.repeat()` **之后**，于是每条采样回复都拿到一个新 UUID
+而不是继承其 prompt 的。`uid` 是 GRPO 分组的键，每次分组都退化成单元素，而
+`len(group) == 1` 的分支会**静默**把 `id2mean` 置 0、`id2std` 置 1 而不是报错。
+组基线从此不再被减去，GRPO 退化为无基线的 REINFORCE。
 
-## Workspace and hidden evaluations
+曲线看起来基本正常：60 步内 held-out 准确率与对照组在噪声范围内
+（0.0570 vs 0.0592）。诊断只能在优势统计里看到。
 
-`workspace/` is the defect-side snapshot: upstream verl at the pinned commit
-with one file modified, plus the recipe's launch script and reward wrapper.
-`evaluations/issue/oracle.md` is hidden from the agent and is what the LLM
-judge actually reads.
+本任务是 **issue-only**。
 
-**`environment/` is mounted read-only into the agent container** at
-`/ptdbench/environment` (`autorlbench/agents/base.py`), so it holds only
-`prepare.sh`. `validation/source_manifest.json` — which spells out the
-injected defect — deliberately lives under `validation/` instead of the
-`environment/` location that `skills/package-task/SKILL.md` suggests.
-`validation/` is never mounted. Do not move it back.
-
-## Source and preserved context
-
-Base commit: `6f2aa24abfc01cc72811b376aeb3936503885096` (2026-07-15), the
-same base as the sibling task `task_monkey_patch_011`, whose recorded
-2026-07-20 run executed on the `verl` AutoRLBench image. That is the evidence
-this commit is compatible with the image; the two trees differ only by each
-task's own injected defect plus the sibling's bench scaffolding.
-
-Filtered root-cause diff — exactly one file, one relocation:
+## The defect
 
 ```text
 verl/trainer/ppo/ray_trainer.py
@@ -63,157 +33,114 @@ verl/trainer/ppo/ray_trainer.py
   +  uid assignment below  `batch = batch.union(gen_batch_output)`
 ```
 
-The move is verbatim, comment included, so the staged tree still has exactly
-one uid assignment in the training loop and two `uuid.uuid4()` call sites in
-the file, as upstream does. An agent cannot find this by counting
-assignments or by noticing a stray extra statement; only the position
-relative to `batch.repeat` is wrong. Full provenance, including what was
-deliberately *not* carried over from the sibling, is in
-`validation/source_manifest.json`.
+移动是逐字的，注释一并搬走，所以暂存树里训练循环仍只有一处 `uid` 赋值、文件里仍有
+两个 `uuid.uuid4()` 调用点，与上游一致。
 
-## Original failure evidence
+### Why nothing catches it
 
-Recorded 2026-10-16 on a Cybertron devspace (job `1250006`, cluster `beijing`,
-2× NVIDIA H800), 60 steps, exit code 0, ~13.5 min wall clock. Shipped in
-`workspace/logs/`; see that directory's `README.txt` for which file to trust.
+- **计数查不出来。** 赋值语句的数量、位置之外的形式都没变，只有相对
+  `batch.repeat` 的顺序错了。
+- **不抛异常。** `len(group) == 1` 是 `compute_grpo_outcome_advantage` 里一条合法的
+  分支，只是它的回退值让基线消失。
+- **held-out 不塌。** 60 步预算下 defect 臂甚至略高于起点（0.0454 → 0.0570），
+  与对照组（0.0592）差距在采样噪声内。靠准确率找缺陷的答案什么也没找到。
 
-**Both arms were run**, identically except for the uid relocation — the
-control arm's `ray_trainer.py` is byte-identical to pristine upstream
-(sha256 `e636912a…`). The control-arm logs are in
-`validation/control_arm_reference/` (maintainer-side, never mounted).
+## Evidence
 
-| metric | defect arm | control arm (= upstream) |
+两臂都跑了，除 `uid` 移位外完全相同；对照臂的 `ray_trainer.py` 与 pristine upstream
+逐字节一致（sha256 `e636912ae2be46b6ff7152f6473feab3af5db962f744903dc55f7d26d58d7d73`）。对照臂日志在
+`validation/control_arm_reference/`，从不下发。
+
+| metric | defect 臂 | control 臂（= upstream） |
 | --- | --- | --- |
-| steps with `critic/advantages/min` < 0 | **0 / 60** | 29 / 60 |
-| most negative `critic/advantages/min` | **0.000000** | −0.935413 |
-| distinct nonzero `critic/advantages/max` | **one value: `0.9999990463`** | three: `1.2076`, `1.6202`, `2.4749` |
-| `actor/pg_loss` range | **[−0.0674, 0]**, never positive | [−0.0139, +0.0366] |
-| `actor/entropy` first → last | 4.81 → **1.31** | 4.42 → 2.99 |
+| `critic/advantages/min` < 0 的步数 | **0 / 60** | 29 / 60 |
+| 最负的 `critic/advantages/min` | **0.000000** | −0.935413 |
+| 非零 `critic/advantages/max` 的取值 | **只有一个：`0.9999990463`** | 三个：`1.2076`、`1.6202`、`2.4749` |
+| `actor/pg_loss` 范围 | **[−0.0674, 0]**，从不为正 | [−0.0139, +0.0366] |
+| `actor/entropy` 首 → 末 | 4.81 → **1.31** | 4.42 → 2.99 |
 | `val-core/…/acc/mean@1` @ 0/20/40/60 | .0454 / .0437 / .0476 / .0570 | .0454 / .0542 / .0504 / .0592 |
-| rewarded steps | 33 / 60 | 29 / 60 |
+| 有奖励的步数 | 33 / 60 | 29 / 60 |
 
-## Canonical expected outcome
+两条可读的事实，**只靠 defect 日志就够**：
 
-Verdict: **unhealthy**. Root cause as above. The fix is to move the uid
-assignment back above `self._get_gen_batch(batch)`.
+1. **`critic/advantages/min` 在全部 60 步上恰好为 `0.0`。** 组内同时存在正确与错误
+   回复时，GRPO 不可能产出全非负的优势批次；对照组 60 步里有 29 步为负。
+2. **每个有奖励的步，`critic/advantages/max` 逐位相同**：`0.9999990463256836`，
+   即 fp32 的 `1/(1+1e-6)`——原始奖励 `1.0` 除以被替换的 `id2std = 1.0` 再加
+   `epsilon = 1e-6` 保护。对照组有三个不同的最大值，每个对应一种组内构成。
 
-Two measured facts carry the diagnosis, and both are readable from the defect
-log alone, without the control arm:
+## Reference answer
 
-1. **`critic/advantages/min` is exactly `0.0` on all 60 steps.** GRPO cannot
-   produce an all-non-negative advantage batch when groups mix correct and
-   incorrect responses; the control arm goes negative on 29 of 60 steps.
-2. **`critic/advantages/max` is bit-identical on every rewarded step:**
-   `0.9999990463256836`, which is fp32 `1/(1+1e-6)` — raw reward `1.0`
-   divided by the substituted `id2std = 1.0` plus the `epsilon = 1e-6` guard.
-   The control arm shows three different maxima, one per group composition.
+### `issue` — the diagnosis
 
-Two corrections to what packaging predicted before the run, both now fixed in
-`oracle.md`:
+把 `uid` 赋值移回 `self._get_gen_batch(batch)` 之上。诊断必须点出赋值相对于
+`batch.repeat` 的**位置**。
 
-- `critic/advantages/mean` does **not** equal `critic/rewards/mean` exactly.
-  It is a response-token-weighted masked mean over response tokens, so it
-  tracks the reward mean only approximately (e.g. step 4: adv `0.010730` vs
-  reward `0.015625`). Testing for exact equality would reject a correct
-  diagnosis. The sign and the absence of cancellation are the real signal.
-- The held-out curve does **not** collapse. At a 60-step budget the defect arm
-  ends slightly *higher* than it started (0.0454 → 0.0570) and is within noise
-  of the control arm (0.0592). A diagnosis resting on held-out accuracy has not
-  found the defect — which makes this a good discriminating task, but it does
-  mean a solution-level threshold cannot use this metric at this budget.
+只说"组大小为 1"或"优势没有归一化"而没有定位到 `uid` 赋值的位置，属于不完整，
+不得拿满 `root_cause_score`。症状在日志里一 grep 就有，原因还隔着一层静默分支。
 
-The pre-run CPU derivation did get the control arm's `2.4748666286` exactly
-right (`(1 − 1/8)/0.35355`), which is why the two maxima columns above agree
-with the sibling task's independently frozen log.
+必须判不过的归因：`train_batch_size`、`rollout.n`、学习率、奖励函数、缺少 KL loss、
+以及裸的"held-out 准确率低"——这些都和健康配方一致。
 
-## Evaluation design
+### `solution`
 
-Issue level only. The shared LLM judge compares
-`$PTDBENCH_RESULTS/agent_answer.md` against the hidden `oracle.md` on verdict
-/ root cause / evidence with weights 0.2 / 0.6 / 0.2 and a pass bar of 0.8.
-There is a single root cause, so `oracle.md` carries no partial-credit clause.
-It does carry the opposite requirement: "group size is 1" or "advantages are
-not normalised", stated without locating the uid assignment relative to
-`batch.repeat`, is incomplete and must not get full `root_cause_score`. The
-symptom is one grep away in the log; the cause is one indirection further, in
-the silent singleton-group branch.
+不存在。见下。
 
-`oracle.md` also lists the wrong attributions to reject: `train_batch_size`,
-`rollout.n`, the learning rate, the reward function, the absence of KL loss,
-and a bare "held-out accuracy is low". All of those match the healthy recipe.
+## Verification
 
-### Why issue-only
+共享 LLM judge 比对 `$PTDBENCH_RESULTS/agent_answer.md` 与隐藏 `oracle.md`，
+verdict / root cause / evidence 权重 0.2 / 0.6 / 0.2，通过线 0.8。单一根因，
+`oracle.md` 不含部分分条款。
 
-Both arms have now been run, so the blocker is no longer missing data — it is
-that **this recipe has no metric that separates the arms at a 60-step budget.**
-Held-out accuracy ends 0.0570 (defect) vs 0.0592 (control), well inside
-sampling noise, and training reward is 0.0161 vs 0.0156. A solution-level
-grader reading `$PTDBENCH_RESULTS/experiment_logs` the way every other task's
-does would be grading noise.
+**为什么这是 issue-only：** 两臂都跑完了，缺的不是数据，而是**这个配方在 60 步预算
+下没有任何指标能分开两臂**。held-out 0.0570 vs 0.0592，训练奖励 0.0161 vs 0.0156。
+按其他任务的形状去读 `experiment_logs` 只会读到噪声。
 
-The quantities that *do* separate the arms cleanly — `critic/advantages/min`
-being identically zero, and `critic/advantages/max` pinned to
-`0.9999990463256836` — are structural invariants, not scores. A solution level
-for this task should grade those directly from the new run's metric JSONL
-rather than invent an accuracy threshold:
+真正能分开两臂的量是结构性不变量而非分数。若将来加 solution 档，应当直接读新 run
+的 metric JSONL：
 
-- pass requires `min(critic/advantages/min) < 0` over the graded steps, and
-- more than one distinct value of `critic/advantages/max`, and
-- every pinned step present (so a 3-step run cannot pass by having no
-  rewarded steps at all, where the defect's `max` is legitimately `0.0`).
+- `min(critic/advantages/min) < 0`（跨评分步）
+- `critic/advantages/max` 出现多于一个不同取值
+- 每个固定步都在（否则 3 步的 run 因为没有有奖励的步而 `max` 合法为 0 也能过）
 
-That is a different grader shape from the repo's existing
-`grade_submission.py`, which is why it is not bolted on here. The alternative
-— extending the budget until accuracy separates — was not measured and should
-not be assumed; at 2 GPUs, 60 steps is 13.5 min, so a 400-step calibration
-pair is about 3 GPU-hours if someone wants to try.
+这与仓库现有 `grade_submission.py` 形状不同，所以没有强行拼上去。"延长预算直到
+准确率分开"没有被测量过，不应假设；2 GPU 上 60 步是 13.5 分钟，400 步标定对约需
+3 GPU 小时。
 
-### Reproducing the two arms
+## Running it
 
-Defect arm, from `workspace/`:
+defect 臂，在 `workspace/` 下：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 bash examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh
 ```
 
-Control arm: in a *separate* copy of the workspace, move the four-line
-`batch.non_tensor_batch["uid"] = ...` block in
-`verl/trainer/ppo/ray_trainer.py` back above
-`gen_batch = self._get_gen_batch(batch)`, then run the identical command. No
-launch-script or config change is involved, so the two logs differ only by
-the defect. Verify with
-`sha256sum verl/trainer/ppo/ray_trainer.py` — the repaired file must be
-`e636912ae2be46b6ff7152f6473feab3af5db962f744903dc55f7d26d58d7d73`, the
-pristine upstream blob. Keep the control arm's code and logs out of
-`workspace/`.
+control 臂：另复制一份 workspace，把 `verl/trainer/ppo/ray_trainer.py` 里那段四行
+`batch.non_tensor_batch["uid"] = ...` 移回 `gen_batch = self._get_gen_batch(batch)`
+之上，跑同一条命令。不涉及启动脚本或配置改动，两份日志只差这个缺陷。用
+`sha256sum` 核对修复后文件应为
+`e636912ae2be46b6ff7152f6473feab3af5db962f744903dc55f7d26d58d7d73`。对照臂的代码与
+日志不要放进 `workspace/`。
 
-Per-step metrics land in `logs/metrics_<timestamp>.jsonl`, which is the file
-to read: the launch script enables verl's `file` tracking backend via
-`VERL_FILE_LOGGER_PATH` precisely because the `console` backend's metric lines
-are printed inside the TaskRunner Ray actor and **Ray's forwarding of that
-actor's stdout into the launch log is not dependable** — the first recording
-attempt on this very image produced a log file with zero `step:N` lines while
-the Ray worker log had all 61. The `file` backend writes unbuffered and does
-not depend on Ray at all.
+逐 step 指标落在 `logs/metrics_<timestamp>.jsonl`，**这才是要读的文件**：启动脚本
+通过 `VERL_FILE_LOGGER_PATH` 开了 verl 的 `file` backend，因为 `console` backend 的
+指标行打在 TaskRunner Ray actor 内，而 Ray 对该 actor stdout 的转发并不可靠——本镜像
+上第一次录制就产出了零条 `step:N` 的日志，而 Ray worker 日志里有全部 61 条。`file`
+backend 不缓冲、不依赖 Ray。
 
-Check step 1 before letting either run finish: `critic/advantages/min` decides
-the whole experiment and is visible immediately.
+让 run 跑完前先看 step 1：`critic/advantages/min` 决定整个实验。
 
-## Environment requirement
+镜像用 `verl`（`docker/images/verl.Dockerfile`），verl + vLLM 0.17、torch 2.10 /
+CUDA 12.9 / Ubuntu 22.04——同一 commit 的兄弟任务在这上面录过。CPU-only 的
+`rank-distillation-cpu` 跑不了 vLLM rollout，slime 镜像是另一个框架。
 
-The task runs on the `verl` AutoRLBench image (`environment: image: verl`, built
-from `docker/images/verl.Dockerfile`) — verl + vLLM 0.17, torch 2.10 /
-CUDA 12.9 on Ubuntu 22.04. It is the image the sibling task's recorded run
-used with this same verl commit, which is why the staged tree is known to
-import and launch there. The CPU-only `rank-distillation-cpu` image cannot
-host a vLLM rollout, and the slime images are a different framework.
+`environment/prepare.sh` 交付 Llama-3.2-1B-Instruct 权重到
+`workspace/verl/Llama-3.2-1B-instruct`（注意小写 `i`，启动脚本就是这么找的）以及
+DAPO-Math-17k 的 train/test parquet 到 `workspace/DAPO-Math-17k_verl`，均按 commit
+sha 与校验和钉死。其非注释行与兄弟任务逐字节相同，两个任务共用一份数据集缓存。
 
-`environment/prepare.sh` delivers the Llama-3.2-1B-Instruct weights to
-`workspace/verl/Llama-3.2-1B-instruct` (note the lowercase `i`, which is what
-the launch script looks for) and the DAPO-Math-17k train/test parquet pair to
-`workspace/DAPO-Math-17k_verl`, both pinned by commit sha and checksummed.
-Its non-comment lines are byte-identical to the sibling task's `prepare.sh`,
-so the two tasks share one dataset cache entry.
+`environment/` 以只读挂进 agent 容器（`/ptdbench/environment`），所以里面只有
+`prepare.sh`。写着注入缺陷的 `validation/source_manifest.json` 故意放在
+`validation/` 而不是 `environment/`；`validation/` 从不下发，不要把它移回去。
 
-The recipe needs **2 GPUs**; `metadata.yaml` declares them through
-`environment.env`.
+2 GPU，由 `metadata.yaml` 的 `environment.env` 声明。

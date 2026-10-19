@@ -1,190 +1,127 @@
-# Slime Search-R1 GRPO run assessment: slime_search_r1_nomask
+# slime_search_r1_nomask
 
-## Case overview
-
-- Evaluation key: `slime_search_r1_nomask`
-- Case family: `slime_implementation`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen2.5-3B`
-- Dataset: `Search-R1 nq_hotpotqa_train` (NQ + HotpotQA merged)
-- Training framework: `slime` (Megatron train + SGLang rollout)
-- Recipe: `examples/search-r1/` — multi-turn retrieval-augmented GRPO
-- Primary source evaluation metric: `eval/nq_test`
-
-This document is for maintainers and reviewers. It is not exposed to the
-agent during evaluation. Metric names preserve the source experiment;
-tasks using the same held-out protocol may intentionally share a name.
-
-## Canonical failure reason
-
-Observation tokens are trained on (`loss_mask=1` on retrieved
-`<information>` text); frozen `eval/nq_test` reaches only 16.5% at the
-200-step horizon versus a healthy protocol baseline of 40.8%.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local issue verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier. |
+| **Author** | chenyinghao |
+| **Domain** | `reward` |
+| **Tags** | `slime` `search-r1` `grpo` `loss-mask` `observation-tokens` `nq` |
+| **Framework** | `slime`（Megatron train + SGLang rollout），`examples/search-r1/` |
+| **Model** | Qwen2.5-3B |
+| **Dataset** | Search-R1 `nq_hotpotqa_train`（NQ + HotpotQA 合并） |
+| **Environment** | `slime-v0.3.2`；`prepare.sh` 取约 90 GB 资产 |
+| **Resources** | 8 GPUs |
+| **Recorded runs** | 冻结运行一次；另有 2 次缺陷侧重跑与 2 次修复侧重跑 |
+| **Recorded runtime** | 200 步（冻结证据） |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM
-judge. `solution` grading reads only the new experiment logs.
+## Task abstract
 
-## Source and preserved context
+检索回来的 `<information>` 观察 token 被算进了损失（`loss_mask=1`）。策略于是学会
+**不要检索**：训练回复长度从 step 0 的约 1751 token 塌到 step 100 的约 9 token，
+冻结的 `eval/nq_test` 在 200 步只到 **16.5%**，而健康协议基线是 **40.8%**。
 
-```yaml
-evidence_kind: historical_run
-packaging_ready: true
-healthy_control: tasks/slime_search_r1
-verify:
-  num_gpus: 8
-  max_train_steps: 200
-  eval_interval: 10
-  last_eval_step: 199
-  eval_metric_key: eval/nq_test
-historical_run:
-  metric_status: wandb_extracted
-  wandb_run_id: wi4fh8cz
-  wandb_group: search-r1_qwen2.5-3B
-  eval_first: 0.048
-  eval_last: 0.16466666666666666
-  eval_max: 0.16566666666666666
-  n_eval_points: 21
-  attempt: 1
-healthy_control_at_horizon:
-  wandb_eval_step: 199
-  eval/nq_test: 0.4083333333333333
-# The repair-and-rerun budget is shorter than the frozen run -- see
-# "Evaluation design" for why grading stops at step 99.
-solution_rerun:
-  max_train_steps: 100
-  last_eval_step: 99
-  historical_at_step_99: 0.15433333333333332
-  healthy_control_at_step_99: 0.37333333333333335
+## The defect
+
+`examples/search-r1/generate_with_search.py::generate` 在追加检索到的
+`<information>` token 时给了 `loss_mask=1`，而 `append_response_tokens` 仍把它们标成
+`trainable=False`；本地列表随后被赋给 `sample.loss_mask`。
+
+### Why nothing catches it
+
+- **形状和契约全对。** token、mask、长度都合法，训练不报错。
+- **训练奖励也在涨。** `rollout/raw_reward` 看起来正常，不构成 held-out 健康的证据。
+- **曲线不像是坏掉，像是"模型选择直接答题"。** 回复长度塌缩本身就能被解释成效率提升。
+- **不是截断造成的。** 截断率从 step 0 的约 38% 降到 step 100 的约 0%，所以 held-out
+  的差距与截断无关。
+
+## Evidence
+
+- 21 个重建的 `eval/nq_test` 点（到 `eval/step` 199，即 `--eval-interval 10` 下 200 步
+  前最后一次 eval）从约 4.8% 涨到 16.5%（`eval_last` 0.1647；峰值 16.6% 在 step 189）
+- 健康的 Qwen2.5-3B Search-R1 GRPO 运行（`tasks/slime_search_r1`）在同一 horizon 到约
+  **40.8%**，step 99 时约 37.3%
+- 训练回复长度：step 0 约 1751 token → step 100 约 9 token
+- 截断率：约 38% → 约 0%
+
+### Held-out results
+
+修复重跑预算刻意短于 200 步的冻结运行，评分停在 step 99：
+
+| 量 | 修复侧 | 缺陷侧 |
+| --- | ---: | ---: |
+| best（step 0..99） | 0.3733 / 0.3570 | 0.2237 / 0.1587 |
+| step 99 | 0.3733 | 0.1543 |
+
+未训练的 step 0 约 0.045–0.051。
+
+**两界由四次实测运行标定**（devspace `1107990`、`/user/chenyinghao/harbor-runs/`），
+门槛取 `[0.28, 1.0]`，最薄余量 **0.056**，在缺陷侧。`0.28` 与健康孪生
+`slime_search_r1` 用的是同一个数，所以门槛本身不泄露任务在配对里的哪一侧。
+
+**为什么重跑预算比冻结运行短：** 这个缺陷是高方差的，且方差随步数增长。两次实测的
+缺陷运行代码、参数、检索服务完全相同，一次在 step 20 就塌到约 9 token 的回复、
+平台在 0.1657，另一次保持约 650 token 的回复、被 kill 时（step 119）还在往上爬
+（0.2713）。在 step 99 两侧都完整观测过，所以 `[0.2237, 0.3570]` 的间隔是实测的；
+在 step 199 缺陷侧是被截断的，那里没有任何门槛能被证明排除它。**不要在没有先跑一次
+带缺陷的 200 步运行前把评分 horizon 延到 199。**
+
+## Reference answer
+
+### `issue` — the diagnosis
+
+根因目标：`generate_with_search.py::generate` 里的 `observation_loss_mask`。
+
+修复目标：把观察 token 排除出损失：
+
+```python
+loss_mask += [0] * len(obs_tokens_ids)
 ```
 
-The workspace preserves the launch script, the custom multi-turn search
-rollout with the injected observation-mask defect, the exact-match reward,
-a compact frozen metrics package under `workspace/outputs/`, and a slimmed
-offline W&B run (console `output.log` through train step 100, config,
-summary; no `.wandb` binary history).
+指出观察 loss mask 的正确因果角色即为完整归因。
 
-## Original failure evidence
+### `solution` — 补丁
 
-- twenty-one reconstructed `eval/nq_test` points through `eval/step` 199 (the
-  last eval in `--eval-interval 10` before the 200-step horizon) rise from
-  about 4.8% to 16.5% (`eval_last` 0.1647; peak 16.6% at step 189)
-- a healthy Qwen2.5-3B Search-R1 GRPO run (`tasks/slime_search_r1`) reaches
-  about **40.8%** at the same horizon, and about 37.3% by step 99
-- train response length collapses from about 1751 tokens at step 0 to about
-  9 tokens by step 100: trained-on observation tokens push the policy to stop
-  searching and answer immediately
-- training `rollout/raw_reward` does not establish held-out health
-- truncation falls from ~38% at step 0 to ~0% by step 100, so the held-out
-  gap is not a truncation artifact
-- `examples/search-r1/generate_with_search.py` appends retrieved
-  `<information>` tokens with `loss_mask=1` while `append_response_tokens`
-  still marks them `trainable=False`; the local list is assigned to
-  `sample.loss_mask`
+把观察 token 的 `loss_mask` 置 0，跑 `examples/search-r1/run_qwen2.5_3B.sh`。
 
-The preserved source metric is `eval/nq_test`. The frozen workspace remains
-the evidence package for diagnosis. Solution grading requires the agent to
-repair the workspace and rerun training; the verifier reads only the new
-logs under `$PTDBENCH_RESULTS/experiment_logs`.
+## Verification
 
-## Healthy protocol baseline
+`issue` 权重 0.2 / 0.6 / 0.2，通过线 0.8。
 
-A healthy run of Qwen2.5-3B on Search-R1 nq_hotpotqa_train under the same
-slime/GRPO recipe, with observation tokens masked out of the loss, reaches
-about **40.8% at 200 steps** (about 37.3% by step 99). This case's frozen
-`eval_last` 16.5% is well below that protocol baseline.
+`solution`：修好后跑 `examples/search-r1/run_qwen2.5_3B.sh`，固定
+`--num-rollout 100` / `--eval-interval 10`，得到 0, 9, …, 99。`score_mode: best`，
+最高的有限 `eval/nq_test` 必须落在 `[0.28, 1.0]`。
 
-## Canonical expected outcome
+冻结 W&B 重建用 `eval/step` 199 作为 200 步 horizon，因为 slime 记录
+`eval/step = rollout_id`，在 0、9、…、199 评测。
 
-Verdict: **unhealthy**.
+## Running it
 
-Root cause targets:
+镜像 `slime-v0.3.2`（`environment: image: slime-v0.3.2`），即上游
+`slimerl/slime:v0.3.2-cu130` 按 digest 钉死——CUDA 13.0、sglang 0.5.15.post1。
+没有按任务的 Dockerfile。
 
-- `observation_loss_mask` —
-  `examples/search-r1/generate_with_search.py::generate`
+`prepare.sh` 先把 `faiss-gpu-cuvs` 装进 `$PTDBENCH_PREPARED`（不装进镜像，四个 slime
+任务共享它）并通过 `PYTHONPATH` 导出。`-cuvs` 是 CUDA 13 的构建，正对本环境；
+普通 `faiss-gpu` 是 CUDA 12 的。
 
-Required fix targets:
+然后把重跑要用的五份资产放进 `$PTDBENCH_WORKSPACE`：`Qwen2.5-3B` checkpoint 及其
+`torch_dist` 转换、`e5-base-v2` 查询编码器、
+`nq_hotpotqa_train/{train,test}.parquet`（`ptdbench_dataset --recipe
+search_r1_nq_hotpotqa`）、`wiki-18/{e5_Flat.index,wiki-18.jsonl}`
+（`--recipe wiki18_e5`）。约 90 GB，缓存在 `$PTDBENCH_DATASETS` / `$PTDBENCH_MODELS`
+并逐 run 硬链。文件正文与 `slime_search_r1` 的逐字节相同。
 
-- `observation_loss_mask`: `set` observation tokens out of the loss
-  (`loss_mask += [0] * len(obs_tokens_ids)`).
+`metadata.yaml` 的 `environment.env` 刻意不写 `HF_HUB_OFFLINE` /
+`TRANSFORMERS_OFFLINE`：框架按阶段设置，任务级副本会连 prepare 的下载一起堵死。
 
-Documentation reconciliation:
+用 Docker agent backend。
 
-- Frozen W&B reconstruction uses `eval/step` 199 as the 200-step horizon
-  because slime logs `eval/step = rollout_id` and evals at 0, 9, …, 199.
-- Naming the observation loss mask with the correct causal role is a
-  complete attribution.
+issue 诊断只用冻结快照。solution 重跑还需要 `:8000` 上的检索服务。`prepare.sh`
+不能保活它——prepare 阶段是围在脚本前后的一个容器——所以
+`run_qwen2.5_3B.sh` 在端口没人监听时自己拉起并等待就绪。`prepare.sh` 提前把语料的
+`datasets` arrow 缓存在 `$PTDBENCH_WORKSPACE/.hf_datasets_cache`（经 `prepared/env`
+导出为 `HF_DATASETS_CACHE`；持久副本在 `$PTDBENCH_DATASETS`）。冷启动仍要把 60 GiB
+索引读进 GPU 内存，耗时数分钟。
 
-## Evaluation design
+模型权重与历史训练 checkpoint 不是数据集资产。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden
-`oracle.md`. The judge scores verdict, root-cause, and evidence agreement
-(weights 0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
-
-`solution` does not grade a structured diagnosis. The agent must edit the
-workspace and run `examples/search-r1/run_qwen2.5_3B.sh` at the fixed
-`--num-rollout 100` / `--eval-interval 10` budget, giving eval points 0, 9, …,
-99. `score_mode` is `best`; the highest finite `eval/nq_test` over the run must
-land in `[0.28, 1.0]`. Pass is score `1`; otherwise `0`. `0.28` is the same bar
-the healthy twin `slime_search_r1` uses, so the threshold is not a tell for
-which side of the pair a task is on.
-
-Both bounds are calibrated on four measured runs (devspace 1107990,
-`/user/chenyinghao/harbor-runs/`), best over steps `0..99`: repaired `0.3733`
-and `0.3570`, defective `0.2237` and `0.1587` (the latter is the frozen
-evidence), untrained step 0 about `0.045`–`0.051`. Thinnest margin is `0.056`,
-on the defective side.
-
-**The rerun budget is deliberately shorter than the 200-step frozen run.** The
-defect is high-variance, and the variance grows with steps: the two measured
-defective runs share identical code, args and retrieval server, yet one
-collapsed to ~9-token responses by step 20 and plateaued at `0.1657` while the
-other held ~650-token responses and was still climbing at `0.2713` when it was
-killed at step 119. At step 99 both are fully observed, so the gap
-`[0.2237, 0.3570]` is measured on both sides; at step 199 the defective side is
-censored and no threshold there can be shown to reject it. Do not extend the
-graded horizon to 199 without first running a defective 200-step run.
-
-## Environment requirement
-
-- Image: `slime-v0.3.2` (`environment: image: slime-v0.3.2`), the upstream
-  `slimerl/slime:v0.3.2-cu130` image pinned by digest — CUDA 13.0, sglang
-  0.5.15.post1. There is no per-task Dockerfile.
-- `environment/prepare.sh` installs `faiss-gpu-cuvs` into `$PTDBENCH_PREPARED`
-  (not into the image, which all four slime tasks share) and
-  exports it via `PYTHONPATH`. The `-cuvs` build is the CUDA 13 one, which is
-  what this environment is; plain `faiss-gpu` is the CUDA 12 build.
-- `environment/prepare.sh` then stages the five assets a rerun needs into
-  `$PTDBENCH_WORKSPACE`: the `Qwen2.5-3B` checkpoint and its `torch_dist`
-  conversion, the `e5-base-v2` query encoder, `nq_hotpotqa_train/{train,test}
-  .parquet` (`ptdbench_dataset --recipe search_r1_nq_hotpotqa`) and
-  `wiki-18/{e5_Flat.index,wiki-18.jsonl}` (`--recipe wiki18_e5`). Roughly 90 GB,
-  cached under `$PTDBENCH_DATASETS`/`$PTDBENCH_MODELS` and hardlinked per run.
-  The body of the file is byte-identical to `slime_search_r1`'s.
-- `metadata.yaml`'s `environment.env` deliberately omits `HF_HUB_OFFLINE` /
-  `TRANSFORMERS_OFFLINE`: the framework sets them per stage
-  (`_network_policy_env` in `ptdbench/runtimes/base.py`), whereas a task-level copy would also
-  apply to `prepare` and disable the downloads above.
-- Use the Docker agent backend.
-- Issue diagnosis uses the frozen historical snapshot only. A solution rerun
-  additionally needs the retrieval server on `:8000`. `prepare.sh` cannot hold
-  it — the prepare stage is a container created and removed around the script
-  (`ptdbench/runtimes/providers/docker.py::close_sandbox`) — so
-  `run_qwen2.5_3B.sh` starts it itself when the port has no listener, and waits
-  for readiness. `prepare.sh` pays the slow half of that start in advance by
-  warming the corpus's `datasets` arrow cache under
-  `$PTDBENCH_WORKSPACE/.hf_datasets_cache` (exported through `prepared/env` as
-  `HF_DATASETS_CACHE`; the persistent copy lives in `$PTDBENCH_DATASETS`).
-  A cold start still reads the 60 GiB index into GPU memory and takes minutes.
-- Model weights and historical training checkpoints are not dataset assets.
-
-The workspace code and the Search-R1 recipe are distributed under Apache-2.0.
+workspace 代码与 Search-R1 配方 Apache-2.0。

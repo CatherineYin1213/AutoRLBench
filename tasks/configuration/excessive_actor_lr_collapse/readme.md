@@ -1,141 +1,122 @@
-# PPO-Critic run assessment: excessive_actor_lr_collapse
+# excessive_actor_lr_collapse
 
-## Case overview
-
-- Evaluation key: `excessive_actor_lr_collapse`
-- Case family: `ppo_critic`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen3-4B-Base`
-- Dataset: `GuruMath controlled smoke` (RL prompts) + AIME-32 / MATH-500-32 held-out
-- Training framework: `verl` (VIMPO PPO-Critic recipe)
-- Launch script: `run_buggy.sh` → `recipe/vimpo/run_vimpo_critic.sh`
-- Primary source evaluation metric: `val-core/math__math/acc/mean@1`
-
-This document is for maintainers and reviewers. It is not exposed to the agent
-during evaluation.
-
-## Canonical verdict
-
-**unhealthy.**
-
-The staged workspace reproduces the VIMPO PPO-Critic recipe on an unmodified
-verl snapshot, but the actor learning rate has been inflated. `run_buggy.sh`
-exports `LR=1e-2`; the recipe `recipe/vimpo/run_vimpo_critic.sh` passes it as
-`actor_rollout_ref.actor.optim.lr="${LR:-1e-6}"`, so the actor optimizer runs at
-`1e-2` — 10,000x the intended `1e-6`. The recipe file itself is byte-for-byte
-identical to the healthy control; the critic LR is unchanged (`CRITIC_LR=1e-5`),
-confirming only the actor LR was tampered with.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `workspace/ptdbench_case/` | Preserved controlled evidence: assets and `logs/observed_buggy_run.log`. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local LLM-judge verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier. |
+| **Author** | 王嘉泽 |
+| **Domain** | `configuration` |
+| **Tags** | `ppo-critic` `vimpo` `learning-rate` `policy-collapse` `verl` |
+| **Framework** | `verl`（VIMPO PPO-Critic recipe） |
+| **Model** | `Qwen3-4B-Base` |
+| **Dataset** | GuruMath controlled smoke（RL prompts）+ AIME-32 / MATH-500-32 held-out |
+| **Environment** | `ppo-critic-vimpo`；`prepare.sh` 拉取 Qwen3-4B-Base |
+| **Resources** | 4 GPUs |
+| **Recorded runs** | 缺陷侧一次冻结运行（8 步）；修复侧尚无真实重跑 |
+| **Recorded runtime** | 8 步 controlled smoke |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM judge.
-`solution` grading reconstructs `val-core/math__math/acc/mean@1` and
-`critic/rewards/mean` from the logs the agent's own rerun writes under
-`$PTDBENCH_RESULTS/experiment_logs`.
+## Task abstract
 
-## Original failure evidence
+`run_buggy.sh` 导出 `LR=1e-2`，recipe 把它当
+`actor_rollout_ref.actor.optim.lr="${LR:-1e-6}"` 传给 actor 优化器——比预期的 1e-6
+大 **10,000 倍**。策略随之退化：验证准确率从非零一路掉到 0，回复撑满 1024 token 上限，
+grad_norm 与熵剧烈震荡。recipe 其余部分与健康对照逐字节相同，critic LR（1e-5）也没动。
 
-From `workspace/ptdbench_case/logs/observed_buggy_run.log` (8 PPO steps,
-`test_freq=1`):
+## The defect
 
-- the job initializes and completes all 8 steps (not a startup/infra failure)
-- `critic/rewards/mean` starts non-zero (≈0.03–0.06) then falls to `0.0`
-- validation starts non-zero and reaches zero on both `val-core/math__math` and
-  `val-core/math__aime_repeated_8x`
-- responses saturate the 1024-token `MAX_RESPONSE_LENGTH`
-- `actor/grad_norm` and actor entropy become highly unstable
+```bash
+# run_buggy.sh
+export LR=1e-2
+```
 
-This is the classic signature of policy collapse driven by an over-aggressive
-actor learning rate.
+消费点：
 
-## Why the recipe is unhealthy
+```bash
+# recipe/vimpo/run_vimpo_critic.sh
+actor_rollout_ref.actor.optim.lr="${LR:-1e-6}"
+```
 
-Apart from the actor LR, the recipe is reproduced correctly. The verl framework
-code under `workspace/verl/` and `workspace/recipe/` is byte-for-byte identical
-to the healthy control; only `run_buggy.sh` differs (`LR=1e-2`).
+修复有两种等价写法：把 `run_buggy.sh` 里改成 `export LR=1e-6`，或删掉这行覆盖、让
+recipe 默认值生效。
 
-- **Hyperparameter defect** (`run_buggy.sh`, `export LR=1e-2`): consumed by
-  `recipe/vimpo/run_vimpo_critic.sh` as
-  `actor_rollout_ref.actor.optim.lr="${LR:-1e-6}"`. The actor optimizer therefore
-  takes gradient steps 10,000x too large and the policy degenerates.
+### Why nothing catches it
 
-The surrounding recipe is otherwise correct — these are not the defect: the
-critic LR (`1e-5`), the FSDP/vLLM wiring, and the controlled smoke downscaling
-(4 GPUs, 8 steps, batch 16, 1024-token responses) are expected harness
-properties, not causes.
+- **所有值都是合法的。** `1e-2` 是一个完全正常的浮点数，脚本不校验范围，配置也不
+  报错。
+- **启动阶段完全正常。** job 初始化、跑完全部 8 步（不是启动或基础设施失败）。
+- **指标先好后坏。** `critic/rewards/mean` 起步约 0.03–0.06 才归零，验证集也是先非零
+  再归零——看起来像训练后期不稳定，而不是一开始就错了。
+- **偏差被 smoke 配置掩盖。** 4 卡、8 步、batch 16 的受控缩小是 harness 属性，不是
+  原因，但它让"崩溃"发生在很短的时间窗里。
 
-## Canonical expected outcome
+## Evidence
 
-Verdict: **unhealthy**.
+来自 `workspace/ptdbench_case/logs/observed_buggy_run.log`（8 个 PPO step，
+`test_freq=1`）：
 
-- Root cause target: the inflated actor learning rate `LR=1e-2` in
-  `run_buggy.sh`.
-- Required fix target: resolve the actor optimizer LR to `1e-6` on the real
-  launcher-to-optimizer path — either set `export LR=1e-6` in `run_buggy.sh` or
-  remove the override and let the recipe default (`${LR:-1e-6}`) apply.
+- job 初始化并跑完 8 步（非启动期失败）
+- `critic/rewards/mean` 从 ≈0.03–0.06 起步，随后跌到 `0.0`
+- 验证在 `val-core/math__math` 和 `val-core/math__aime_repeated_8x` 上都从非零归零
+- 回复长度打满 1024 token 的 `MAX_RESPONSE_LENGTH`
+- `actor/grad_norm` 与 actor 熵高度不稳定
 
-An agent that attributes the collapse to an infrastructure-startup failure, the
-critic LR, or an unusual-but-benign setting is wrong.
+这是 actor 学习率过大导致策略崩溃的经典特征。
 
-## Evaluation design
+## Reference answer
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden `oracle.md`.
-The judge scores verdict, root-cause, and evidence agreement (weights
-0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
+### `issue` — the diagnosis
 
-`solution` is deterministic and metric-only, in the same shape as
-`verl_implementation/torch_functional`: fix the LR, rerun the launch script for
-real, and the verifier reconstructs the metric from the logs under
-`$PTDBENCH_RESULTS/experiment_logs`. Score is
-`0.8 * validation + 0.2 * training_reward`; pass requires both components
-(`score == 1.0`). See `evaluations/solution/verifier/resources/README.md`.
+根因目标：`run_buggy.sh` 中膨胀的 actor 学习率 `LR=1e-2`。
 
-> **Threshold calibration (maintainers).** The historical baseline in
-> `grader_spec.json` is the buggy run's real terminal value (`0.0`). The
-> `required_final_score` / `required_training_reward` are evidence-based
-> conservative drafts and are **not yet calibrated** against a real healthy
-> rerun; `task.yaml` carries `needs_manual_review: true`. Calibrate against an
-> oracle-fixed run (`LR=1e-6`) before using this task for scoring.
+修复目标：在真实的 launcher→optimizer 路径上把 actor LR 落到 `1e-6`。
 
-## Environment
+必须判不过的归因：基础设施启动失败、critic LR、某个"不寻常但无害"的设置。
 
-`metadata.environment.image: ppo-critic-vimpo` resolves to the shared image
-`docker/images/ppo-critic-vimpo.Dockerfile` (Python 3.12, CUDA 12.8, torch
-2.8.0, vLLM 0.11.0, Ray 2.56.0, transformers 4.57.6, flash-attn 2.8.3.post1).
-This stack is deliberately **not** the shared `verl` image (vLLM 0.17 / torch
-2.10 / CUDA 12.9): the workspace ships its own veRL + VIMPO recipe written
-against vLLM 0.11, and the recorded val-core / critic-reward baselines the
-solution grader reconstructs were produced on this exact stack. The workspace
-veRL is not baked into the image; the harness bind-mounts the workspace at
-`/workspace` and `PYTHONPATH=/workspace` makes `import verl` resolve to it.
-`environment/prepare.sh` fetches the Qwen3-4B-Base base model to
-`/workspace/Qwen3-4B-Base` (the `MODEL_PATH` the effective run uses, per
-`solution/instruction.md`). Its `--revision` is **pinned** to
-canonical `Qwen/Qwen3-4B-Base` at main as of 2026-08-18 — commit
-`906bfd4b4dc7f14ee4320094d8b41684abff8539`, the snapshot the recorded runs used
-(verified by downloading the full repo locally and checking each shard) — and
-the three weight shards additionally carry `--expect` sha256 + byte-size guards.
-`QWEN3_4B_BASE_REVISION` and `QWEN3_4B_BASE_REPO` remain overridable (e.g. to a
-staged mirror if canonical Qwen's xet-only hosting is blocked on-cluster;
-override both together, since a mirror's commit differs). The controlled
-training and held-out assets are tiny and ship embedded in
-`workspace/ptdbench_case/assets/*.parquet`, so prepare does not re-fetch them;
-the dependency stack is baked into the shared image and the workspace veRL needs
-no editable install (`import verl` resolves via `PYTHONPATH=/workspace`;
-`__version__` comes from `verl/version/version`).
+### `solution` — 补丁
 
-The recipe needs **4 GPUs** (`run_buggy.sh`: `CUDA_VISIBLE_DEVICES=0,1,2,3`,
-`N_GPUS_PER_NODE=4`); `MODEL_PATH` must point at a local Qwen3-4B-Base checkpoint
-(a large external resource, not embedded).
+```diff
+-export LR=1e-2
++export LR=1e-6
+```
 
-The workspace code and the verl snapshot are distributed under Apache-2.0; the
-task packaging is MIT.
+或直接删除该行，让 `${LR:-1e-6}` 生效。
+
+## Verification
+
+`issue` 比对 `$PTDBENCH_RESULTS/agent_answer.md` 与隐藏 `oracle.md`。judge 按
+verdict / root-cause / evidence 打分（权重 0.2 / 0.6 / 0.2），加权 ≥ `0.8` 通过。
+
+`solution` 是确定性、只看指标的，形状与 `verl_implementation/torch_functional` 相同：
+修 LR、真实重跑启动脚本，verifier 从 `$PTDBENCH_RESULTS/experiment_logs` 下的日志
+重建指标。`score = 0.8 * validation + 0.2 * training_reward`，两项都过才
+`score == 1.0`。细节见 `evaluations/solution/verifier/resources/README.md`。
+
+**门槛的标定状态（维护者注意）：** `grader_spec.json` 里的历史基线是缺陷 run 的真实
+终值（`0.0`）。`required_final_score` / `required_training_reward` 是基于证据的保守
+草稿，**尚未用真实健康重跑标定**；`task.yaml` 带 `needs_manual_review: true`。在用于
+评分前，先用 oracle 修复版（`LR=1e-6`）标定。
+
+## Running it
+
+`metadata.environment.image: ppo-critic-vimpo` → `docker/images/ppo-critic-vimpo.Dockerfile`
+（Python 3.12、CUDA 12.8、torch 2.8.0、vLLM 0.11.0、Ray 2.56.0、transformers 4.57.6、
+flash-attn 2.8.3.post1）。
+
+这个栈刻意**不是**共享的 `verl` 镜像（vLLM 0.17 / torch 2.10 / CUDA 12.9）：workspace
+自带一份针对 vLLM 0.11 写的 veRL + VIMPO recipe，solution grader 重建的 val-core /
+critic-reward 基线也是在这个栈上产出的。veRL 不烤进镜像；harness 把 workspace 挂在
+`/workspace`，`PYTHONPATH=/workspace` 让 `import verl` 解析到它。
+
+`environment/prepare.sh` 把 Qwen3-4B-Base 拉到 `/workspace/Qwen3-4B-Base`（即
+`solution/instruction.md` 里有效运行使用的 `MODEL_PATH`）。`--revision` **钉死**在
+`Qwen/Qwen3-4B-Base` 2026-08-18 的 main（commit
+`906bfd4b4dc7f14ee4320094d8b41684abff8539`，录制运行时用的快照，已本地全量下载并逐个
+shard 核对），三个权重 shard 另带 `--expect` sha256 与字节数校验。
+`QWEN3_4B_BASE_REPO` / `QWEN3_4B_BASE_REVISION` 仍可覆盖（例如集群上 Qwen 的 xet-only
+托管被封时指向镜像站；两个要一起覆盖，镜像站的 commit 不同）。
+
+受控训练集与 held-out 资产很小，直接随包放在 `workspace/ptdbench_case/assets/*.parquet`，
+prepare 不重取。
+
+recipe 需要 **4 张卡**（`run_buggy.sh`：`CUDA_VISIBLE_DEVICES=0,1,2,3`、
+`N_GPUS_PER_NODE=4`）；`MODEL_PATH` 必须指向本地 Qwen3-4B-Base checkpoint。
+
+workspace 代码与 verl 快照 Apache-2.0，任务打包 MIT。

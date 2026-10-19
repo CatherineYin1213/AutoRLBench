@@ -1,148 +1,100 @@
-# PPO-Critic run assessment: reward_parser_mismatch
+# reward_parser_mismatch
 
-## Case overview
-
-- Evaluation key: `reward_parser_mismatch`
-- Case family: `ppo_critic`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen3-4B-Base`
-- Dataset: `GuruMath controlled smoke` (RL prompts) + AIME-32 / MATH-500-32 held-out
-- Training framework: `verl` (VIMPO PPO-Critic recipe)
-- Launch script: `run_buggy.sh` → `recipe/vimpo/run_vimpo_critic.sh`
-- Primary source evaluation metric: `val-core/math__math/acc/mean@1`
-
-This document is for maintainers and reviewers. It is not exposed to the agent
-during evaluation.
-
-## Canonical verdict
-
-**unhealthy.**
-
-The staged workspace reproduces the VIMPO PPO-Critic recipe on an unmodified
-verl snapshot, but a reward-parser contract mismatch has been injected through a
-custom reward function. `run_buggy.sh` wires
-`reward.custom_reward_function.path=ptdbench_case/buggy_reward_fn.py`. That
-function extracts the model answer with an XML-tag regex
-(`<answer>\s*(.*?)\s*</answer>`), while the GuruMath prompts and ground truth use
-boxed answers (`\boxed{...}`). No response ever matches, so every rollout scores
-`0.0` and `grade_answer` is never reached. The reward signal is identically zero.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `workspace/ptdbench_case/` | Preserved controlled evidence: injected `buggy_reward_fn.py`, controlled assets, and `logs/observed_buggy_run.log`. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local LLM-judge verifier. |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier. |
+| **Author** | 王嘉泽 |
+| **Domain** | `reward` |
+| **Tags** | `ppo-critic` `vimpo` `reward-function` `parser` `zero-reward` `verl` |
+| **Framework** | `verl`（VIMPO PPO-Critic recipe） |
+| **Model** | `Qwen3-4B-Base` |
+| **Dataset** | GuruMath controlled smoke（RL prompts）+ AIME-32 / MATH-500-32 held-out |
+| **Environment** | `ppo-critic-vimpo`；`prepare.sh` 拉取 Qwen3-4B-Base |
+| **Resources** | 4 GPUs |
+| **Recorded runs** | 缺陷侧一次受控运行（5 步）；修复侧尚无真实重跑 |
+| **Recorded runtime** | 5 步 controlled smoke |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM judge.
-`solution` grading reconstructs `val-core/math__math/acc/mean@1` and
-`critic/rewards/mean` from the logs the agent's own rerun writes under
-`$PTDBENCH_RESULTS/experiment_logs`.
+## Task abstract
 
-## Original failure evidence
+自定义奖励函数用 XML 标签正则提取答案（`<answer>…</answer>`），而 GuruMath 的
+prompt 与标准答案用的是 `\boxed{...}`。**没有任何回复能匹配**，于是每条 rollout 都得
+`0.0`，`grade_answer` 根本走不到。奖励信号恒为零——但训练照常跑完，梯度、
+critic 更新、MFU 全部健康，什么都不报错。
 
-From `workspace/ptdbench_case/logs/observed_buggy_run.log` (5 PPO steps,
-`test_freq=1`, `val_before_train=True`):
+## The defect
 
-- `critic/rewards/mean` and `critic/score/mean` are `0.0` at every step
-- `val-aux/math__math/parser_matched/mean@1` is `0.0` (no response matched)
-- `val-core/math__math/acc/mean@1` and `val-core/math__aime_repeated_8x/acc/mean@1`
-  stay `0.0`
-- `timing_s/reward` is non-zero (~0.0002 s), so the reward function runs — it
-  simply never matches
+`run_buggy.sh` 接上 `reward.custom_reward_function.path=ptdbench_case/buggy_reward_fn.py`，
+其中：
 
-PPO initializes and completes all steps; gradients, critic updates, and MFU look
-healthy. The defect is silent: no exception is raised, but advantages are noise
-around zero and the policy learns nothing.
+```python
+re.search(r"<answer>\s*(.*?)\s*</answer>", ...)   # 永远匹配不上 \boxed{...}
+```
 
-## Why the recipe is unhealthy
+每个样本都返回 `{"score": 0.0, "acc": False, "parser_matched": False}`。
 
-Apart from the reward parser, the recipe is reproduced correctly, so the defect
-is isolated to the injected custom reward rather than the rollout or algorithm
-config. The verl framework code under `workspace/verl/` and `workspace/recipe/`
-is byte-for-byte identical to the healthy control; only `run_buggy.sh` and the
-new `ptdbench_case/buggy_reward_fn.py` differ.
+### Why nothing catches it
 
-- **Reward defect** (`ptdbench_case/buggy_reward_fn.py::compute_score`): the
-  answer is extracted with `re.search(r"<answer>\s*(.*?)\s*</answer>", ...)`.
-  GuruMath answers are boxed, so the match is always `None` and the function
-  returns `{"score": 0.0, "acc": False, "parser_matched": False}` for every
-  sample.
+- **不抛异常。** 正则没匹配到就返回 0 分，这是一条合法路径。
+- **奖励函数确实在运行。** `timing_s/reward` ≈ 0.0002 s，非零——它只是从不命中。
+- **训练指标全绿。** 梯度、critic 更新、MFU 都正常，PPO 完成全部步数，只是优势在零
+  附近抖动，策略什么也没学到。
+- **单看验证指标像"模型不行"。** `val-core` 和 `critic/rewards/mean` 全是 0，很容易
+  被归因为优化器或策略崩溃。
 
-The surrounding recipe is otherwise correct — these are not the defect: the
-VIMPO PPO-Critic algorithm/optimizer config (actor `LR=1e-6`, critic
-`CRITIC_LR=1e-5`), the FSDP/vLLM wiring, and the controlled smoke downscaling
-(4 GPUs, 5 steps, batch 16, 1024-token responses) are expected harness
-properties, not causes.
+## Evidence
 
-## Canonical expected outcome
+来自 `workspace/ptdbench_case/logs/observed_buggy_run.log`（5 个 PPO step，
+`test_freq=1`，`val_before_train=True`）：
 
-Verdict: **unhealthy**.
+- `critic/rewards/mean` 与 `critic/score/mean` 每一步都是 `0.0`
+- `val-aux/math__math/parser_matched/mean@1` 为 `0.0`（没有回复匹配上）
+- `val-core/math__math/acc/mean@1` 与 `val-core/math__aime_repeated_8x/acc/mean@1`
+  恒为 `0.0`
+- `timing_s/reward` 非零（约 0.0002 s），证明奖励函数确实被调用
 
-- Root cause target: the XML-tag answer parser in
-  `ptdbench_case/buggy_reward_fn.py::compute_score`.
-- Required fix target: extract the boxed answer (`\boxed{...}`, last match) and
-  grade it, keeping the `compute_score(data_source, solution_str, ground_truth,
-  extra_info=None, **kwargs)` signature and `{score, acc, parser_matched}`
-  return contract.
+## Reference answer
 
-An agent that attributes the flat reward to the optimizer, policy collapse, or
-an infrastructure-startup failure is wrong.
+### `issue` — the diagnosis
 
-## Evaluation design
+根因目标：`ptdbench_case/buggy_reward_fn.py::compute_score` 里的 XML 标签解析器。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden `oracle.md`.
-The judge scores verdict, root-cause, and evidence agreement (weights
-0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
+修复目标：改为提取 `\boxed{...}`（取最后一处）并据此评分，同时保持
+`compute_score(data_source, solution_str, ground_truth, extra_info=None, **kwargs)`
+签名和 `{score, acc, parser_matched}` 返回契约。
 
-`solution` is deterministic and metric-only, in the same shape as
-`verl_implementation/torch_functional`: fix the reward, rerun the launch script
-for real, and the verifier reconstructs the metric from the logs under
-`$PTDBENCH_RESULTS/experiment_logs`. Score is
-`0.8 * validation + 0.2 * training_reward`; pass requires both components
-(`score == 1.0`). See `evaluations/solution/verifier/resources/README.md`.
+必须判不过的归因：优化器、策略崩溃、基础设施启动失败。
 
-> **Threshold calibration (maintainers).** The historical baseline values in
-> `grader_spec.json` are the buggy run's real terminal values (`0.0`). The
-> `required_final_score` / `required_training_reward` are evidence-based
-> conservative drafts and are **not yet calibrated against a real healthy
-> rerun**; `task.yaml` carries `needs_manual_review: true`. Calibrate against an
-> oracle-fixed run before using this task for scoring.
+### `solution` — 补丁
 
-## Environment
+把答案提取换成 `\boxed{...}` 的最后一处匹配，再交给 `grade_answer`。
 
-`metadata.environment.image: ppo-critic-vimpo` resolves to the shared image
-`docker/images/ppo-critic-vimpo.Dockerfile` (Python 3.12, CUDA 12.8, torch
-2.8.0, vLLM 0.11.0, Ray 2.56.0, transformers 4.57.6, flash-attn 2.8.3.post1).
-This stack is deliberately **not** the shared `verl` image (vLLM 0.17 / torch
-2.10 / CUDA 12.9): the workspace ships its own veRL + VIMPO recipe written
-against vLLM 0.11, and the recorded val-core / critic-reward baselines the
-solution grader reconstructs were produced on this exact stack. The workspace
-veRL is not baked into the image; the harness bind-mounts the workspace at
-`/workspace` and `PYTHONPATH=/workspace` makes `import verl` resolve to it.
-`environment/prepare.sh` fetches the Qwen3-4B-Base base model to
-`/workspace/Qwen3-4B-Base` (the `MODEL_PATH` the effective run uses, per
-`solution/instruction.md`). Its `--revision` is **pinned** to
-canonical `Qwen/Qwen3-4B-Base` at main as of 2026-08-18 — commit
-`906bfd4b4dc7f14ee4320094d8b41684abff8539`, the snapshot the recorded runs used
-(verified by downloading the full repo locally and checking each shard) — and
-the three weight shards additionally carry `--expect` sha256 + byte-size guards.
-`QWEN3_4B_BASE_REVISION` and `QWEN3_4B_BASE_REPO` remain overridable (e.g. to a
-staged mirror if canonical Qwen's xet-only hosting is blocked on-cluster;
-override both together, since a mirror's commit differs). The controlled
-training and held-out assets are tiny and ship embedded in
-`workspace/ptdbench_case/assets/*.parquet`, so prepare does not re-fetch them;
-the dependency stack is baked into the shared image and the workspace veRL needs
-no editable install (`import verl` resolves via `PYTHONPATH=/workspace`;
-`__version__` comes from `verl/version/version`).
+## Verification
 
-The recipe needs **4 GPUs** (`run_buggy.sh`: `CUDA_VISIBLE_DEVICES=0,1,2,3`,
-`N_GPUS_PER_NODE=4`); `MODEL_PATH` must point at a local Qwen3-4B-Base checkpoint
-(a large external resource, not embedded).
+`issue` 比对 `agent_answer.md` 与隐藏 `oracle.md`，权重 0.2 / 0.6 / 0.2，通过线 0.8。
 
-The workspace code and the verl snapshot are distributed under Apache-2.0; the
-task packaging is MIT.
+`solution` 确定性、只看指标：修好奖励函数、真实重跑启动脚本，verifier 从
+`$PTDBENCH_RESULTS/experiment_logs` 重建 `val-core/math__math/acc/mean@1` 与
+`critic/rewards/mean`。`score = 0.8 * validation + 0.2 * training_reward`，两项都过
+才 `score == 1.0`。
+
+**门槛的标定状态：** `grader_spec.json` 里历史基线是缺陷 run 的真实终值（两次都是
+`0.0`）。两个 `required_*` 是保守草稿，**尚未用真实健康重跑标定**；
+`task.yaml` 带 `needs_manual_review: true`。用 oracle 修复版跑一次再启用评分。
+
+## Running it
+
+`metadata.environment.image: ppo-critic-vimpo` →
+`docker/images/ppo-critic-vimpo.Dockerfile`（Python 3.12、CUDA 12.8、torch 2.8.0、
+vLLM 0.11.0、Ray 2.56.0、transformers 4.57.6、flash-attn 2.8.3.post1）。
+
+刻意不是共享 `verl` 镜像：workspace 自带的 veRL + VIMPO recipe 面向 vLLM 0.11，且
+grader 重建的基线就在这个栈上产出。veRL 不烤进镜像；workspace 挂在 `/workspace`，
+`PYTHONPATH=/workspace` 让 `import verl` 解析过去。
+
+`prepare.sh` 把 Qwen3-4B-Base 拉到 `/workspace/Qwen3-4B-Base`，revision 钉在
+`906bfd4b4dc7f14ee4320094d8b41684abff8539`，三个 shard 带 sha256 与字节数校验。
+
+受控资产随包在 `workspace/ptdbench_case/assets/*.parquet`。
+
+recipe 需要 **4 张卡**；`MODEL_PATH` 指向本地 Qwen3-4B-Base checkpoint。
+
+workspace 代码与 verl 快照 Apache-2.0，任务打包 MIT。

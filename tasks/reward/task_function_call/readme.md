@@ -1,228 +1,152 @@
-# reward_design implementation diagnosis: task_function_call
+# task_function_call
 
-## Case overview
+| | |
+| --- | --- |
+| **Author** | benchmark_evaluation |
+| **Domain** | `reward` |
+| **Tags** | `reward_design` `taco` `function-call` `call-based` `verl` `injected-defect` |
+| **Framework** | `verl` |
+| **Model** | Qwen2.5-1.5B-Instruct |
+| **Dataset** | TACO_EASY（41 道 call-based + 143 道 stdin 的 held-out） |
+| **Environment** | `verl` 镜像；数据集随预构建镜像烘焙 |
+| **Resources** | 8 GPUs |
+| **Recorded runs** | 修复 / 缺陷各一次 400 步，同主机；另有历史 run |
+| **Recorded runtime** | 修复 9h37m、缺陷 8h44m |
 
-- Evaluation key: `reward_design/task_function_call`
-- Case family: `reward_design`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen2.5-1.5B-Instruct`
-- Training framework: `verl`
-- Primary source evaluation metric: `val-core/taco/acc/mean@1`
+## Task abstract
 
-This document is for maintainers and reviewers. It is not exposed to the
-agent during evaluation. Metric names preserve the source experiment;
-tasks using the same held-out protocol may intentionally share a name.
+暂存的 `taco.py` 忽略 `fn_name`，把所有样本都塞进 stdin 路径，于是**函数调用题永远拿
+零分**，而 stdin 题照常得分。held-out 里 41 道 call-based 题即使给出正确的函数解也
+被压到零，聚合验证却仍然非零（0.0217 → 0.0543，峰值 0.0870）——因为 143 道 stdin 题
+还在得分。
 
-## Canonical failure reason
+## The defect
 
-The staged `taco.py` ignores `fn_name` and forces every sample through the stdin path, so function-call problems always receive zero reward while stdin problems continue to score normally.
+`verl/utils/reward_score/taco.py::run_test` 删掉了 call-based 分支。
 
-## Workspace and hidden evaluations
+### Why nothing catches it
 
+- **聚合指标非零。** 143 道 stdin 题撑起了分数，整体看起来"只是偏低"。
+- **不报错。** 走 stdin 路径对 call-based 题是一组合法的（错误的）判定。
+- **题目数据本身标记得很清楚。** parquet 里 `fn_name` 和 `Use Call-Based format` 都还在，
+  缺陷只在 scorer。
+- **`prime_code` 与 agent-loop 工具解析器不参与**指定 TACO 启动，不是因果。
 
-| Path                    | Visibility and purpose                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `workspace/`            | Agent-visible historical experiment snapshot; evidence rather than canonical ground truth. |
-| `evaluations/issue/`    | Neutral diagnosis instruction, issue oracle, and task-local issue verifier.                |
-| `evaluations/solution/` | Repair-and-run instruction, hidden reference material, and metric-only verifier.           |
+## Evidence
 
+- 脏验证从 0.0217 涨到 0.0543，step 300 峰值 0.0870
+- 官方函数解在训练与验证上都得 0 分，而官方 stdin 解仍得 1 分
+- held-out 含 41 道 call-based、143 道 stdin，所以每道 call-based 行即使函数解正确也
+  被压在零
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM
-judge. `solution` grading reads only the new experiment logs.
+### Held-out results
 
-### Leaf-id sanitization
+修好后的 400 步参考运行在 devspace `1236983` 上跑过，同主机还有一次缺陷重跑，门槛由
+这两条曲线标定（表见 `evaluations/solution/oracle/README.md`）：
 
-The original experiment name was `taco_qwen2_5_1.5b_function_call`, which
-names the defect and so handed the agent the answer from the frozen evidence:
-it appeared 30 times across the training log, the offline W&B
-`config.yaml` / `output.log` / `debug.log` / `run-*.wandb`, and the hydra
-configs under `outputs/`. Every occurrence inside `workspace/` is now
-`__BENCH_TASK_ID__`, and the launch script reads
-`EXPERIMENT_NAME=${EXPERIMENT_NAME:-${BENCH_TASK_LEAF_ID:-__BENCH_TASK_ID__}}`.
-No harness code sets `BENCH_TASK_LEAF_ID`, so a fresh agent run emits exactly
-the same string and the snapshot stays self-consistent. Do not restore the
-original name. The binary `run-*.wandb` datastore was re-emitted record by
-record (lengths, CRCs and 32KB block framing recomputed) rather than patched
-in place; `oracle/task.yaml` still records the historical name because the
-oracle tree is not agent-visible.
+| | 修复侧 | 缺陷侧 |
+| --- | ---: | ---: |
+| 修复参考终值 | 0.0978 | — |
+| 标定值（validation / reward） | 0.1098 / 0.1838 | 0.0783 / 0.1003 |
 
-## Source and preserved context
+早前版本用"健康 scorer 到 step 400 是 0.139"作参照点，那属于
+`tasks_coding_pass_01`——另一个实验，其栈包含 `pyext`。本任务的 `prepare.sh` 刻意
+不装 `pyext`，修复运行收在 0.0978。
 
-The following source and historical packaging fields were moved from
-`metadata.yaml` so the machine metadata remains aligned with the core
-schema. They are preserved here without changing their meaning.
+## Reference answer
 
-```yaml
-bench_category: reward_design
-source_task: Benchmark_Evaluation/tasks/task_verl_coding/tasks_function_call
-evidence_kind: injected_implementation_defect
-packaging_tier: B0
-packaging_ready: true
-b1_scoring_ready: true
-target_files: verl/utils/reward_score/taco.py
-validation_stack: TACO_EASY
-already_at_baseline: false
-metric_status: log_reconstructed
-verify:
-  num_gpus: 8
-  timeout_minutes: 660
-  max_train_steps: 400
-  eval_metric_key: val-core/taco/acc/mean@1
-historical_baseline:
-  actual_metric_key: val-core/taco/acc/mean@1
-  eval_last: 0.05434782608695652
-  eval_max: 0.08695652173913043
-  n_eval_points: 9
-  attempt: 1
-```
+### `issue` — the diagnosis
 
-## Original failure evidence
+根因目标：`taco.py::run_test`。
 
-- dirty validation rises from 0.0217 to 0.0543 and peaks at 0.0870 at step 300
-- official function solutions score 0 on both train and validation, while official stdin solutions still score 1
-- the held-out set contains 41 call-based and 143 stdin problems, so every call-based row is capped at zero even for a correct function solution
+修复目标：当 `fn_name` 存在时，把候选按 call-based 代码编译、需要时实例化
+`Solution`、调用 `method(*inputs)` 并比较返回值；stdin 路径保持不变。
 
-A repaired run of this exact package was executed on reference devspace
-`1236983` (`/user/chenyinghao/harbor-runs/task_function_call__stage__env`),
-alongside a defective re-run on the same host, and the solution thresholds are
-calibrated from those two curves — see `evaluations/solution/oracle/README.md`
-for the table. The "healthy scorer reaches 0.139 at step 400" figure that
-earlier revisions of this document used as the reference point belongs to
-`tasks_coding_pass_01`, a different experiment whose stack included `pyext`;
-this task's `prepare.sh` deliberately omits `pyext`, and the repaired run here
-ends at 0.0978.
+必须澄清的归因：
 
-The preserved source metric is `val-core/taco/acc/mean@1`. The frozen workspace remains
-the evidence package; solution grading requires a new 400-step training run and reads only
-its experiment logs.
+- 数据与 prompt 仍通过 `fn_name` 与 `Use Call-Based format` 标识 call-based 题，
+  缺陷只在 scorer
+- 保留的 stdin 路径解释了为什么所有 call-based 行都失败时聚合验证仍非零
+- `prime_code` 与 agent-loop 工具解析器不是因果
 
-## Canonical expected outcome
+### `solution` — 补丁
 
-Verdict: **unhealthy**.
+恢复 call-based 执行分支，stdin 路径不动。
 
-Root cause targets:
+## Verification
 
-- `verl/utils/reward_score/taco.py::run_test`
+`issue` 权重 0.2 / 0.6 / 0.2，通过线 0.8。忽略 `fn_name`、删掉 call-based 执行路径是
+本质根因。
 
-Required fix targets:
+`solution`：修好后跑指定脚本 400 步：
 
-- `verl/utils/reward_score/taco.py::run_test`: `restore`; target state/value: when `fn_name` is present, compile the candidate as call-based code, instantiate `Solution` when required, invoke `method(*inputs)`, and compare its return value; leave the stdin path unchanged.
+- validation：`val-core/taco/acc/mean@1` 在固定步集 `200, 250, 300, 350, 400` 上的
+  均值必须落在 `[0.095, 0.35]`；五步都必须存在（`TEST_FREQ=50` 的 400 步运行正好产出）
+- training reward：训练步 `1..400` 的 `critic/rewards/mean` 均值严格 > `0.14` 且
+  ≤ `0.6`；400 步都必须存在
+- `score = 0.8 * validation + 0.2 * training reward`
 
-Documentation reconciliation:
+固定步集而不是取峰值，是因为 `TEST_FREQ` 与 `TOTAL_TRAINING_STEPS` 只是启动脚本里的
+普通环境变量覆盖，而修复运行的峰值（0.125）只出现一次。两个上界用来挡"把 scorer 改成
+返回常数"——两个评分量都出自 agent 被要求修的那个文件。
 
-- The parquet data and prompts still identify call-based problems through `fn_name` and `Use Call-Based format`; the defect is confined to the scorer.
-- The retained stdin path explains why aggregate validation remains nonzero despite all call-based rows failing.
-- `prime_code` and agent-loop tool parsers are unused by the designated TACO launch and are not causal.
+## Running it
 
-## Evaluation design
+`metadata.environment.image: verl` → `docker/images/verl.Dockerfile`
+（`verlai/verl:vllm017.latest` 按 digest 钉死）。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden
-`oracle.md`. The judge scores verdict, root-cause, and evidence agreement
-(weights 0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
-Ignoring `fn_name` and deleting the call-based execution path is the essential
-root cause.
+数据**未发布**，随预构建镜像烘焙；当前 Dockerfile 不下载也不校验外部 dataset revision：
 
-`solution` does not grade a structured diagnosis. The agent must repair the
-staged workspace, run the designated launch script for 400 steps, and produce
-fresh experiment logs. Scoring is weighted:
+| Runtime path | Size | SHA-256 |
+| --- | ---: | --- |
+| `workspace/taco_verl/test.parquet` | 61,082,676 bytes | `e364fa69d973f8e8644b2fa4d7dc6ec405d5b4adff64002c6ad52e7c787c6eaa` |
+| `workspace/taco_verl/train.parquet` | 606,016,648 bytes | `7f25abdfa9e0f5baa173d153a32973fbe2cc8736503a35408b8ebb8ae2bc5706` |
 
-- validation: the mean of `val-core/taco/acc/mean@1` over the pinned step set
-  `200, 250, 300, 350, 400` must land in `[0.095, 0.35]` to score `1`,
-  otherwise `0`. All five steps must be present, which is what the designated
-  400-step run at `TEST_FREQ=50` produces.
-- training reward: the mean `critic/rewards/mean` over training steps `1..400`
-  must be strictly above `0.14` and at most `0.6` to score `1`, otherwise `0`.
-  All 400 steps must be present.
-- final `score = 0.8 * validation + 0.2 * training reward`
+预构建镜像内嵌快照，只在 agent 阶段 hydrate。local backend 不 hydrate 烘焙资产。
 
-Pass requires both components (`score == 1.0`). The framework still records
-the weighted float when only one component passes.
+8 卡、400 步、大 shared-memory。`verify.timeout_minutes` 为 660，而修复参考运行本身
+就用了 9h37m（缺陷 8h44m——恢复 call-based 执行会更慢），agent 的诊断与修复阶段只有
+不到 1h20m 余量。
 
-Reference values from the calibration runs: repaired `0.1098` / `0.1838`,
-defective `0.0783` / `0.1003`. Pinning the step set rather than taking a peak
-matters because `TEST_FREQ` and `TOTAL_TRAINING_STEPS` are plain environment
-overrides in the launch script, and because the repaired run's peak (`0.125`)
-occurs exactly once. The upper bounds guard against a scorer rewritten to
-return a constant reward, since both graded quantities come out of the file
-the agent is asked to repair.
+模型权重与历史训练 checkpoint 不是外部数据集资产。
 
-## External dataset asset
+### 从 `prepare.sh` 移出的说明
 
-- Repository: `unpublished`
-- Publication status: `unpublished; stored in the prebuilt task image`
-- Pinned revision: `not applicable`
-- Dataset license: `not recorded in the task package`
-- Provenance: Processed TACO training and held-out snapshot.
+`prepare.sh` 以只读挂进 agent 容器的 `/ptdbench/environment`，所以不得携带点明缺陷、
+兄弟任务或评分门槛的维护者背景。
 
+**叶子 id 脱敏。** 原实验名 `taco_qwen2_5_1.5b_function_call` 直接点明缺陷，在训练日志、
+离线 W&B 的 `config.yaml` / `output.log` / `debug.log` / `run-*.wandb`、以及 `outputs/`
+下的 hydra 配置里共出现 30 次。`workspace/` 内的每一处现为 `__BENCH_TASK_ID__`，启动
+脚本读 `EXPERIMENT_NAME=${EXPERIMENT_NAME:-${BENCH_TASK_LEAF_ID:-__BENCH_TASK_ID__}}`；
+没有 harness 代码设置 `BENCH_TASK_LEAF_ID`，所以新 run 输出同一个串、快照保持自洽。
+**不要恢复原名。** 二进制 `run-*.wandb` 是逐记录重新生成的（长度、CRC、32KB 分块
+重新计算）而非原位打补丁；`oracle/task.yaml` 仍记录历史名，因为 oracle 树对 agent
+不可见。
 
-| Runtime path                            | Size              | SHA-256                                                            |
-| --------------------------------------- | ----------------- | ------------------------------------------------------------------ |
-| `workspace/taco_verl/test.parquet`      | 61,082,676 bytes  | `e364fa69d973f8e8644b2fa4d7dc6ec405d5b4adff64002c6ad52e7c787c6eaa` |
-| `workspace/taco_verl/train.parquet`     | 606,016,648 bytes | `7f25abdfa9e0f5baa173d153a32973fbe2cc8736503a35408b8ebb8ae2bc5706` |
+**迁移。** `prepare.sh` 于 2026-09-23 取代
+`environment/{Dockerfile,hydrate-assets.sh}`。legacy Dockerfile 只装补丁版 `pyext` 并把
+`workspace/` 烤进镜像——既不下载模型也不下载数据，而两者都不在 git 中，所以由它构建
+的容器会在 `MODEL_PATH` 和 `TRAIN_FILE` 上立刻失败。两份资产是照着运行时的路径、
+字节数和 SHA-256 重建的。
 
+**兄弟任务。** `reward_design/task_evaluator` 出自同一 recipe——对同一源文件的两种注入。
+资产**内容**逐字节相同，但各自在自己的 revision 上发布各自的 HF 仓库，所以这里改动通常
+要同步审那边。两份 `prepare.sh` **刻意不同**：只有兄弟装了 `pyext`。
 
-The prebuilt Docker image embeds the dataset snapshot and hydrates the
-bind-mounted workspace only for the agent stage. The current Dockerfile does
-not download or verify a published external dataset revision.
+**为什么不装 `pyext`。** scorer 尝试 `from pyext import RuntimeModule`，`ImportError`
+时回退到自带的 `_FallbackRuntimeModule`，而 stdin 路径每个样本都会走到回退，所以装与
+不装会落在奖励上，不是装饰性选择。决定跟随本任务自己的冻结 run manifest：
+`workspace/logs/wandb/run-20260821_153903-js8e27l6/files/requirements.txt` 是 282 行、
+没有 `pyext`；兄弟的冻结 manifest 是 283 行、有 `pyext==0.7`。逐行排序后只差这一个包。
+两者并不等价：`pyext` 的 `from_string` exec 进临时 globals 再拷到新模块，函数的
+`__globals__` 与模块 `__dict__` 是两个对象；回退直接 exec 进 `module.__dict__`。这里
+唯一的 `getattr(mod, 'code')` 用法结果相同，语义不同——这正是每个任务要单独对齐的原因。
+要恢复它，从兄弟 `prepare.sh` 尾部搬一段（装进 `$PTDBENCH_PREPARED/pysite` 并把
+`PYTHONPATH` 追加到 `$PTDBENCH_PREPARED/env`）。**不要**改
+`docker/images/verl.Dockerfile`，那是所有 verl 任务共享的。
 
-## Environment requirement
-
-- Base image: `verlai/verl:vllm017.latest`
-- Use the Docker agent backend with the task-specific prebuilt image.
-- The local backend does not hydrate the baked model and dataset assets.
-- The designated experiment uses 8 GPUs, a 400-step budget, and a large shared-memory allocation.
-- Model weights and historical training checkpoints are not external dataset assets.
-- `verify.timeout_minutes` is 660. The repaired reference run alone took 9h37m
-  (the defective one 8h44m — restoring call-based execution makes the run
-  slower), so the agent's diagnose-and-repair phase has under 1h20m of slack.
-
-### Notes moved out of `environment/prepare.sh`
-
-`prepare.sh` is mounted read-only into the agent container at
-`/ptdbench/environment`, so it must not carry maintainer background that names
-the defect, the sibling task, or the grading thresholds. These notes used to
-live in its comments and belong here instead. Keep it that way.
-
-**Migration.** `prepare.sh` replaced `environment/{Dockerfile,hydrate-assets.sh}`
-on 2026-09-23. The legacy Dockerfile only installed a patched `pyext` and baked
-`workspace/` into the image — it downloaded neither the model nor the dataset,
-and neither is git-tracked under `workspace/`, so a container built from it
-failed immediately on `MODEL_PATH` and `TRAIN_FILE`. The two assets were
-reconstructed against the runtime paths, byte counts and SHA-256 values in the
-"External dataset asset" table above.
-
-**Sibling.** `reward_design/task_evaluator` is built from the same recipe — two
-different injections into the same source file. Asset *contents* are
-byte-identical, but each task publishes its own HF repo at its own revision, so
-changes here usually need review there too. The two `prepare.sh` files are
-deliberately **not** identical: only the sibling installs `pyext`.
-
-**Why `pyext` is deliberately not installed.** The scorer tries
-`from pyext import RuntimeModule` and falls back to a complete, self-contained
-`_FallbackRuntimeModule` on `ImportError`; the fallback is reached on every
-sample of the stdin path, so installing `pyext` or not is a choice that lands
-on the reward, not a cosmetic one. The decision follows this task's own frozen
-run manifest: `workspace/logs/wandb/run-20260821_153903-js8e27l6/files/requirements.txt`
-is 282 lines with no `pyext`, while the sibling's frozen manifest is 283 lines
-and records `pyext==0.7`. Sorted line-by-line, that one package is the only
-difference. The shared legacy Dockerfile installed `pyext` for both, which
-contradicts the run recorded *here*, so the wandb manifest wins. The two
-implementations are not equivalent: `pyext`'s `from_string` execs into a
-temporary globals dict and copies the new names into a fresh module, leaving a
-function's `__globals__` and the module `__dict__` as two objects, whereas the
-fallback execs straight into `module.__dict__`. For the single `getattr(mod,
-'code')` use here the result is the same, but the semantics are not — which is
-exactly why each task has to be aligned separately. To reinstate it, lift the
-trailing section of the sibling's `prepare.sh` (installs into
-`$PTDBENCH_PREPARED/pysite` and appends `PYTHONPATH` to `$PTDBENCH_PREPARED/env`).
-Do **not** edit `docker/images/verl.Dockerfile`; that image is shared by every
-verl task.
-
-**Known residual leak.** The two HF repositories are named
-`LIF1014/ptdbench-verl-coding-tasks-function-call` and
-`…-function-call-dataset`. `prepare.sh` must name them to fetch them, so the
-string survives there and cannot be sanitized from inside this package —
-closing it means republishing both repos under a neutral name and updating the
-revisions here.
+**已知残留泄漏。** 两个 HF 仓库名叫
+`LIF1014/ptdbench-verl-coding-tasks-function-call` 和 `…-function-call-dataset`。
+`prepare.sh` 必须写出它们才能拉取，所以这个串在包里无法消除——关闭它意味着用中性名
+重新发布两个仓库并更新此处的 revision。

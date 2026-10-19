@@ -1,6 +1,6 @@
 # AutoRLBench
 
-PostTrainDiagnosisBench, or AutoRLBench, is a benchmark framework for community
+AutoRLBench is a benchmark framework for community
 submission of broken post-train tasks, environment specs, and verifier logic.
 
 ## Core idea
@@ -41,6 +41,71 @@ The directory layout identifies the task format. A task may provide `issue`,
 `solution`, or both under `evaluations/`. Legacy tasks with top-level
 `instruction.md`, `oracle/`, and `verifier/` remain supported and are loaded as
 a `solution` evaluation.
+
+## Contributing a task
+
+You do not have to produce that layout by hand. Contribute the raw material;
+an agent turns it into a task.
+
+### 1. Prepare a raw task
+
+Four things, under `raw_tasks/<your_task>/`:
+
+```text
+raw_tasks/<your_task>/
+├── buggy_workspace/      code that reproduces the defect + that run's artifacts
+├── fixed_workspace/      the same tree repaired + its own run's artifacts
+├── Dockerfile            the environment both runs were recorded on
+└── README.md             the defect, the fix, and the measured outcome
+```
+
+[raw_tasks/raw_task_example/](raw_tasks/raw_task_example/) is a worked example —
+a Search-R1 GRPO run whose retriever returns an all-zero query embedding.
+
+What matters in each:
+
+- **The two workspaces must differ only by the fix.** Anything else that
+  differs between them is something the comparison is also measuring. Each one
+  should be self-contained: its own code, its own inputs, no sibling directory
+  either side reaches into.
+- **Each workspace carries its own run's artifacts**, where the run wrote them.
+  At minimum: the W&B offline directory (including the `run-*.wandb` binary —
+  without it `wandb sync` cannot replay the run), the complete stdout/stderr of
+  the run, and whatever else the framework emits that shows the symptom.
+  Per-step metric files are small and are what a threshold gets read off; keep
+  all of them. Full rollout dumps are large — a couple of steps as samples is
+  enough.
+- **The Dockerfile** should build without a build context if it can. Pin
+  versions; say in a comment which recorded run they came from.
+- **The README** follows
+  [skills/package-task/readme-format.md](skills/package-task/readme-format.md):
+  the defect, the fix as a diff, the measured outcome of both arms, and a
+  section for every plausible-but-wrong diagnosis. If you ran each arm once,
+  say so — a single-seed result supports margins, not variance, and whoever
+  calibrates a threshold needs to know which they have.
+
+Leave the raw material raw. Absolute paths, hostnames, and `broken`/`fixed`
+labels in your logs are expected; sanitizing them is step 2's job.
+
+What to leave out: model weights, checkpoints, and anything derivable from what
+you did ship (a FAISS index whose corpus is already in the bundle). Record how
+to obtain them instead.
+
+### 2. Convert it to a task
+
+The `skills/package-task` skill does this. Point an agent at your raw task and
+let it produce `tasks/<family>/<task_id>/` in the layout above: one workspace
+instead of two, the fix sealed into `evaluations/solution/oracle/`, assets moved
+into `environment/prepare.sh`, your `Dockerfile` mapped onto a shared image
+under `docker/images/`, and the logs sanitized and thinned.
+
+It ends with `python3 -m autorlbench validate <task_dir>`, which must report
+zero errors.
+
+### 3. Open a PR
+
+Against this repository, with the generated task. Keep the raw task out of the
+PR unless it is small enough to be useful as evidence.
 
 ## Source layout
 

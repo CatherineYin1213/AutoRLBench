@@ -1,136 +1,111 @@
-# PPO-Critic run assessment: aime25_single_sample_variance
+# verl_aime25_single_sample_protocol
 
-## Case overview
-
-- Evaluation key: `aime25_single_sample_variance`
-- Case family: `ppo_critic`
-- Schema version: `2`
-- Evaluation levels: `issue`, `solution`
-- Model: `Qwen3-4B-Base`
-- Dataset: `AIME25` (30 questions)
-- Harness: `verl` PPO-Critic checkpoint, evaluated via `run_eval.py`
-- Entry point: `run_eval.py` (reads `config/eval_config.yaml`)
-
-This document is for maintainers and reviewers. It is not exposed to the agent
-during evaluation.
-
-## Canonical verdict
-
-**unhealthy evaluation (false alarm), not a training failure.**
-
-The apparent AIME25 "failure" is an artifact of an under-sampled evaluation
-protocol, not a defect in PPO training. `config/eval_config.yaml` sets
-`evaluation.samples_per_question: 1`: a single stochastic generation per
-question (temperature `1.0`, top-p `1.0`) on a benchmark of only 30 questions.
-One 30-question realization is therefore a high-variance estimator, and a single
-low score is not evidence that PPO training itself failed.
-
-Controlled repeated evaluation of the *same* checkpoint (preserved under
-`workspace/ptdbench_case/original_eval/`) produced per-epoch AIME25 accuracy
-ranging from **6.67% to 20%**, with **10%** appearing in **7 of 32** repeated
-epochs.
-
-## Workspace and hidden evaluations
-
-| Path | Visibility and purpose |
+| | |
 | --- | --- |
-| `workspace/` | Agent-visible snapshot: `run_eval.py`, `config/eval_config.yaml` (the buggy `samples_per_question: 1` protocol), and the source tree. |
-| `workspace/ptdbench_case/original_eval/` | Preserved controlled evidence: `n1/` (single-sample run), `n32/` (32-sample run), and `notes/` (epoch breakdown, experiment design). Frozen; must not change. |
-| `evaluations/issue/` | Neutral diagnosis instruction, issue oracle, and task-local LLM-judge verifier. |
-| `evaluations/solution/` | Protocol-repair instruction, hidden reference material, and a deterministic protocol-check verifier. |
+| **Author** | 王嘉泽 |
+| **Domain** | `configuration` |
+| **Tags** | `ppo-critic` `evaluation-protocol` `sampling` `aime25` `false-alarm` `stdlib-only` |
+| **Framework** | `verl` PPO-Critic checkpoint，经 `run_eval.py` 评测 |
+| **Model** | `Qwen3-4B-Base` |
+| **Dataset** | AIME25（30 题） |
+| **Environment** | `ppo-critic-vimpo`；`prepare.sh` 是已记录的空操作 |
+| **Resources** | 无 GPU 需求（评分只用标准库） |
+| **Recorded runs** | 同一 checkpoint 的 1-sample 与 32-sample 两轮重复评测 |
+| **Recorded runtime** | 秒级（protocol check） |
 
-The agent cannot read oracle or verifier paths. `issue` grading compares
-`$PTDBENCH_RESULTS/agent_answer.md` to hidden `oracle.md` with an LLM judge.
+## Task abstract
 
-## Original failure evidence
+AIME25 表现出的"失败"是**评测协议采样不足**造成的假警报，不是 PPO 训练失败。
+`config/eval_config.yaml` 设了 `evaluation.samples_per_question: 1`——在只有 30 题的
+基准上，用 temperature 1.0 / top-p 1.0 采样一次。对**同一个 checkpoint** 做受控重复
+评测，每轮 AIME25 准确率在 **6.67% 到 20%** 之间摆动，其中 **10% 出现在 32 轮里的
+7 轮**。单次 30 题的实现是一个高方差估计量。
 
-From `workspace/ptdbench_case/original_eval/`:
+## The defect
 
-- `n1/` — one stochastic sample per question; a single 30-question realization.
-- `n32/` — 32 samples per question; `notes/n32_epoch_breakdown.txt` records the
-  per-epoch spread (6.67%–20%, 10% in 7/32 epochs).
-- `notes/experiment_design.txt` / `notes/final_comparison.txt` — the controlled
-  comparison of 1-sample vs 32-sample protocols on the same checkpoint.
+```yaml
+# config/eval_config.yaml
+evaluation:
+  samples_per_question: 1
+```
 
-The checkpoint itself is a large external resource and is not embedded.
+`run_eval.py` 用 `--protocol-only` 报告当前协议（`expected_generations: 30`）。
 
-## Why the evaluation is unhealthy
+### Why nothing catches it
 
-Nothing in the training or the model is shown to be defective. The defect is in
-the measurement protocol:
+- **没有任何训练或模型缺陷。** 坏的是测量协议，代码和权重都是好的。
+- **一次低分看起来完全像训练失败。** 30 题上单次采样，运气差就低。
+- **题量小放大了噪声。** AIME25 只有 30 题，单题波动直接是 3.3 个百分点。
+- **随机解码。** `temperature: 1.0`、`top_p: 1.0` 让同一 checkpoint 每次结果都不同。
 
-- **Protocol defect** (`config/eval_config.yaml`): `samples_per_question: 1` on
-  a 30-question benchmark with stochastic decoding. `run_eval.py` reports this
-  protocol via `--protocol-only` (`expected_generations: 30`).
+## Evidence
 
-AIME25 having only 30 questions, stochastic decoding (`temperature: 1.0`,
-`top_p: 1.0`), and PPO-Critic being compared to another algorithm's reported
-score are context, not causes. The cause is drawing a single sample and
-treating it as stable.
+`workspace/ptdbench_case/original_eval/` 下保留了受控证据：
 
-## Canonical expected outcome
+- `n1/`——每题一次随机采样，单个 30 题的实现
+- `n32/`——每题 32 次采样，`notes/n32_epoch_breakdown.txt` 记录逐轮分布
+  （6.67%–20%，10% 出现在 7/32 轮）
+- `notes/experiment_design.txt` / `notes/final_comparison.txt`——同一 checkpoint 上
+  1-sample 与 32-sample 协议的受控对比
 
-Verdict: **evaluation under-sampling / high-variance false alarm**.
+checkpoint 本身是大型外部资源，不随包。
 
-- Root cause target: `evaluation.samples_per_question: 1` in
-  `config/eval_config.yaml`.
-- Required fix target: raise `samples_per_question` to `32` with the `mean`
-  reducer, keeping the 30-question benchmark and stochastic generation
-  (`temperature: 1.0`, `top_p: 1.0`). After the fix, `run_eval.py
-  --protocol-only` reports `samples_per_question: 32` and
-  `expected_generations: 960`.
+## Reference answer
 
-An agent that attributes the low score to a PPO training failure, a reward
-defect, or an optimizer problem is wrong.
+### `issue` — the diagnosis
 
-## Evaluation design
+根因目标：`config/eval_config.yaml` 的 `evaluation.samples_per_question: 1`。
 
-`issue` grades `$PTDBENCH_RESULTS/agent_answer.md` against hidden `oracle.md`.
-The judge scores verdict, root-cause, and evidence agreement (weights
-0.2 / 0.6 / 0.2). Pass is a weighted score of at least `0.8`.
+修复目标：把 `samples_per_question` 提到 `32` 并用 `mean` 聚合，保留 30 题基准与随机
+生成（`temperature: 1.0`、`top_p: 1.0`）。修复后 `run_eval.py --protocol-only` 应报告
+`samples_per_question: 32`、`expected_generations: 960`。
 
-> **`solution` is a deterministic protocol check, not a metric grader — this is
-> a deliberate exception.** Unlike the other three `ppo_critic` tasks, this task
-> fixes an *evaluation configuration*, not a training run, so there is no
-> training to rerun and no `val-core` / `critic/rewards` metric to reconstruct.
-> `evaluations/solution/verifier/test.sh` instead:
->
-> 1. runs `run_eval.py --protocol-only` from the repaired workspace and asserts
->    the active protocol is `task == aime25`, `questions == 30`,
->    `samples_per_question == 32`, `reducer == mean`, `temperature == 1.0`,
->    `top_p == 1.0`, and `expected_generations == 960`; and
-> 2. verifies the preserved evidence under
->    `workspace/ptdbench_case/original_eval/` is byte-for-byte unchanged against
->    the trusted manifest `oracle/original_eval.sha256` (`sha256sum -c`).
->
-> This check is exact and fully runnable offline (no GPU, no network, no model),
-> so unlike the training tasks it needs no uncalibrated threshold. `oracle/`
-> carries the repaired `eval_config.yaml` (`samples_per_question: 32`),
-> `expected.md`, and `original_eval.sha256`. The verifier reads
-> `$PTDBENCH_ORACLE`, `$PTDBENCH_WORKSPACE`, and `$PTDBENCH_RESULTS`.
+必须判不过的归因：PPO 训练失败、奖励缺陷、优化器问题。
 
-## Environment
+### `solution` — 补丁
 
-`metadata.environment.image: ppo-critic-vimpo` resolves to the shared image
-`docker/images/ppo-critic-vimpo.Dockerfile`, the same image the three ppo_critic
-training tasks use. This task rides it only for a Python interpreter: its two
-graded steps (`run_eval.py --protocol-only` and the evidence `sha256sum -c`) run
-with the standard library alone, never touch the rollout/eval stack, and the
-preserved evaluation evidence ships inside
-`workspace/ptdbench_case/original_eval/`. `environment/prepare.sh` is therefore
-a documented no-op (it fetches nothing and records why): neither graded step
-loads a model, and the evidence is embedded. The optional full AIME25 rerun
-takes an external PPO-Critic checkpoint via `CHECKPOINT_PATH` — a trained
-checkpoint, not a fetchable HF base model — supplied by the operator, which the
-grading does not depend on.
+```diff
+-  samples_per_question: 1
++  samples_per_question: 32
+```
 
-The *recorded* AIME25 evaluation was produced on a separate eval stack (CUDA
-12.6.3 / torch 2.7.1 / vLLM 0.10.1.1 with inspect-ai + lighteval, pinned in the
-bundle under `tasks/PTDBench_candidate_bundle_20260821/.../environment/`); that
-stack is intentionally **not** rebuilt here, since no checkpoint is embedded and
-the grading is stdlib-only. The full AIME25 rerun (optional) needs a PPO-Critic
-checkpoint supplied via `CHECKPOINT_PATH`, a large external resource not embedded
-here.
+reducer 用 `mean`。
 
-The workspace code and the verl snapshot are distributed under Apache-2.0; the
-task packaging is MIT.
+## Verification
+
+`issue` 比对 `agent_answer.md` 与隐藏 `oracle.md`，权重 0.2 / 0.6 / 0.2，通过线 0.8。
+
+**`solution` 是确定性的协议检查，不是指标评分——这是刻意保留的例外。** 与另外三个
+ppo_critic 任务不同，本任务修的是**评测配置**，没有训练可重跑，也没有
+`val-core` / `critic/rewards` 可重建。`evaluations/solution/verifier/test.sh` 改为：
+
+1. 在修复后的 workspace 跑 `run_eval.py --protocol-only`，断言生效协议为
+   `task == aime25`、`questions == 30`、`samples_per_question == 32`、
+   `reducer == mean`、`temperature == 1.0`、`top_p == 1.0`、
+   `expected_generations == 960`；
+2. 用可信清单 `oracle/original_eval.sha256` 做 `sha256sum -c`，验证
+   `workspace/ptdbench_case/original_eval/` 逐字节未变。
+
+检查是精确的且完全可离线运行（无 GPU、无网络、无模型），因此**不需要未标定的门槛**。
+`oracle/` 里带修复后的 `eval_config.yaml`、`expected.md` 和 `original_eval.sha256`。
+verifier 读取 `$PTDBENCH_ORACLE`、`$PTDBENCH_WORKSPACE`、`$PTDBENCH_RESULTS`。
+
+## Running it
+
+`metadata.environment.image: ppo-critic-vimpo` → `docker/images/ppo-critic-vimpo.Dockerfile`，
+与三个 ppo_critic 训练任务同一个镜像。本任务借它只是为了一个 Python 解释器：两个评分
+步骤（`run_eval.py --protocol-only` 与 `sha256sum -c`）只用标准库，从不碰
+rollout/eval 栈，受控证据随包在 `workspace/ptdbench_case/original_eval/`。
+
+`environment/prepare.sh` 因此是**有记录的空操作**（不下载任何东西，并写明原因）：
+两个评分步骤都不加载模型，证据也已内嵌。
+
+可选的全量 AIME25 重跑通过 `CHECKPOINT_PATH` 接收一个外部 PPO-Critic checkpoint——那是
+训练出来的 checkpoint 而非可下载的 HF 基座模型——由操作者提供，评分不依赖它。
+
+**记录中的 AIME25 评测是在另一套栈上产生的**（CUDA 12.6.3 / torch 2.7.1 /
+vLLM 0.10.1.1 + inspect-ai + lighteval，钉在 bundle 的
+`tasks/PTDBench_candidate_bundle_20260821/…/environment/` 下）；那套栈刻意**不**在这里
+重建，因为没有 checkpoint 随包、评分也只用标准库。
+
+workspace 代码与 verl 快照 Apache-2.0，任务打包 MIT。

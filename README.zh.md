@@ -285,28 +285,39 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m autorlbench evaluate tasks/slime_retool \
 ## 目录结构
 
 ```text
-tasks/your_task/
-├── instruction.md
+tasks/<family>/<task_id>/
 ├── readme.md
 ├── metadata.yaml
 ├── workspace/
-├── oracle/
-├── environment/         # 可选
-│   └── prepare.sh       # 跑训练前要准备的东西（下模型、下数据集）
-└── verifier/
-    ├── test.sh
-    ├── tests/
-    └── resources/
+├── environment/             # 可选
+│   └── prepare.sh           # 跑训练前要准备的东西（下模型、下数据集）
+└── evaluations/
+    ├── issue/               # 复现 + 诊断
+    │   ├── instruction.md
+    │   ├── oracle.md
+    │   └── verifier/
+    │       └── test.sh
+    └── solution/            # 动手修
+        ├── instruction.md
+        ├── oracle/
+        └── verifier/
+            ├── test.sh
+            ├── tests/       # 可选
+            └── resources/   # 可选
 ```
+
+一个任务可以只有 `issue`、只有 `solution`，也可以两档都有。
+老任务把 `instruction.md`、`oracle/`、`verifier/` 直接放在顶层，仍然支持，
+按一个 `solution` 档加载；新任务不要这么写。
 
 ## 可见性约定
 
-- `instruction.md`：agent 可见
+- `evaluations/<档>/instruction.md`：agent 可见
 - `workspace/`：agent 可写
 - `environment/`：任务自己的环境文件（主要是 `prepare.sh`）；
   三个阶段都以**只读**挂在 `/ptdbench/environment`
-- `oracle/`：仅 verifier 可见
-- `verifier/`、`verifier/tests/`、`verifier/resources/`：仅 verifier 可见
+- `evaluations/issue/oracle.md`、`evaluations/solution/oracle/`：仅 verifier 可见
+- `evaluations/<档>/verifier/` 及其 `tests/`、`resources/`：仅 verifier 可见
 - `readme.md`：仅人类审核用
 - `metadata.yaml`：提交元数据
 
@@ -481,57 +492,67 @@ workspace 交给 agent（Harbor 后端里它随 workspace 一起上传到 `/work
 
 ## 新任务怎么加
 
-最简单的方式是参考 `tasks/` 下同类的现有任务，例如 `tasks/slime_retool`。
+你不需要手搓上面那套目录。**你出原始素材，agent 把它转成任务。**
 
-### 你需要补的东西
+### 第 1 步：准备一个 raw task
 
-1. `instruction.md`
-   - 给 agent 看的公开任务说明
-   - 要写清楚“要修什么”“期望行为是什么”“不要改什么”
+四样东西，放在 `raw_tasks/<你的任务>/` 下：
 
-2. `readme.md`
-   - 只给人类看
-   - 用来解释任务背景、为什么这么设 verifier、你希望审核者重点看哪里
+```text
+raw_tasks/<你的任务>/
+├── buggy_workspace/      能复现缺陷的代码 + 那次运行的产物
+├── fixed_workspace/      修好的同一棵树 + 它自己那次运行的产物
+├── Dockerfile            两次运行所在的环境
+└── README.md             缺陷、修复、实测结果
+```
 
-3. `metadata.yaml`
-   - 填完整元数据
-   - 至少把 `title`、`submitter`、`license`、`created_date`、`domain`、`model`、`dataset`、`training`、`environment`、`outcome` 写全
-   - 训练类任务还要写 `training.script`（必要时加 `script_args`），否则没人知道这个任务该跑哪个脚本
+[raw_tasks/raw_task_example/](raw_tasks/raw_task_example/) 是一个完整示例：
+一次 Search-R1 GRPO 训练，检索器返回了全零的查询向量。
 
-4. `workspace/`
-   - 放有 bug 的可写工作区
-   - 这是 agent 真正会改的地方
-   - 对 SWE 任务来说，最好保持最小可复现
+每一样的要点：
 
-5. `oracle/`
-   - 放隐藏参考实现、正确数据、正确模型输出，或者 verifier 需要的真值
-   - agent 不应该看到这里
+- **两个 workspace 之间只能差一个修复。** 其余任何差异都会被对照实验一并量进去。
+  每个 workspace 要自成一体：自己的代码、自己的输入，不去读任何兄弟目录。
+- **产物放在各自 workspace 内部**，就放在运行当时写出来的位置。至少要有：
+  wandb offline 文件夹（**含 `run-*.wandb` 二进制** —— 没有它 `wandb sync` 回放不出来）、
+  完整的命令行输出、以及框架产出的其它能看出症状的日志。
+  逐步指标文件很小，而且门槛就是从它上面量的，全部保留；
+  完整的 rollout dump 很大，留首末两步作样本就够。
+- **Dockerfile** 尽量做到不依赖 build context 就能构建。版本要钉死，并在注释里
+  说明这些版本是从哪次录制的运行上对出来的。
+- **README** 按
+  [skills/package-task/readme-format.md](skills/package-task/readme-format.md)
+  的格式写：缺陷、以 diff 形式给出的修复、两侧的实测结果，以及一节专门列出
+  「看着像但其实错了」的各种诊断。如果每侧只跑了一次，**要明说** ——
+  单次结果只支持余量、不支持方差，后面定门槛的人需要知道手上是哪一种。
 
-6. `metadata.yaml` 里的 `environment.image`，以及可选的 `environment/prepare.sh`
-   - 从 `docker/images/` 里挑一个现成的镜像；都不合适再新加一个 Dockerfile
-   - 模型、数据集等运行前要下载的东西写进 `prepare.sh`
+原始素材保持原样就好。日志里的绝对路径、主机名、`broken`/`fixed` 字样都是正常的，
+脱敏是第 2 步的活。
 
-7. `verifier/test.sh`
-   - 评测入口，只保留一个主脚本
-   - 负责读取环境变量、启动测试、写 `result.json`
+不要收的东西：模型权重、checkpoint，以及任何能从已随包内容算出来的东西
+（比如语料已经在包里了，那个 FAISS 索引就不必收）。改成写清楚怎么获取。
 
-8. `verifier/tests/`
-   - 放具体测试代码
-   - 对 SWE 任务通常就是单测或集成测试
+### 第 2 步：转换成一个真实任务
 
-9. `verifier/resources/`
-   - 放 verifier 专用资源
-   - 比如隐藏样例、额外配置、对照数据等
+用 `skills/package-task` 这个 skill。把 raw task 指给 agent，让它产出
+`tasks/<family>/<task_id>/`，格式与 `tasks/` 下现有任务一致：只发布一侧的 workspace，
+修复封进 `evaluations/solution/oracle/`，资产改由 `environment/prepare.sh` 交付，
+你的 `Dockerfile` 映射到 `docker/images/` 下的共享镜像，日志完成脱敏与瘦身。
 
-### 新任务的注意点
+最后会跑 `python3 -m autorlbench validate <task_dir>`，必须零 error。
 
-- `instruction.md` 要能单独读懂，不要依赖 `readme.md`
+### 第 3 步：提交 PR
+
+带着生成的任务向本仓库提 PR。raw task 本身不必进 PR，除非它小到可以直接当证据看。
+
+### 注意点
+
+- `evaluations/*/instruction.md` 要能单独读懂，不要依赖 `readme.md`
 - `readme.md` 不要泄露 verifier 逻辑
 - `workspace/` 里的内容必须是 agent 可改的版本
-- `oracle/` 里可以放正确答案，但不要被 agent stage 挂进去
+- `evaluations/solution/oracle/` 可以放正确答案，但不要被 agent stage 挂进去
 - `verifier/test.sh` 要尽量稳定，别依赖不受控的外部状态
 - 如果 verifier 里要 import workspace 代码，记得把 `PTDBENCH_WORKSPACE` 加进 `sys.path`
-- 本框架现在的运行轨迹会保存在 `results/agent_trace.json`
 
 ## verifier 约定
 
