@@ -2077,6 +2077,12 @@ footer {
     padding: 0.2rem 0 2.5rem;
 }
 
+.task-group-empty {
+    padding: 0.2rem 0 2rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
 /* Published AutoRLBench task detail */
 .task-breadcrumb {
     display: flex;
@@ -4448,6 +4454,15 @@ body.home-page .stat-number,
 body.home-page .lb-avg,
 body.home-page .task-overview-stat strong {
     color: var(--text);
+}
+
+.lb-issue-score {
+    min-width: 3rem;
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
 }
 
 .lb-pending {

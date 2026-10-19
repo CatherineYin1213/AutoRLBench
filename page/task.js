@@ -1,9 +1,10 @@
 (function () {
     'use strict';
 
-    const tasks = window.RSIBENCH_RL_TASKS || [];
+    const tasks = window.RSIBENCH_RL_TASKS || window.PTDBENCH_TASKS || [];
     const params = new URLSearchParams(window.location.search);
-    const task = tasks.find(item => item.id === params.get('id'));
+    const taskId = params.get('id');
+    const task = tasks.find(item => item.id === taskId);
     const mount = document.getElementById('task-detail-root');
 
     function render() {

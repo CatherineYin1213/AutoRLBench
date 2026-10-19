@@ -107,14 +107,56 @@
                 <h2>Two ways</h2>
                 <p>Use an agent when the workspace already exists. Open a pull request for an idea, the materials, or a folder that is already built.</p>
             </div>
-        </section>
-
-        <section class="guide-section guide-publish" id="checklist">
-            <div class="guide-section-heading"><span class="guide-eyebrow">05 / BEFORE YOU PUBLISH</span><h2>Run the same checks the catalog will run.</h2><p>Resolve every structural error locally, then exercise both evaluation levels with a known-good fixture.</p></div>
-            <div class="guide-publish-layout">
-                <ol class="guide-publish-steps"><li><span>01</span><div><strong>Freeze the case</strong><p>Capture the workspace, environment, configuration, logs, and held-out evidence.</p></div></li><li><span>02</span><div><strong>Write the contracts</strong><p>State the action, constraints, deliverables, and scoring behavior in each instruction.</p></div></li><li><span>03</span><div><strong>Validate and exercise</strong><p>Run the structural validator and test each verifier against a known result.</p></div></li></ol>
-                <div class="guide-command-box"><span>Structural validation</span><pre><code>PYTHONDONTWRITEBYTECODE=1 \
-python3 -m autorlbench validate path/to/your_task</code></pre><p>A task is ready for the catalog when the command passes and its public workspace is usable offline.</p></div>
+            <div class="submit-ways">
+                <article class="submit-way is-agent" id="agent">
+                    <div class="submit-way-head">
+                        <span>01</span>
+                        <div>
+                            <h3>Agent</h3>
+                            <p>Paste this prompt. It follows <a href="https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task" target="_blank" rel="noopener noreferrer">package-task</a>. Change the level to <code>solution</code> when a repaired run is included.</p>
+                        </div>
+                        <button type="button" id="copy-agent-prompt">Copy</button>
+                    </div>
+                    <pre id="agent-prompt">Package the workspace at &lt;path&gt; as a PTDBench issue task using https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task.</pre>
+                </article>
+                <article class="submit-way" id="pr">
+                    <div class="submit-way-head">
+                        <span>02</span>
+                        <div>
+                            <h3>Pull request</h3>
+                            <p>Open it on <a href="https://github.com/Thinking-Space/AutoRLBench" target="_blank" rel="noopener noreferrer">Thinking-Space/AutoRLBench</a>. We finish the task layout when the folder is not ready.</p>
+                        </div>
+                    </div>
+                    <ol class="guide-publish-steps">
+                        <li>
+                            <span>01</span>
+                            <div>
+                                <strong>Say which level</strong>
+                                <p>Issue or solution, the domain, and the failure. An idea for the run is enough.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span>02</span>
+                            <div>
+                                <strong>Add only what you have</strong>
+                                <p>Instruction, baseline run, and environment. Add the solution run when it exists.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span>03</span>
+                            <div>
+                                <strong>Push the branch</strong>
+                                <p>Use the commands below only when <code>tasks/your-task-name</code> is already built.</p>
+                            </div>
+                        </li>
+                    </ol>
+                    <pre class="submit-git">git clone https://github.com/&lt;you&gt;/AutoRLBench.git
+cd AutoRLBench
+git checkout -b contrib/your-task-name
+git add tasks/your-task-name
+git commit -m "Add your-task-name"
+git push -u origin contrib/your-task-name</pre>
+                </article>
             </div>
         </section>
     </main>

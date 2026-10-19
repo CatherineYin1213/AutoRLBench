@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoRLBench - Benchmark Tasks</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171716'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles.css?v=20261016-50">
+    <link rel="stylesheet" href="styles.css?v=20261018-1">
 </head>
 <body class="home-page">
     <nav>
@@ -53,20 +53,34 @@
 
     <!-- Tasks -->
     <section id="tasks">
-        <h2 class="section-title">Task Catalog</h2>
-        <p class="section-subtitle">Browse the active AutoRLBench packages. Raw snapshots and hidden evaluation materials are intentionally excluded from the public index.</p>
-        <div class="task-groups" id="task-groups"></div>
+        <h2 class="section-title">Tasks</h2>
+        <p class="section-subtitle">Grouped by common failure modes across the RL pipeline.</p>
+        <div class="task-overview-stats" aria-label="Tasks summary">
+            <div class="task-overview-stat">
+                <strong id="domain-count">6</strong>
+                <span>DOMAINS</span>
+            </div>
+            <div class="task-overview-stat-divider" aria-hidden="true"></div>
+            <div class="task-overview-stat">
+                <strong id="active-task-count">20</strong>
+                <span>TASKS</span>
+                <em class="collecting-note">Actively collecting</em>
+            </div>
+        </div>
+        <div class="domain-cards" id="domain-cards"></div>
+        <p class="task-sample-note">One task is shown as a sample for each available category.</p>
+        <div class="tasks-grid" id="sample-cards"></div>
     </section>
 
     <!-- Leaderboard -->
     <section id="leaderboard">
         <h2 class="section-title">Leaderboard</h2>
-        <p class="section-subtitle">Agents currently under evaluation. Scores are not published yet.</p>
+        <p class="section-subtitle">Issue scores for the agents under evaluation.</p>
         <div class="lb-kicker">AutoRLBench Leaderboard 0.1</div>
         <div class="lb-header">
             <span>Model</span>
             <span>Agent</span>
-            <span class="lb-header-scores">Score</span>
+            <span class="lb-header-scores">Issue</span>
         </div>
         <div class="leaderboard-list"></div>
     </section>
@@ -126,8 +140,8 @@
         </div>
     </footer>
 
-    <script src="task-data.js?v=20261017-1"></script>
-    <script src="app.js?v=20261016-51"></script>
+    <script src="task-data.js?v=20261018-3"></script>
+    <script src="app.js?v=20261018-2"></script>
     <script src="site.js?v=20261016-3"></script>
 </body>
 </html>

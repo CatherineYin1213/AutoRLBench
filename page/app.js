@@ -41,56 +41,13 @@ const RESULT_TASK_IDS = [
 ];
 
 const ISSUE_RESULTS = [
-    {
-        model: 'GPT-6.1-Sol',
-        agent: 'Codex',
-        scores: [1, 0, 1, 1, 0, 1, 1, 1, 0, 1]
-    },
-    {
-        model: 'GPT-6-Astra',
-        agent: 'Codex',
-        scores: [1, 0, 1, 1, 0, 1, 0, 0, 0, 1]
-    },
-    {
-        model: 'Fable-5.1',
-        agent: 'Claude Code',
-        scores: [1, 0, 1, 1, 1, 1, 1, 1, 0, 1]
-    },
-    {
-        model: 'Opus-5.5',
-        agent: 'Claude Code',
-        scores: []
-    },
-    {
-        model: 'Gemini-4-Argon',
-        agent: 'Antigravity',
-        scores: [1, 0, 1, 1, 1, 1, 1, 1, 0, 1]
-    },
-    {
-        model: 'GLM-5.3',
-        agent: 'Claude Code',
-        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 0]
-    },
-    {
-        model: 'DeepSeek-V4-Pro',
-        agent: 'DeepSeek Harness',
-        scores: [1, 0, 0, 1, 1, 1, 1, 0, 0, 0]
-    },
-    {
-        model: 'Qwen3.8-Max',
-        agent: 'Qwen Code',
-        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 1]
-    },
-    {
-        model: 'Kimi-K3',
-        agent: 'Kimi Code',
-        scores: [1, 0, 1, 1, 1, 1, 1, 0, 0, 1]
-    },
-    {
-        model: 'Grok-4.7',
-        agent: 'Grok',
-        scores: [1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
-    }
+    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.62 },
+    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.54 },
+    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 0.77 },
+    { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.77 },
+    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.92 },
+    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.77 },
+    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.69 }
 ];
 
 let activeResultTask = 'all';
@@ -159,15 +116,18 @@ function average(scores) {
 function renderLeaderboard() {
     const mount = document.querySelector('.leaderboard-list');
     if (!mount) return;
-    mount.innerHTML = ISSUE_RESULTS.map(result => `
+    const rows = ISSUE_RESULTS
+        .map((result, index) => ({ ...result, index }))
+        .sort((a, b) => b.score - a.score || a.index - b.index);
+    mount.innerHTML = rows.map(result => `
             <div class="lb-row">
                 <div class="lb-model-cell"><span class="lb-model-name">${result.model}</span></div>
                 <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}</span></div>
                 <div class="lb-scores">
-                    <div class="lb-pending">
-                        <span class="lb-pending-label">Coming soon</span>
-                        <div class="lb-pending-bar" aria-hidden="true"><span></span></div>
+                    <div class="lb-score-item">
+                        <div class="lb-score-bar"><div class="lb-score-fill" style="width:${result.score * 100}%"></div></div>
                     </div>
+                    <div class="lb-issue-score">${result.score.toFixed(2)}</div>
                 </div>
             </div>
         `).join('');

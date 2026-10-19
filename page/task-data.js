@@ -1,9 +1,4 @@
-/*
- * Public index for the active AutoRLBench packages.
- * Keep raw/ task snapshots out of this file: they are source material, not
- * published benchmark entries. Results can be added under `results` later.
- */
-window.PTDBENCH_TASKS = [
+window.RSIBENCH_RL_TASKS = [
     {
         id: 'slime_retool_length_hack',
         title: 'Length bonus reward hack',
