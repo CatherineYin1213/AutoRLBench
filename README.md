@@ -1,4 +1,3 @@
-<h1 align="center">AutoRLBench</h1>
 
 <p align="center">
   <a href="https://thinking-space.github.io/AutoRLBench/"><img src="assets/logo.png" alt="AutoRLBench" width="360"></a>

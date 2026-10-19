@@ -34,10 +34,10 @@
             </div>
             <aside class="guide-hero-card" aria-label="Required materials">
                 <span class="guide-card-label">Required</span>
-                <div class="guide-hero-row"><span>01</span><strong>Instruction</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>02</span><strong>Baseline run</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>03</span><strong>Environment</strong><em>issue</em></div>
-                <div class="guide-hero-row"><span>04</span><strong>Solution run</strong><em>solution</em></div>
+                <div class="guide-hero-row"><span>01</span><strong>Instruction</strong><em>diagnosis</em></div>
+                <div class="guide-hero-row"><span>02</span><strong>Workspace</strong><em>the recorded run</em></div>
+                <div class="guide-hero-row"><span>03</span><strong>Environment</strong><em>image & data</em></div>
+                <div class="guide-hero-row"><span>04</span><strong>Solution</strong><em>adds rerun</em></div>
             </aside>
         </section>
 
@@ -66,17 +66,17 @@
                 <article class="guide-evaluation-card">
                     <div class="guide-card-top"><span>Level 01</span><code>Issue</code></div>
                     <h3>Issue</h3>
-                    <p>The agent finds the failure. Stop here if there is no repaired run.</p>
+                    <p>Diagnose the failure using the workspace and metrics.</p>
                     <div class="guide-file-rows">
-                        <div><span>Instruction</span><strong>What to diagnose, and what the failure is.</strong></div>
-                        <div><span>Baseline run</span><strong>Code, launch path, logs, and metrics for the broken run.</strong></div>
-                        <div><span>Environment</span><strong>Image, dependencies, model, and data for that run.</strong></div>
+                        <div><span>Instruction</span><strong>What to diagnose and what the failure is.</strong></div>
+                        <div><span>Workspace</span><strong>Code, config, logs, and metrics from the recorded run.</strong></div>
+                        <div><span>Environment</span><strong>Container image, dependencies, model, and dataset.</strong></div>
                     </div>
                 </article>
                 <article class="guide-evaluation-card is-dark">
                     <div class="guide-card-top"><span>Level 02</span><code>Solution</code></div>
                     <h3>Solution</h3>
-                    <p>Everything in Issue, plus the run that shows the fix.</p>
+                    <p>Everything in Issue, plus repair instructions and rerun threshold.</p>
                     <div class="guide-file-rows">
                         <div><span>Issue</span><strong>Diagnosis instruction, workspace, and environment.</strong></div>
                         <div><span>Solution</span><strong>Fix instructions and threshold. Adds repair-and-rerun evaluation.</strong></div>
@@ -117,7 +117,7 @@
                         </div>
                         <button type="button" id="copy-agent-prompt">Copy</button>
                     </div>
-                    <pre id="agent-prompt">Package the workspace at &lt;path&gt; as a AutoRLBench issue task using https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task.</pre>
+                    <pre id="agent-prompt">Package the workspace at &lt;path&gt; as an AutoRLBench issue task using https://github.com/Thinking-Space/AutoRLBench/tree/main/skills/package-task.</pre>
                 </article>
                 <article class="submit-way" id="pr">
                     <div class="submit-way-head">
