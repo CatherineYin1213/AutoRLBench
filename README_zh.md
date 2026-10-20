@@ -15,7 +15,7 @@
 
 一个面向真实、可复现 RL 训练运行的 benchmark，也是一个开放征集。每个任务都来自一次真实跑坏的训练：agent 要找到根因（**issue**），有修复版本的任务还要改好并重跑（**solution**）。
 
-<img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480">
+<p align="center"><img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480"></p>
 
 ## Leaderboard
 

@@ -14,7 +14,7 @@
 
 A benchmark and open call for valuable, reproducible RL runs. Each task is a real training run that went wrong. The agent has to find the root cause (**issue**) and, where a repaired run exists, fix it and rerun (**solution**).
 
-<img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480">
+<p align="center"><img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480"></p>
 
 ## Leaderboard
 
