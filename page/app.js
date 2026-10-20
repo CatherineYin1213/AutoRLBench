@@ -76,14 +76,16 @@ function renderTaskCatalog() {
                 </div>
             `;
         }
+        const img = `../assets/task-${task.family.toLowerCase()}.jpeg`;
         return `
             <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
-                <span class="task-tag">${task.family}</span>
-                <h3>${task.title}</h3>
-                <p>${task.issue}</p>
-                <div class="task-meta">
-                    <span>${task.model}</span>
-                    <span>${task.framework}</span>
+                <div class="task-card-image">
+                    <img src="${img}" alt="${task.family} task illustration" loading="lazy">
+                    <span class="task-tag">${task.family}</span>
+                </div>
+                <div class="task-card-body">
+                    <h3>${task.title}</h3>
+                    <p>${task.brief || task.issue}</p>
                 </div>
             </a>
         `;

@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contribute - AutoRLBench</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="stylesheet" href="styles.css?v=20261019-1">
+    <link rel="stylesheet" href="styles.css?v=20261020-1">
 </head>
 <body class="guide-page">
+    <!-- Aurora orbs — decorative, hidden from assistive tech -->
+    <canvas id="globe-canvas" aria-hidden="true"></canvas>
     <nav>
         <a href="index.html" class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></a>
         <div class="nav-links">
@@ -194,5 +196,6 @@ git push -u origin contrib/your-task-name</pre>
             window.setTimeout(function () { button.textContent = 'Copy'; }, 1600);
         });
     </script>
+    <script src="globe.js?v=20261020-1"></script>
 </body>
 </html>

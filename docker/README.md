@@ -20,7 +20,7 @@ Evaluation images and the in-container tooling shared by every task.
 | `slime-v0.3.2` | `slimerl/slime:v0.3.2-cu129` | `reward/slime_retool_length_reward_bonus` |
 | `search-r1-verl` | `nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04` + `search-r1-runtime/uv.lock` | `environment/search_r1_zero_query_embedding` |
 | `ppo-critic-vimpo` | `nvidia/cuda:12.8.1-devel-ubuntu24.04` | `configuration/verl_aime25_single_sample_protocol` |
-| `rank-distillation-cpu` | `python:3.12.12-slim` | `algorithm/rank_distillation_collapse` |
+| `verl` | `verlai/verl:vllm017.latest` | `algorithm/verl_grpo_uid_after_repeat` |
 
 An image shared by several tasks is part of each task's ground truth. If you change a
 Dockerfile, rerun every task that uses it. A task that needs a different stack gets a new

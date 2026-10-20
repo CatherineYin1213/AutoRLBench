@@ -15,6 +15,8 @@
 
 一个面向真实、可复现 RL 训练运行的 benchmark，也是一个开放征集。每个任务都来自一次真实跑坏的训练：agent 要找到根因（**issue**），有修复版本的任务还要改好并重跑（**solution**）。
 
+<img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480">
+
 ## Leaderboard
 
 AutoRLBench Leaderboard 0.1，issue 档成绩。*初版，会随新 agent 与新任务持续更新。*
@@ -35,14 +37,62 @@ solution 档（修复并重跑）即将开放。完整结果见[网站](https://
 
 六个 domain，每个放一个代表性任务。domain 按失败发生在 RL 流程的哪一环来划分：
 
-| Domain | 任务 | 出了什么问题 | 评测 |
-| --- | --- | --- | --- |
-| **Configuration** | [AIME25 单样本方差](tasks/configuration/verl_aime25_single_sample_protocol/) | 每题只采样一次，30 题的分数噪声大到无法判断这次运行。 | issue · solution |
-| **Reward** | [长度奖励劫持](tasks/reward/slime_retool_length_reward_bonus/) | 无条件长度奖励让策略学会写得更长，而不是写得更好。 | issue · solution |
-| **Data** | [训练数据太难](tasks/data/verl_taco_difficulty_mismatch/) | 训练集是 TACO `VERY_HARD`、验证集是 `EASY`，held-out 准确率跌回起点以下。 | issue |
-| **Environment** | [检索查询向量全零](tasks/environment/search_r1_zero_query_embedding/) | 检索器的 query 向量全是零，任何问题都返回同一批文档。 | issue · solution |
-| **Algorithm** | [排序蒸馏崩溃](tasks/algorithm/rank_distillation_collapse/) | 排序 loss 在下降，学生的生成质量却在崩塌。 | issue |
-| **Infrastructure** | [缺少 flash-attention hook](tasks/infrastructure/verl_missing_flash_attn_patch/) | 重写的 monkey patch 悄悄丢掉了 flash-attention hook。 | issue · solution |
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/configuration/verl_aime25_single_sample_protocol/">
+<img src="assets/task-configuration.jpeg" alt="Configuration" width="100%">
+</a>
+<strong>Configuration</strong> · issue · solution<br>
+<a href="tasks/configuration/verl_aime25_single_sample_protocol/"><b>AIME25 单样本方差</b></a><br>
+每题只采样一次，30 题的分数噪声大到无法判断这次运行。
+</td>
+<td width="50%" valign="top">
+<a href="tasks/reward/slime_retool_length_reward_bonus/">
+<img src="assets/task-reward.jpeg" alt="Reward" width="100%">
+</a>
+<strong>Reward</strong> · issue · solution<br>
+<a href="tasks/reward/slime_retool_length_reward_bonus/"><b>长度奖励劫持</b></a><br>
+无条件长度奖励让策略学会写得更长，而不是写得更好。
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/data/verl_taco_difficulty_mismatch/">
+<img src="assets/task-data.jpeg" alt="Data" width="100%">
+</a>
+<strong>Data</strong> · issue<br>
+<a href="tasks/data/verl_taco_difficulty_mismatch/"><b>训练数据太难</b></a><br>
+训练集是 TACO <code>VERY_HARD</code>、验证集是 <code>EASY</code>，held-out 准确率跌回起点以下。
+</td>
+<td width="50%" valign="top">
+<a href="tasks/environment/search_r1_zero_query_embedding/">
+<img src="assets/task-environment.jpeg" alt="Environment" width="100%">
+</a>
+<strong>Environment</strong> · issue · solution<br>
+<a href="tasks/environment/search_r1_zero_query_embedding/"><b>检索查询向量全零</b></a><br>
+检索器的 query 向量全是零，任何问题都返回同一批文档。
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/algorithm/verl_grpo_uid_after_repeat/">
+<img src="assets/task-algorithm.jpeg" alt="Algorithm" width="100%">
+</a>
+<strong>Algorithm</strong> · issue<br>
+<a href="tasks/algorithm/verl_grpo_uid_after_repeat/"><b>GRPO uid 被移到 repeat 之后</b></a><br>
+uid 赋值被挪到 rollout repeat 之后，每个 GRPO 组退化为单元素，训练静默降级为无基线的 REINFORCE。
+</td>
+<td width="50%" valign="top">
+<a href="tasks/infrastructure/verl_missing_flash_attn_patch/">
+<img src="assets/task-infrastructure.jpeg" alt="Infrastructure" width="100%">
+</a>
+<strong>Infrastructure</strong> · issue · solution<br>
+<a href="tasks/infrastructure/verl_missing_flash_attn_patch/"><b>缺少 flash-attention hook</b></a><br>
+重写的 monkey patch 悄悄丢掉了 flash-attention hook。
+</td>
+</tr>
+</table>
 
 ## 一个任务怎么跑
 

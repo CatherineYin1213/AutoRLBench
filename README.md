@@ -14,6 +14,8 @@
 
 A benchmark and open call for valuable, reproducible RL runs. Each task is a real training run that went wrong. The agent has to find the root cause (**issue**) and, where a repaired run exists, fix it and rerun (**solution**).
 
+<img src="assets/ai-trains-ai.jpeg" alt="AI Trains AI" width="480">
+
 ## Leaderboard
 
 AutoRLBench Leaderboard 0.1, issue evaluation. *First release; updated as new agents and tasks are added.*
@@ -34,14 +36,62 @@ Solution evaluation (repair and rerun) is coming soon. Full results: [website](h
 
 Six domains, one representative task each. The domains come from where in the RL pipeline the failure lives:
 
-| Domain | Task | What goes wrong | Evaluations |
-| --- | --- | --- | --- |
-| **Configuration** | [AIME25 single-sample variance](tasks/configuration/verl_aime25_single_sample_protocol/) | One sample per question makes a 30-question score too noisy to judge the run. | issue · solution |
-| **Reward** | [Length bonus reward hack](tasks/reward/slime_retool_length_reward_bonus/) | An unconditional length bonus teaches the policy to write longer, not better. | issue · solution |
-| **Data** | [Training data is too hard](tasks/data/verl_taco_difficulty_mismatch/) | Train is TACO `VERY_HARD` while validation is `EASY`; held-out accuracy ends below its start. | issue |
-| **Environment** | [Zero query vector in retrieval](tasks/environment/search_r1_zero_query_embedding/) | The retriever's query vector is all zeros, so every query gets the same documents. | issue · solution |
-| **Algorithm** | [Ranking distillation collapse](tasks/algorithm/rank_distillation_collapse/) | The ranking loss improves while the student's generation quality collapses. | issue |
-| **Infrastructure** | [Missing flash-attention hook](tasks/infrastructure/verl_missing_flash_attn_patch/) | A rewritten monkey patch silently drops the flash-attention hook. | issue · solution |
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/configuration/verl_aime25_single_sample_protocol/">
+<img src="assets/task-configuration.jpeg" alt="Configuration" width="100%">
+</a>
+<strong>Configuration</strong> · issue · solution<br>
+<a href="tasks/configuration/verl_aime25_single_sample_protocol/"><b>AIME25 single-sample variance</b></a><br>
+One sample per question makes a 30-question score too noisy to judge the run.
+</td>
+<td width="50%" valign="top">
+<a href="tasks/reward/slime_retool_length_reward_bonus/">
+<img src="assets/task-reward.jpeg" alt="Reward" width="100%">
+</a>
+<strong>Reward</strong> · issue · solution<br>
+<a href="tasks/reward/slime_retool_length_reward_bonus/"><b>Length bonus reward hack</b></a><br>
+An unconditional length bonus teaches the policy to write longer, not better.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/data/verl_taco_difficulty_mismatch/">
+<img src="assets/task-data.jpeg" alt="Data" width="100%">
+</a>
+<strong>Data</strong> · issue<br>
+<a href="tasks/data/verl_taco_difficulty_mismatch/"><b>Training data is too hard</b></a><br>
+Train is TACO <code>VERY_HARD</code> while validation is <code>EASY</code>; held-out accuracy ends below its start.
+</td>
+<td width="50%" valign="top">
+<a href="tasks/environment/search_r1_zero_query_embedding/">
+<img src="assets/task-environment.jpeg" alt="Environment" width="100%">
+</a>
+<strong>Environment</strong> · issue · solution<br>
+<a href="tasks/environment/search_r1_zero_query_embedding/"><b>Zero query vector in retrieval</b></a><br>
+The retriever's query vector is all zeros, so every query gets the same documents.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="tasks/algorithm/verl_grpo_uid_after_repeat/">
+<img src="assets/task-algorithm.jpeg" alt="Algorithm" width="100%">
+</a>
+<strong>Algorithm</strong> · issue<br>
+<a href="tasks/algorithm/verl_grpo_uid_after_repeat/"><b>GRPO uid assigned after rollout repeat</b></a><br>
+The uid assignment lands after the rollout repeat step, making every GRPO group a singleton and silently degrading training to baseline-free REINFORCE.
+</td>
+<td width="50%" valign="top">
+<a href="tasks/infrastructure/verl_missing_flash_attn_patch/">
+<img src="assets/task-infrastructure.jpeg" alt="Infrastructure" width="100%">
+</a>
+<strong>Infrastructure</strong> · issue · solution<br>
+<a href="tasks/infrastructure/verl_missing_flash_attn_patch/"><b>Missing flash-attention hook</b></a><br>
+A rewritten monkey patch silently drops the flash-attention hook.
+</td>
+</tr>
+</table>
 
 ## How a task works
 
