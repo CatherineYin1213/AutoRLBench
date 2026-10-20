@@ -76,7 +76,7 @@ function renderTaskCatalog() {
                 </div>
             `;
         }
-        const img = `assets/task-${task.family.toLowerCase()}.jpeg`;
+        const img = `task-${task.family.toLowerCase()}.jpeg`;
         return `
             <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
                 <div class="task-card-image">
