@@ -15,4 +15,6 @@ const TEAM = [
     { name: 'Xin Huang', handle: 'NaCresp', affiliation: 'Tsinghua University' },
     { name: 'Junlin Yang', handle: 'YangJL2003', affiliation: 'Tsinghua University' },
     { name: 'Yaxuan Li', handle: 'YaxuanLi-cn', affiliation: 'Tsinghua University' },
+    { name: 'Zixi Chen', handle: 'Jccc1025', affiliation: 'Tsinghua University' },
+    { name: 'Shouzheng Huang', handle: 'Huangsz2021', affiliation: 'Harbin Institute of Technology (Shenzhen)' }
 ];

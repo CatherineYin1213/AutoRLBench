@@ -9,7 +9,7 @@ const TASK_CATEGORIES = [
     'Infrastructure'
 ];
 
-const DOMAIN_BLURBS = {
+const CATEGORY_BLURBS = {
     Configuration: 'Bad hyperparameters and training settings.',
     Reward: 'Rewards that miss or punish the right behavior.',
     Data: 'Input, format, or distribution / difficulty issues.',
@@ -18,8 +18,8 @@ const DOMAIN_BLURBS = {
     Infrastructure: 'Runtime, engine, and systems failures.'
 };
 
-// Tasks per domain: the samples in task-data.js. Collection is ongoing.
-const DOMAIN_COUNTS = Object.fromEntries(
+// Tasks per category: the samples in task-data.js. Collection is ongoing.
+const CATEGORY_COUNTS = Object.fromEntries(
     TASK_CATEGORIES.map(family => [family, TASKS.filter(task => task.family === family).length])
 );
 
@@ -37,28 +37,57 @@ function tasksForFamily(family) {
     return TASKS.filter(task => task.family === family);
 }
 
-function renderDomainCards() {
-    const mount = document.getElementById('domain-cards');
+function renderCategoryStrip() {
+    const mount = document.getElementById('category-strip');
     if (!mount) return;
 
-    const domainCount = document.getElementById('domain-count');
+    const categoryCount = document.getElementById('category-count');
     const activeCount = document.getElementById('active-task-count');
-    if (domainCount) domainCount.textContent = String(TASK_CATEGORIES.length);
-    if (activeCount) activeCount.textContent = String(Object.values(DOMAIN_COUNTS).reduce((sum, count) => sum + count, 0));
+    if (categoryCount) categoryCount.textContent = String(TASK_CATEGORIES.length);
+    if (activeCount) activeCount.textContent = '10'; // total tasks in the benchmark; only one sample per category is listed below
     const heroTasks = document.getElementById('hero-task-count');
     if (heroTasks) heroTasks.textContent = String(TASKS.length);
 
     mount.innerHTML = TASK_CATEGORIES.map((family, index) => {
-        const count = DOMAIN_COUNTS[family] || 0;
+        const count = CATEGORY_COUNTS[family] || 0; void count; // kept for leaderboard use
         return `
-            <div class="domain-card">
-                <span class="domain-card-index">${String(index + 1).padStart(2, '0')}</span>
-                <span class="domain-card-name">${family}</span>
-                <span class="domain-card-blurb">${DOMAIN_BLURBS[family] || ''}</span>
-                <span class="domain-card-count">${count}</span>
+            <div class="cat-card">
+                <div class="cat-card-inner">
+                    <div class="cat-card-face cat-card-front">
+                        <img src="images/domain-${family.toLowerCase()}.png" alt="" loading="lazy">
+                        <span class="cat-card-label">${family}</span>
+                    </div>
+                    <div class="cat-card-face cat-card-back">
+                        <span class="cat-card-label">${family}</span>
+                        <span class="cat-card-blurb">${CATEGORY_BLURBS[family] || ''}</span>
+                    </div>
+                </div>
             </div>
         `;
     }).join('');
+
+    // Duplicate cards for seamless infinite scroll
+    mount.innerHTML += mount.innerHTML;
+    startCategoryScroll(mount);
+}
+
+function startCategoryScroll(track) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+    let raf, last = null, offset = 0;
+    const speed = 0.025; // px per ms — very slow, adjustable
+    function step(ts) {
+        if (last !== null) offset += speed * (ts - last);
+        last = ts;
+        const halfW = track.scrollWidth / 2;
+        if (offset >= halfW) offset -= halfW;
+        track.style.transform = `translateX(-${offset}px)`;
+        raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+    // Pause on hover/focus
+    track.closest('.category-strip-wrap').addEventListener('mouseenter', () => cancelAnimationFrame(raf));
+    track.closest('.category-strip-wrap').addEventListener('mouseleave', () => { last = null; raf = requestAnimationFrame(step); });
 }
 
 function renderTaskCatalog() {
@@ -74,7 +103,7 @@ function renderTaskCatalog() {
                 </div>
             `;
         }
-        const img = `task-${task.family.toLowerCase()}.jpeg`;
+        const img = `images/task-${task.family.toLowerCase()}.jpeg`;
         return `
             <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
                 <div class="task-card-image">
@@ -137,7 +166,7 @@ function initScrollMotion() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    renderDomainCards();
+    renderCategoryStrip();
     renderTaskCatalog();
     renderLeaderboard();
     initLeaderboard();

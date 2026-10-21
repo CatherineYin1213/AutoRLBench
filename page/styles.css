@@ -845,13 +845,43 @@ nav {
 
 /* Hero */
 .hero {
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    align-items: stretch;
     text-align: center;
-    padding: 8rem 2rem 4rem;
+    /* nav is ~60px; padding-top positions the logo in the upper portion of the viewport */
+    padding: 15rem 0 0;
+    min-height: 100dvh;
+    min-height: 100vh;
+    max-width: none;
+    width: 100%;
+}
+
+/* Hero children centre themselves with their own max-width */
+.hero > *:not(.hero-push):not(.category-strip-wrap) {
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: 760px;
+    width: 100%;
+    align-self: center;
+}
+
+/* Push gives a modest gap between the buttons and the strip */
+.hero-push {
+    flex: 0 0 5rem;
+}
+
+/* Strip overrides: flush to viewport edges with a left/right gradient fade */
+.hero .category-strip-wrap {
+    align-self: stretch;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    padding: 0;
+    /* Fade cards in from left, fade out to right — same bg colour as hero */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
 }
 
 .hero h1 {
@@ -896,6 +926,7 @@ nav {
 
 .hero-buttons {
     display: flex;
+    justify-content: center;
     gap: 1rem;
 }
 
@@ -939,10 +970,10 @@ section {
 }
 
 .section-title {
-    font-size: 2rem;
+    font-size: 2.8rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 1rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 2rem;
 }
 
 .section-subtitle {
@@ -1017,41 +1048,108 @@ section {
     background: #2f9e5b;
 }
 
-.domain-cards {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 2.75rem;
+/* Category strip — infinite scroll marquee ─────────────── */
+.category-strip-wrap {
+    overflow: hidden;
+    margin: 2.5rem -3rem 0;   /* bleed to section edge */
+    padding: 0.25rem 0;
 }
 
-.domain-card {
-    position: relative;
+.category-strip {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    min-height: 188px;
-    padding: 2.6rem 1.25rem 1.5rem;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface);
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs, 0 1px 2px rgba(24, 22, 18, 0.03));
-    transition: border-color 0.25s ease, box-shadow 0.3s cubic-bezier(0.22, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.22, 0.8, 0.2, 1);
+    gap: 2.5rem;
+    width: max-content;
+    will-change: transform;
 }
 
-.domain-card:not(a) {
+.cat-card {
+    flex: 0 0 340px;
+    height: 280px;
+    perspective: 900px;
     cursor: default;
 }
 
-.domain-card:hover {
-    border-color: var(--text);
-    transform: translateY(-3px);
-    box-shadow: inset 0 1px 0 #ffffff, 0 12px 28px rgba(24, 22, 18, 0.08);
-    opacity: 1;
+.cat-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.55s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.cat-card:hover .cat-card-inner {
+    transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cat-card-inner { transition-duration: 0.01s; }
+}
+
+.cat-card-face {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    box-shadow: 0 2px 6px rgba(24,22,18,0.06), 0 8px 28px rgba(24,22,18,0.1);
+}
+
+.cat-card-front {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+}
+
+.cat-card-front img {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    padding: 0.9rem 1rem 0.4rem;
+    object-fit: contain;
+}
+
+.cat-card-label {
+    padding: 0 1rem 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.cat-card-back {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 1.3rem 1.4rem;
+    background: var(--surface);
+    transform: rotateY(180deg);
+}
+
+.cat-card-back .cat-card-label {
+    padding: 0 0 0.7rem;
+    color: var(--text);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: none;
+}
+
+.cat-card-back .cat-card-blurb {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+    text-align: left;
+}
+
+@media (max-width: 768px) {
+    .category-strip-wrap { margin-left: -1.5rem; margin-right: -1.5rem; }
+}
+@media (max-width: 480px) {
+    .category-strip-wrap { margin-left: -1rem; margin-right: -1rem; }
+    .cat-card { flex: 0 0 260px; height: 220px; }
 }
 
 .domain-card-index {
@@ -1996,10 +2094,6 @@ footer {
     .task-overview-stat-divider {
         width: 2.5rem;
         height: 1px;
-    }
-
-    .domain-card {
-        min-height: 156px;
     }
 
     .lb-row {

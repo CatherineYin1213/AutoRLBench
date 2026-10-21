@@ -55,7 +55,7 @@
         }
 
         document.title = `${task.title} - AutoRLBench`;
-        const img = `task-${task.family.toLowerCase()}.jpeg`;
+        const img = `images/task-${task.family.toLowerCase()}.jpeg`;
 
         const issueContent = task.issueInstruction
             ? renderMd(task.issueInstruction)

@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoRLBench - Benchmark Tasks</title>
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="stylesheet" href="styles.css?v=20261021-13">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="styles.css?v=20261021-29">
 </head>
 <body class="home-page">
     <!-- Aurora orbs — decorative, hidden from assistive tech -->
     <canvas id="globe-canvas" aria-hidden="true"></canvas>
     <nav>
-        <a href="index.html" class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></a>
+        <a href="index.html" class="nav-logo"><img src="images/logo.png" alt="AutoRLBench" width="150" height="24"></a>
         <div class="nav-links">
             <a href="index.html">HOME</a>
             <a href="#tasks">TASKS</a>
@@ -27,51 +27,38 @@
 
     <!-- Hero -->
     <section class="hero">
-        <img src="logo.png" alt="AutoRLBench" class="hero-logo">
-        <p>A benchmark for AI agents on real RL training runs.<br>Can an agent diagnose why a run fails and repair the run?<br>Tasks are diverse and real, spanning six failure domains from reward and data to algorithms and infrastructure.</p>
-        <div class="hero-stats">
-            <div class="stat">
-                <div class="stat-number" id="hero-task-count">6</div>
-                <div class="stat-label">Tasks</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number">6</div>
-                <div class="stat-label">Domains</div>
-            </div>
-        </div>
+        <img src="images/logo.png" alt="AutoRLBench" class="hero-logo">
+        <p>A benchmark for AI agents on real RL training runs.<br>Can an agent diagnose why a run fails and repair the run?<br>Tasks are diverse and real, spanning six failure categories from reward and data to algorithms and infrastructure.</p>
         <div class="hero-buttons">
             <a href="#contribute" class="btn btn-primary">Contribute a Run</a>
             <a href="#tasks" class="btn btn-secondary">Browse Tasks</a>
         </div>
-        <a class="contribute-guide-link" href="contribute.html">Read the full contribution guide <span aria-hidden="true">→</span></a>
+        <div class="hero-push" aria-hidden="true"></div>
+        <div class="category-strip-wrap"><div class="category-strip" id="category-strip"></div></div>
     </section>
 
     <!-- Tasks -->
     <section id="tasks">
         <h2 class="section-title">Tasks</h2>
-        <p class="section-subtitle">Grouped by common failure modes across the RL pipeline.</p>
         <div class="task-overview-stats" aria-label="Tasks summary">
             <div class="task-overview-stat">
-                <strong id="domain-count">6</strong>
-                <span>DOMAINS</span>
+                <strong id="category-count">6</strong>
+                <span>CATEGORIES</span>
             </div>
             <div class="task-overview-stat-divider" aria-hidden="true"></div>
             <div class="task-overview-stat">
-                <strong id="active-task-count">6</strong>
+                <strong id="active-task-count">10</strong>
                 <span>TASKS</span>
                 <em class="collecting-note">Actively collecting</em>
             </div>
         </div>
-        <div class="domain-cards" id="domain-cards"></div>
-        <p class="task-sample-note">One task is shown as a sample for each available category.</p>
         <div class="tasks-grid" id="sample-cards"></div>
     </section>
 
     <!-- Leaderboard -->
     <section id="leaderboard">
         <h2 class="section-title">Leaderboard</h2>
-        <p class="section-subtitle">Issue scores for the agents under evaluation.</p>
-        <div class="lb-kicker">AutoRLBench Leaderboard 0.1</div>
+        <div class="lb-kicker">AutoRLBench Leaderboard 0.1 (issue)</div>
         <div class="lb-header">
             <span>Model</span>
             <span>Agent</span>
@@ -110,7 +97,7 @@
     <footer id="contact">
         <div class="footer-grid">
             <div class="footer-brand">
-                <div class="nav-logo"><img src="logo.png" alt="AutoRLBench" width="150" height="24"></div>
+                <div class="nav-logo"><img src="images/logo.png" alt="AutoRLBench" width="150" height="24"></div>
                 <p>A benchmark and open call for complete, reproducible RL runs.</p>
             </div>
             <div class="footer-col">
@@ -137,7 +124,7 @@
     </footer>
 
     <script src="task-data.js?v=20261019-1"></script>
-    <script src="app.js?v=20261021-3"></script>
+    <script src="app.js?v=20261021-8"></script>
     <script src="globe.js?v=20261020-1"></script>
 </body>
 </html>
