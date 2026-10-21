@@ -850,9 +850,7 @@ nav {
     align-items: stretch;
     text-align: center;
     /* nav is ~60px; padding-top positions the logo in the upper portion of the viewport */
-    padding: 15rem 0 0;
-    min-height: 100dvh;
-    min-height: 100vh;
+    padding: 10rem 0 0;
     max-width: none;
     width: 100%;
 }
@@ -1063,8 +1061,8 @@ section {
 }
 
 .cat-card {
-    flex: 0 0 340px;
-    height: 280px;
+    flex: 0 0 300px;
+    height: 240px;
     perspective: 900px;
     cursor: default;
 }
@@ -1722,7 +1720,7 @@ section {
 }
 
 .lb-kicker {
-    margin: 2rem 0 0.8rem;
+    margin: -1.2rem 0 1.8rem;
     color: var(--text-secondary);
     font-family: 'SFMono-Regular', Consolas, monospace;
     font-size: 0.68rem;
@@ -1736,7 +1734,7 @@ section {
 
 .lb-row {
     display: grid;
-    grid-template-columns: minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
+    grid-template-columns: 34px minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
     align-items: center;
     gap: 1rem;
     padding: 1.2rem 1.5rem;
@@ -1828,7 +1826,7 @@ section {
 
 .lb-header {
     display: grid;
-    grid-template-columns: minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
+    grid-template-columns: 34px minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
     gap: 1rem;
     padding: 0 1.5rem 0.8rem;
     font-size: 0.7rem;
@@ -2097,13 +2095,13 @@ footer {
     }
 
     .lb-row {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
         gap: 0.5rem;
         padding: 1rem;
     }
 
     .lb-scores {
-        grid-column: 1 / -1;
+        grid-column: 2 / -1;
     }
 
     .lb-header {
@@ -3216,8 +3214,6 @@ footer {
     background: none;
     font-size: 0.8rem;
     line-height: 1.6;
-}
-
 }
 
 .task-settings > div + div {
@@ -5244,4 +5240,239 @@ body.team-page .guide-main { max-width: 1160px; padding: 7.5rem 3rem 7rem; }
     body.team-page .guide-main { padding-right: 1rem; padding-left: 1rem; }
     .team-grid { grid-template-columns: 1fr; }
     .team-cta { flex-direction: column; align-items: flex-start; }
+}
+
+/* ==================================================================
+   Homepage: the gap, pipeline, why-contribute. Appended after the
+   refinement layer; reuses its tokens (paper, hairlines, mono marks).
+   ================================================================== */
+
+/* Hero — tighten the rhythm above the buttons. */
+.home-page .hero > p { margin-bottom: 2.4rem; }
+
+/* The gap lede — the background paragraph opening "Why this benchmark". */
+.gap-lede {
+    max-width: 760px;
+    margin: -0.6rem 0 0;
+    font-size: 1.26rem;
+    line-height: 1.62;
+    letter-spacing: -0.01em;
+}
+.gap-lede strong { color: var(--text); font-weight: 700; }
+.gap-lede + .gap-lede { margin-top: 0.7rem; }
+
+/* How a task runs — prepare → agent → verify. */
+.pipeline-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: stretch;
+}
+.pipeline-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem 1.4rem 1.7rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs);
+}
+.pipeline-stage-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+.pipeline-stage-label span { color: var(--text-secondary); }
+.pipeline-stage-label b { color: var(--accent); font-weight: 650; }
+.pipeline-stage h3 { font-size: 1.02rem; font-weight: 650; letter-spacing: -0.02em; }
+.pipeline-stage p { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.6; }
+.pipeline-stage.is-agent {
+    border-color: var(--border-strong);
+}
+.pipeline-arrow {
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+.pipeline-note {
+    margin-top: 1.6rem;
+    color: var(--text-secondary);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+/* Benchmark scale — numbers split by hairline vertical dividers. */
+.why-stats {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    margin: 1.8rem 0 2rem;
+}
+.why-stat {
+    padding: 0 2.1rem;
+    text-align: center;
+}
+.why-stat + .why-stat { border-left: 1px solid var(--border); }
+.why-stat-num {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.why-stat-label {
+    display: block;
+    margin-top: 0.3rem;
+    color: var(--text-secondary);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    line-height: 1.5;
+}
+.why-stat-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.55rem;
+    padding: 0.3rem 0.78rem;
+    border: 1px solid rgba(47, 158, 91, 0.45);
+    border-radius: 999px;
+    background: #e6f2ea;
+    color: var(--text-secondary);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.why-stat-note::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2f9e5b;
+    box-shadow: 0 0 0 2px rgba(47, 158, 91, 0.16);
+    animation: why-note-pulse 2.4s ease-in-out infinite;
+}
+@keyframes why-note-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(47, 158, 91, 0.16); }
+    50% { box-shadow: 0 0 0 4px rgba(47, 158, 91, 0.26); }
+}
+
+/* Closing note — the AutoRLBench-isolates paragraph as one centered paper card. */
+.why-invite {
+    max-width: 780px;
+    margin: 2.2rem auto 0;
+    padding: 1.6rem 1.8rem 1.7rem;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-md);
+}
+.why-invite p { font-size: 1.05rem; line-height: 1.68; letter-spacing: -0.01em; }
+.why-invite strong { color: var(--text); font-weight: 700; }
+
+/* Why contribute — title, help-us lede, three declaration cards. */
+.contribute-why-lede {
+    margin: -0.4rem auto 0;
+    max-width: 640px;
+    font-size: 1.18rem;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+}
+.contribute-why-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.2rem;
+    margin-top: 2.2rem;
+    text-align: left;
+}
+.contribute-why-card {
+    padding: 1.5rem 1.5rem 1.6rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs);
+}
+.contribute-why-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 1rem;
+    border-radius: 10px;
+    background: rgba(164, 44, 42, 0.08);
+}
+.contribute-why-icon svg { width: 22px; height: 22px; fill: var(--brick); }
+.contribute-why-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.contribute-why-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.93rem;
+    line-height: 1.6;
+}
+.contribute-why-card strong { color: var(--brick); font-weight: 700; }
+.cta-actions { display: flex; justify-content: center; gap: 1.2rem; margin-top: 2rem; }
+
+@media (max-width: 900px) {
+    .pipeline-flow { grid-template-columns: minmax(0, 1fr); }
+    .pipeline-arrow { width: 30px; height: 30px; justify-self: center; transform: rotate(90deg); }
+}
+@media (max-width: 768px) {
+    .gap-lede { font-size: 1.08rem; }
+    .why-stats { margin: 1.6rem 0 1.8rem; }
+    .why-stat { padding: 0 1.6rem; }
+    .why-stat-num { font-size: 2rem; }
+    .why-invite { padding: 1.4rem 1.4rem 1.5rem; }
+    .why-invite p { font-size: 0.98rem; }
+    .contribute-why-lede { font-size: 1.04rem; }
+    .contribute-why-grid { grid-template-columns: 1fr; gap: 1rem; margin-top: 1.8rem; }
+    .contribute-why-card { padding: 1.3rem 1.3rem 1.4rem; }
+}
+
+/* ==================================================================
+   Homepage layout — agents-last-exam rhythm: each module's title
+   and copy centered, tighter spacing between modules.
+   ================================================================== */
+body.home-page > section:not(.hero) {
+    padding: 3.6rem 3rem 3.4rem;
+    text-align: center;
+}
+body.home-page > section#why { padding-top: 8rem; }
+body.home-page .section-title { margin-left: auto; margin-right: auto; }
+body.home-page .section-title::before { left: 50%; transform: translateX(-50%); }
+body.home-page .gap-lede { margin: -0.6rem auto 0; }
+body.home-page .gap-lede + .gap-lede { margin-top: 0.9rem; }
+body.home-page .lb-kicker { margin-left: auto; margin-right: auto; }
+
+/* Card interiors keep their own alignment; only module copy centers. */
+body.home-page .pipeline-flow { text-align: left; }
+body.home-page .tasks-grid { text-align: left; }
+body.home-page .lb-header,
+body.home-page .lb-row { text-align: left; }
+
+@media (max-width: 560px) {
+    body.home-page > section:not(.hero) { padding: 2.6rem 1.4rem 2.5rem; }
 }

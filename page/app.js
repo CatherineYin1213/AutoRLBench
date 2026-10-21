@@ -125,8 +125,9 @@ function renderLeaderboard() {
     const rows = ISSUE_RESULTS
         .map((result, index) => ({ ...result, index }))
         .sort((a, b) => b.score - a.score || a.index - b.index);
-    mount.innerHTML = rows.map(result => `
+    mount.innerHTML = rows.map((result, rank) => `
             <div class="lb-row">
+                <div class="lb-rank">${rank + 1}</div>
                 <div class="lb-model-cell"><span class="lb-model-name">${result.model}</span></div>
                 <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}</span></div>
                 <div class="lb-scores">
