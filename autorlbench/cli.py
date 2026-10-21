@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     e = sub.add_parser(
         "evaluate",
-        help="run an agent + verifier for a task package",
+        help="run prepare + verifier for a task package (agent runs go through harbor-evaluate)",
         allow_abbrev=False,
     )
     e.add_argument("task_root")
@@ -103,35 +103,14 @@ def build_parser() -> argparse.ArgumentParser:
         default="quiet",
         help="terminal logging level; run artifacts are always written",
     )
-    e.add_argument(
-        "--agent",
-        choices=["codex", "opencode", "shell"],
-        default=None,
-        help="agent adapter to use",
-    )
-    e.add_argument("--agent-command", default=None, help="agent executable or shell command")
-    e.add_argument("--model", default=None, help="agent model name")
+    e.add_argument("--model", default=None, help="model name (also the default judge model)")
     e.add_argument("--judge-model", default=None, help="model name used by API-backed verifiers")
-    e.add_argument(
-        "--reasoning-effort",
-        choices=["minimal", "low", "medium", "high", "xhigh"],
-        default=None,
-        help="reasoning effort for agents that support it",
-    )
-    e.add_argument("--base-url", default=None, help="API base URL for hosted agents")
-    e.add_argument("--api-key", default=None, help="API key for hosted agents")
+    e.add_argument("--base-url", default=None, help="API base URL for the judge model")
+    e.add_argument("--api-key", default=None, help="API key for the judge model")
     e.add_argument(
         "--api-key-env",
         default=None,
         help="read the API key from this environment variable (keeps it out of argv)",
-    )
-    e.add_argument("--agent-arg", action="append", default=[], help="extra agent argument, repeatable")
-    e.add_argument(
-        "--agent-env",
-        action="append",
-        default=[],
-        metavar="KEY=VALUE",
-        help="environment variable for the agent stage; repeatable",
     )
     e.add_argument(
         "--verifier-env",
@@ -140,15 +119,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         help="environment variable for the verifier stage; repeatable",
     )
-    e.add_argument("--agent-cmd", default=None, help=argparse.SUPPRESS)
     e.add_argument("--verifier-cmd", default=None, help="override verifier entrypoint")
     e.add_argument("--backend", choices=["docker", "local"], default="docker")
-    e.add_argument("--agent-network", choices=["none", "bridge", "host"], default="bridge")
     e.add_argument("--verifier-network", choices=["none", "bridge", "host"], default="bridge")
     e.add_argument(
         "--debian-mirror",
         default=None,
-        help="Debian mirror base URL applied before agent setup package installs",
+        help="Debian mirror base URL applied to package installs",
     )
     e.add_argument(
         "--huggingface-mirror",
@@ -399,7 +376,6 @@ def main(argv=None) -> int:
 
     if args.command == "evaluate":
         evaluator = TaskEvaluator(backend=args.backend)
-        agent_command = args.agent_command or args.agent_cmd
         if args.api_key is not None and args.api_key_env is not None:
             raise SystemExit("--api-key and --api-key-env are mutually exclusive")
         api_key = args.api_key
@@ -409,51 +385,21 @@ def main(argv=None) -> int:
                 raise SystemExit(
                     f"API key environment variable is unset or empty: {args.api_key_env}"
                 )
-        agent_env = _parse_env_assignments(args.agent_env)
         verifier_env = _parse_env_assignments(args.verifier_env)
-        agent_kind = args.agent
-        if agent_kind is None:
-            if (
-                args.model
-                or args.judge_model
-                or args.reasoning_effort
-                or args.base_url
-                or api_key
-                or args.agent_arg
-                or agent_env
-            ):
-                agent_kind = "codex"
-            elif agent_command:
-                agent_kind = "shell"
-        agent_spec = None
-        if (
-            agent_kind is not None
-            or agent_command
-            or args.model
-            or args.judge_model
-            or args.reasoning_effort
-            or args.base_url
-            or api_key
-            or args.agent_arg
-            or agent_env
-        ):
-            agent_spec = AgentSpec(
-                kind=agent_kind or "codex",
-                command=agent_command,
+        # Model settings are only forwarded to API-backed verifiers as the judge configuration.
+        judge_spec = None
+        if args.model or args.judge_model or args.base_url or api_key:
+            judge_spec = AgentSpec(
+                kind="judge",
                 model=args.model,
                 judge_model=args.judge_model,
-                reasoning_effort=args.reasoning_effort,
                 base_url=args.base_url,
                 api_key=api_key,
-                extra_args=tuple(args.agent_arg),
-                network=args.agent_network,
-                env=agent_env,
             )
         result = evaluator.evaluate(
             args.task_root,
             EvaluationConfig(
-                agent=agent_spec,
-                agent_cmd=agent_command,
+                agent=judge_spec,
                 verifier_cmd=args.verifier_cmd,
                 backend=args.backend,
                 verifier_network=args.verifier_network,

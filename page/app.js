@@ -46,9 +46,7 @@ function renderDomainCards() {
     if (domainCount) domainCount.textContent = String(TASK_CATEGORIES.length);
     if (activeCount) activeCount.textContent = String(Object.values(DOMAIN_COUNTS).reduce((sum, count) => sum + count, 0));
     const heroTasks = document.getElementById('hero-task-count');
-    const heroSystems = document.getElementById('hero-system-count');
     if (heroTasks) heroTasks.textContent = String(TASKS.length);
-    if (heroSystems) heroSystems.textContent = String(ISSUE_RESULTS.length);
 
     mount.innerHTML = TASK_CATEGORIES.map((family, index) => {
         const count = DOMAIN_COUNTS[family] || 0;
@@ -81,10 +79,10 @@ function renderTaskCatalog() {
             <a href="task.html?id=${encodeURIComponent(task.id)}" class="task-card">
                 <div class="task-card-image">
                     <img src="${img}" alt="${task.family} task illustration" loading="lazy">
-                    <span class="task-tag">${task.family}</span>
                 </div>
                 <div class="task-card-body">
                     <h3>${task.title}</h3>
+                    <span class="task-tag">${task.family}</span>
                     <p>${task.brief || task.issue}</p>
                 </div>
             </a>

@@ -304,7 +304,6 @@ class EvaluationConfig:
     """Caller runtime configuration, kept separate from the task package's own data."""
 
     agent: Optional[AgentSpec] = None
-    agent_cmd: Optional[str] = None
     verifier_cmd: Optional[str] = None
     backend: str = "docker"
     verifier_network: str = "bridge"

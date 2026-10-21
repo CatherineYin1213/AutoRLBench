@@ -136,12 +136,12 @@ tasks/<domain>/<task_id>/
 # Validate a task
 python3 -m autorlbench validate tasks/reward/slime_retool_length_reward_bonus
 
-# Run an agent on the issue level in Docker, then verify
+# Prepare and run the verifier on a task in Docker (no agent)
 python3 -m autorlbench evaluate tasks/reward/slime_retool_length_reward_bonus \
   --evaluation-level issue --backend docker \
-  --agent codex --model <model> --judge-model <judge-model> --json
+  --judge-model <judge-model> --json
 
-# Batch evaluation through Harbor (pip install harbor)
+# Run an agent through Harbor (pip install harbor)
 python3 -m autorlbench harbor-evaluate tasks/reward --agent codex --model <model>
 ```
 

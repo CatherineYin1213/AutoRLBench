@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from ..agents import AgentExecutionContext, AgentRunner, create_agent_runner, resolve_agent_spec
 from ..core.types import (
     DOCKER_DIR,
     AUTORLBENCH_ENVIRONMENT_DIR,
@@ -28,7 +27,6 @@ from ..runtimes import (
     CommandSpec,
     EnvironmentArtifact,
     SandboxRequest,
-    SandboxRuntime,
     create_runtime,
 )
 from ..utils.filesystem import copy_tree, ensure_dir, tree_digest, write_text
@@ -47,12 +45,6 @@ class PreparedRun:
     # Download caches shared across runs and tasks. Writable in prepare, read-only for agent / verifier.
     models: Path
     datasets: Path
-
-
-@dataclass(frozen=True)
-class AgentRunOutcome:
-    setup: CommandResult
-    execution: Optional[CommandResult]
 
 
 class TaskEvaluator:
@@ -89,14 +81,12 @@ class TaskEvaluator:
             raise SchemaError("task package failed validation")
         evaluation = self._select_evaluation(package, config.evaluation_level)
 
-        agent_spec = resolve_agent_spec(config.agent, config.agent_cmd)
-        agent_runner = create_agent_runner(agent_spec) if agent_spec else None
+        agent_spec = config.agent
         run = self._prepare_run(package, evaluation, config)
         self._append_run_log(
             run.results,
             f"AutoRLBench task={package.task_id} backend={self.runtime.name} "
-            f"evaluation_level={evaluation.level} "
-            f"agent={agent_runner.kind if agent_runner else 'none'}",
+            f"evaluation_level={evaluation.level}",
         )
         try:
             artifact = None
@@ -125,34 +115,14 @@ class TaskEvaluator:
                 package, evaluation, run, config, artifact
             )
             if prepare_result is not None and prepare_result.returncode != 0:
-                # If we kept going after prepare failed, the agent would work in a workspace with no model,
-                # and the final failure would be blamed on the agent: a misleading lead that wastes hours.
+                # If we kept going after prepare failed, the verifier would grade a workspace with no model,
+                # and the final failure would be blamed on the task: a misleading lead that wastes hours.
                 self._append_run_log(
-                    run.results, "[SKIP] agent reason=prepare_failed"
+                    run.results, "[SKIP] verifier reason=prepare_failed"
                 )
                 raise RuntimeError(
                     f"task {package.task_id!r}: prepare failed with exit "
                     f"{prepare_result.returncode}; see prepare.stderr.log"
-                )
-
-            agent_setup_result = None
-            agent_result = None
-            if agent_runner is not None:
-                context = self._build_agent_context(package, evaluation, run, config)
-                outcome = self._run_agent(
-                    agent_runner,
-                    context,
-                    runtime=self.runtime,
-                    artifact=artifact,
-                )
-                agent_setup_result = outcome.setup
-                agent_result = outcome.execution
-                self._ensure_agent_trace(
-                    run.results,
-                    agent_runner,
-                    agent_result or agent_setup_result,
-                    stage="agent" if agent_result is not None else "agent_setup",
-                    backend=self.runtime.name,
                 )
 
             verifier_result = self._run_verifier(
@@ -165,21 +135,16 @@ class TaskEvaluator:
             )
             workspace_after_hash = tree_digest(run.workspace)
             metrics = self._extract_metrics(run.results, verifier_result)
-            stages_ok = (
-                (agent_setup_result is None or agent_setup_result.returncode == 0)
-                and (agent_result is None or agent_result.returncode == 0)
-            )
             result = EvaluationResult(
                 task_id=package.task_id,
                 evaluation_level=evaluation.level,
-                passed=stages_ok
-                and bool(metrics.get("passed", verifier_result.returncode == 0)),
-                score=self._extract_score(metrics) if stages_ok else 0.0,
+                passed=bool(metrics.get("passed", verifier_result.returncode == 0)),
+                score=self._extract_score(metrics),
                 metrics=metrics,
                 report_dir=run.results,
                 agent_spec=agent_spec,
-                agent_setup=agent_setup_result,
-                agent=agent_result,
+                agent_setup=None,
+                agent=None,
                 verifier=verifier_result,
                 workspace_before_hash=workspace_before_hash,
                 workspace_after_hash=workspace_after_hash,
@@ -257,32 +222,6 @@ class TaskEvaluator:
         safe_task_id = safe_task_id or "task"
         timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
         return f"autorlbench-run-{safe_task_id}-{evaluation_level}-{timestamp}-"
-
-    def _build_agent_context(
-        self,
-        package: TaskPackage,
-        evaluation: EvaluationPaths,
-        run: PreparedRun,
-        config: EvaluationConfig,
-    ) -> AgentExecutionContext:
-        return AgentExecutionContext(
-            task_id=package.task_id,
-            instruction=evaluation.instruction_md.read_text(encoding="utf-8"),
-            metadata=dict(package.metadata),
-            timeout_s=config.timeout_s,
-            task_root=package.paths.root,
-            workspace=run.workspace,
-            visible_task=run.visible_task,
-            results=run.results,
-            evaluation_level=evaluation.level,
-            log_level=config.log_level,
-            debian_mirror=config.debian_mirror,
-            environment_dir=self._environment_mount(package),
-            prepared_dir=run.prepared,
-            models_dir=run.models,
-            datasets_dir=run.datasets,
-            task_env=dict(package.environment.env),
-        )
 
     @staticmethod
     def _environment_mount(package: TaskPackage) -> Optional[Path]:
@@ -400,73 +339,6 @@ class TaskEvaluator:
             env["HF_ENDPOINT"] = config.huggingface_mirror
         return env
 
-    def _run_agent(
-        self,
-        runner: AgentRunner,
-        context: AgentExecutionContext,
-        runtime: Optional[SandboxRuntime],
-        artifact: Optional[EnvironmentArtifact],
-    ) -> AgentRunOutcome:
-        if runtime is None:
-            raise ValueError("agent runtime is required when an agent is configured")
-        request = context.sandbox_request(
-            runtime,
-            network=runner.spec.network,
-        )
-        if artifact is None:
-            if runtime.needs_environment_image:
-                raise ValueError("agent runtime needs a built environment artifact")
-            artifact = EnvironmentArtifact(backend=runtime.name)
-        sandbox = runtime.create_sandbox(request, artifact=artifact)
-        try:
-            self._append_run_log(context.results, "[START] agent_setup")
-            setup_result = runner.setup(context, runtime=runtime, sandbox=sandbox)
-            self._write_stage_logs(context.results, "agent_setup", setup_result)
-            if setup_result.returncode != 0:
-                self._append_command_summary(
-                    context.results,
-                    "agent_setup",
-                    setup_result,
-                )
-                self._append_run_log(
-                    context.results,
-                    "[SKIP] agent reason=agent_setup_failed",
-                )
-                return AgentRunOutcome(setup=setup_result, execution=None)
-            self._append_command_summary(context.results, "agent_setup", setup_result)
-            self._append_run_log(context.results, "[START] agent")
-            execution = runner.run(
-                context,
-                runtime=runtime,
-                artifact=artifact,
-                sandbox=sandbox,
-            )
-            self._write_stage_logs(context.results, "agent", execution)
-            self._append_command_summary(context.results, "agent", execution)
-            return AgentRunOutcome(setup=setup_result, execution=execution)
-        finally:
-            runtime.close_sandbox(sandbox)
-
-    def _ensure_agent_trace(
-        self,
-        results_dir: Path,
-        runner: AgentRunner,
-        result: Any,
-        *,
-        stage: str,
-        backend: str,
-    ) -> None:
-        trace_path = results_dir / "agent_trace.json"
-        if trace_path.exists():
-            return
-        payload = {
-            "kind": runner.kind,
-            "backend": backend,
-            "stage": stage,
-            "result": result.to_dict() if hasattr(result, "to_dict") else result,
-        }
-        write_text(trace_path, json.dumps(payload, indent=2, ensure_ascii=False))
-
     def _run_verifier(
         self,
         package: TaskPackage,
@@ -568,7 +440,6 @@ class TaskEvaluator:
         if agent_spec is None:
             return {}
         env = {
-            "AUTORLBENCH_CENTRAL_AGENT_KIND": agent_spec.kind,
             "AUTORLBENCH_JUDGE_PROVIDER": "openai-compatible",
         }
         judge_model = agent_spec.judge_model or agent_spec.model

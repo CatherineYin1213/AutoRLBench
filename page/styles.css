@@ -730,9 +730,9 @@ body.task-page {
 
 /* Lift all content above the canvas (z-index: 0 fixed sits above
    non-positioned elements by stacking-context rules). */
-body.home-page > *:not(#globe-canvas),
-body.guide-page > *:not(#globe-canvas),
-body.task-page > *:not(#globe-canvas) {
+body.home-page > *:not(#globe-canvas):not(nav):not(.site-toast),
+body.guide-page > *:not(#globe-canvas):not(nav):not(.site-toast),
+body.task-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
     position: relative;
     z-index: 1;
 }
@@ -997,10 +997,10 @@ section {
     gap: 0.45rem;
     margin: 0 0 0 0.35rem;
     padding: 0.4rem 0.8rem;
-    border: 1px solid #e0c8c3;
+    border: 1px solid #bfdcc9;
     border-radius: 999px;
-    background: var(--brick-soft);
-    color: var(--brick-ink);
+    background: #e3f2e8;
+    color: #1f6b3a;
     font-size: 0.78rem;
     font-style: normal;
     font-weight: 700;
@@ -1014,7 +1014,7 @@ section {
     width: 0.55rem;
     height: 0.55rem;
     border-radius: 50%;
-    background: var(--brick);
+    background: #2f9e5b;
 }
 
 .domain-cards {
@@ -1212,12 +1212,15 @@ section {
 .task-card-image {
     position: relative;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
     border-radius: 11px 11px 0 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    background: #ffffff; /* solid, same as the task detail image box, so the jpeg's white blends in */
 }
 
 .task-card-image img {
@@ -1232,12 +1235,13 @@ section {
     transform: scale(1.03);
 }
 
-/* Family tag badge — positioned top-right over the image */
-.task-card-image .task-tag {
-    position: absolute;
-    top: 0.9rem;
-    right: 0.9rem;
-    z-index: 1;
+/* Family tag: plain gray text under the title */
+.task-card-body .task-tag {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    color: var(--text-secondary);
+    font-size: 0.62rem;
 }
 
 /* Card body: title + brief description */
@@ -5056,4 +5060,94 @@ body.home-page .task-overview-stat strong {
     max-width: 500px;
     width: 100%;
     height: auto;
+}
+
+/* Contributors page */
+body.team-page .guide-main { max-width: 1160px; padding: 7.5rem 3rem 7rem; }
+.team-header { max-width: 760px; margin-bottom: 3rem; }
+.team-header h1 {
+    margin-bottom: 1rem;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 1.02;
+}
+.team-header p { color: var(--text-secondary); font-size: 1rem; line-height: 1.75; }
+
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    list-style: none;
+}
+.team-card {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    padding: 1.2rem 1.3rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs);
+    transition: border-color 0.25s ease, transform 0.3s cubic-bezier(0.22, 0.8, 0.2, 1), box-shadow 0.3s ease;
+}
+.team-avatar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+/* Initials sit under the photo; they show when there is no handle or the image fails to load. */
+.team-avatar::before { content: attr(data-initials); }
+.team-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: var(--surface-soft);
+}
+.team-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-lg);
+}
+.team-info h3 { font-size: 1rem; font-weight: 650; letter-spacing: -0.02em; }
+.team-info p { margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.5; }
+
+.team-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding: 1.3rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    font-size: 0.88rem;
+}
+.team-cta > span { color: var(--text-secondary); }
+.team-cta a { font-weight: 600; }
+
+@media (max-width: 960px) {
+    .team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    body.team-page .guide-main { padding: 6rem 1.5rem 5rem; }
+}
+@media (max-width: 560px) {
+    body.team-page .guide-main { padding-right: 1rem; padding-left: 1rem; }
+    .team-grid { grid-template-columns: 1fr; }
+    .team-cta { flex-direction: column; align-items: flex-start; }
 }
