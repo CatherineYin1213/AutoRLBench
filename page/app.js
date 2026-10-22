@@ -24,16 +24,16 @@ const CATEGORY_COUNTS = Object.fromEntries(
 );
 
 const ISSUE_RESULTS = [
-    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.91 },
-    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.91 },
-    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 1.00 },
-    { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.55 },
-    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.82 },
-    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.64 },
-    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.36 },
-    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 0.91 },
-    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 0.91 },
-    { model: 'Grok-4.7', agent: 'Grok Build', score: 0.82 }
+    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.69 },
+    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.62 },
+    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 0.92 },
+    // { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.46 },
+    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.69 },
+    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.54 },
+    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.31 },
+    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 0.46 },
+    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 0.62 },
+    { model: 'Grok-4.7', agent: 'Grok Build', score: 0.85 }
 ];
 
 function tasksForFamily(family) {
@@ -122,6 +122,8 @@ function renderTaskCatalog() {
     }).join('');
 }
 
+const MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
 function renderLeaderboard() {
     const mount = document.querySelector('.leaderboard-list');
     if (!mount) return;
@@ -141,7 +143,9 @@ function renderLeaderboard() {
         }
         return `
             <div class="lb-row">
-                <div class="lb-rank">${displayedRank}</div>
+                ${MEDALS[displayedRank]
+                    ? `<div class="lb-rank is-medal" role="img" aria-label="Rank ${displayedRank}">${MEDALS[displayedRank]}</div>`
+                    : `<div class="lb-rank">${displayedRank}</div>`}
                 <div class="lb-model-cell"><span class="lb-model-name">${result.model}</span></div>
                 <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}<span class="lb-max-tag">MAX</span></span></div>
                 <div class="lb-scores">

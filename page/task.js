@@ -73,9 +73,9 @@
             file: 'environment-search_r1_zero_query_embedding',
             alt: 'Held-out exact match over training'
         },
-        'infrastructure/verl_missing_flash_attn_patch': {
-            file: 'infrastructure-verl_missing_flash_attn_patch',
-            alt: 'Held-out accuracy per checkpoint'
+        'infrastructure/verl_moe_token_normalization': {
+            file: 'infrastructure-verl_moe_token_normalization',
+            alt: 'Held-out accuracy per checkpoint, defective and repaired'
         },
         'configuration/verl_aime25_single_sample_protocol': {
             file: 'configuration-verl_aime25_single_sample_protocol',

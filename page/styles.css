@@ -1449,10 +1449,6 @@ section {
     text-align: center;
 }
 
-.lb-row:first-child .lb-rank {
-    color: var(--text);
-}
-
 .lb-model-cell,
 .lb-agent-cell {
     display: flex;
@@ -3373,17 +3369,12 @@ nav {
     font-weight: 700;
 }
 
-.lb-row:first-child .lb-rank {
-    background: var(--text);
-    border-color: var(--text);
-    color: var(--surface);
+/* Ranks 1-3 (ties share a rank) show a medal instead of the number. */
+.lb-rank.is-medal {
+    font-size: 1.15rem;
+    line-height: 1;
 }
 
-.lb-row:nth-child(2) .lb-rank,
-.lb-row:nth-child(3) .lb-rank {
-    border-color: var(--border-strong);
-    color: var(--text);
-}
 
 /* Meter tracks get a hairline inner ring. */
 .chart-track,
@@ -3537,12 +3528,6 @@ body.guide-page .guide-command-box pre {
 .contribute-cta .btn-primary:hover {
     background: #f3f3f1;
     color: #111111;
-}
-
-.lb-row:first-child .lb-rank {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fbfaf8;
 }
 
 ::selection {

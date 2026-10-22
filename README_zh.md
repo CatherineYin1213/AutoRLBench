@@ -84,12 +84,12 @@ solution 档（修复并重跑）即将开放。完整结果见[网站](https://
 uid 赋值被挪到 rollout repeat 之后，每个 GRPO 组退化为单元素，训练静默降级为无基线的 REINFORCE。
 </td>
 <td width="50%" valign="top">
-<a href="tasks/infrastructure/verl_missing_flash_attn_patch/">
+<a href="tasks/infrastructure/verl_moe_token_normalization/">
 <img src="assets/task-infrastructure.jpeg" alt="Infrastructure" width="100%">
 </a>
 <strong>Infrastructure</strong> · issue · solution<br>
-<a href="tasks/infrastructure/verl_missing_flash_attn_patch/"><b>缺少 flash-attention hook</b></a><br>
-重写的 monkey patch 悄悄丢掉了 flash-attention hook。
+<a href="tasks/infrastructure/verl_moe_token_normalization/"><b>MoE 辅助梯度缺少 token 归一化</b></a><br>
+per-token loss 回调缺少 token 计数，MoE z-loss 梯度从未被归一化。
 </td>
 </tr>
 </table>

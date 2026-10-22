@@ -83,12 +83,12 @@ The retriever's query vector is all zeros, so every query gets the same document
 The uid assignment lands after the rollout repeat step, making every GRPO group a singleton and silently degrading training to baseline-free REINFORCE.
 </td>
 <td width="50%" valign="top">
-<a href="tasks/infrastructure/verl_missing_flash_attn_patch/">
+<a href="tasks/infrastructure/verl_moe_token_normalization/">
 <img src="assets/task-infrastructure.jpeg" alt="Infrastructure" width="100%">
 </a>
 <strong>Infrastructure</strong> · issue · solution<br>
-<a href="tasks/infrastructure/verl_missing_flash_attn_patch/"><b>Missing flash-attention hook</b></a><br>
-A rewritten monkey patch silently drops the flash-attention hook.
+<a href="tasks/infrastructure/verl_moe_token_normalization/"><b>MoE auxiliary gradients miss token normalization</b></a><br>
+The per-token loss callback omits the token count, so MoE z-loss gradients are never normalized.
 </td>
 </tr>
 </table>

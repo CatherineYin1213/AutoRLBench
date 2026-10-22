@@ -22,7 +22,7 @@ window.AUTORLBENCH_TASKS = [
         "created": "2026-08-18",
         "license": "MIT",
         "brief": "One sample per question makes evaluation too noisy.",
-        "issue": "Evaluating Qwen3-4B-Base on AIM 2025. One sample per question makes the score too noisy to judge the run."
+        "issue": "Evaluating Qwen3-4B-Base on AIME 2025. One sample per question makes the score too noisy to judge the run."
     },
     {
         "id": "reward/slime_retool_length_reward_bonus",
@@ -103,22 +103,22 @@ window.AUTORLBENCH_TASKS = [
         "issue": "Training Llama-3.2-1B-Instruct with GRPO on DAPO-Math-17k. The uid assignment was moved after the rollout repeat step, making every GRPO group a singleton and silently degrading training to baseline-free REINFORCE."
     },
     {
-        "id": "infrastructure/verl_missing_flash_attn_patch",
-        "title": "Missing flash-attention hook",
+        "id": "infrastructure/verl_moe_token_normalization",
+        "title": "MoE auxiliary gradients miss token normalization",
         "family": "Infrastructure",
         "tags": [
             "verl",
             "grpo",
-            "llama",
-            "flash-attn"
+            "moe",
+            "gradient-normalization"
         ],
-        "model": "Llama-3.2-1B-Instruct",
-        "dataset": "DAPO-Math-17k",
+        "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+        "dataset": "openai/gsm8k main (7473 train rows, 64 held-out validation rows)",
         "framework": "verl",
-        "image": "verl:vllm017.latest",
-        "created": "2026-08-08",
-        "license": "MIT",
-        "brief": "Flash-attention hook is never installed.",
-        "issue": "Training Llama-3.2-1B-Instruct with GRPO on DAPO-Math-17k. The baseline flash-attention hook is never installed."
+        "image": "verl-moe-token",
+        "created": "2026-10-18",
+        "license": "Apache-2.0",
+        "brief": "MoE z-loss gradients skip token normalization.",
+        "issue": "Training Qwen1.5-MoE-A2.7B-Chat with GRPO on GSM8K. The per-token loss callback omits the token count, so MoE z-loss gradients are never divided back."
     }
 ];
