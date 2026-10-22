@@ -13,6 +13,7 @@
 # recorded runs were produced with (see docker/images/search-r1-verl.Dockerfile).
 *
 !autorlbench-activate.sh
+!verl-moe-token/mcore5047-minimal.patch
 !search-r1-runtime/pyproject.toml
 !search-r1-runtime/uv.lock
 !search-r1-runtime/.python-version

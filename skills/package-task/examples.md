@@ -7,81 +7,91 @@ When packaging, read the code and launch-script diff between the buggy commit an
 ## Evaluation score only
 
 ```yaml
-source_workspace: /home/test/test06/lyh/verl
-output_dir: tasks/infrastructure/task_example_001
-task_id: task_example_001
-title: "Missing flash-attention hook"
+source_workspace: /home/gaoyuan/verl
+output_dir: tasks/infrastructure/verl_moe_token_normalization
+task_id: verl_moe_token_normalization
+title: "MoE auxiliary gradients miss token normalization"
 domain: infrastructure
-model_name: Llama-3.2-1B-Instruct
-dataset_name: DAPO-Math-17k
+model_name: Qwen/Qwen1.5-MoE-A2.7B-Chat
+dataset_name: openai/gsm8k
 framework: verl
 algo: grpo
 
-git_repo: /home/test/test06/lyh/verl
+git_repo: /home/gaoyuan/verl
 buggy_commit: aaaa1111
 baseline_commit: bbbb2222
 ignore_hunks: []
 
-launch_script: examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh
+launch_script: scripts/train.sh
 launch_args: []
 launch_env:
   WANDB_MODE: offline
-model_path: /workspace/verl/Llama-3.2-1B-instruct
-train_path: /workspace/DAPO-Math-17k_verl/train.parquet
-val_path: /workspace/DAPO-Math-17k_verl/test.parquet
+model_path: /workspace/models/Qwen1.5-MoE-A2.7B-Chat
+train_path: /workspace/data/gsm8k/train.parquet
+val_path: /workspace/data/gsm8k/validation64.parquet
 failure_logs:
-  - logs/llama3_2_1b_instruct_dapo_math_fsdp_20260720_005502.log
+  - logs/train.log
 include_wandb: true
 
-image: verl
+image: verl-moe-token
 gpus: "0,1"
-needs_compose: false
+needs_compose: true
 
 assets:
   - kind: hf
-    repo: LIF1014/autorlbench-Llama-3.2-1B-Instruct
+    repo: Qwen/Qwen1.5-MoE-A2.7B-Chat
     type: model
-    revision: 32f9e721f796d3c639ab64d2f58ceeaa2c3213b9
+    revision: ec052fda178e241c7c443468d2fa1db6618996be
     allow:
+      - LICENSE
       - config.json
-      - generation_config.json
-      - tokenizer_config.json
       - tokenizer.json
-      - tokenizer.model
-      - model.safetensors
+      - tokenizer_config.json
+      - vocab.json
+      - model-00001-of-00008.safetensors
+      # … one allow/expect/expect_size triple per remaining shard plus
+      # model.safetensors.index.json, all listed verbatim in the real input
     expect:
-      model.safetensors: 1ff795ff6a07e6a68085d206fb84417da2f083f68391c2843cd2b8ac6df8538f
+      model-00001-of-00008.safetensors: a51a84c031e0f6c8808bc284106c488ab3db6069a3f6f5a231be1e963206d020
     expect_size:
-      model.safetensors: 2471645608
-    dest: verl/Llama-3.2-1B-instruct
+      model-00001-of-00008.safetensors: 3999614664
+    dest: models/Qwen1.5-MoE-A2.7B-Chat
     why_this_path: >-
-      Launch script :30-38 searches /models/… → /workspace/verl/Llama-3.2-1B-instruct
-      in order. Nothing mounts the first candidate, so it must land exactly on the
-      second. The directory name uses a lowercase i.
-  - kind: recipe
-    recipe: dapo_math_17k
+      scripts/train.sh exports PYTHONPATH from $W and the resolved config
+      reads the model from $W/models/Qwen1.5-MoE-A2.7B-Chat, which prepare
+      fills.
+  - kind: hf
+    repo: openai/gsm8k
+    type: dataset
+    revision: 740312add88f781978c0658806c59bc2815b9866
+    allow:
+      - main/train-00000-of-00001.parquet
+      - main/test-00000-of-00001.parquet
+      - README.md
     expect:
-      train.parquet: fc4cad54f2d15c622025b5e3764e91d2a79145e75358a703658daa66fe47d321
-      test.parquet: 52596fd6ade0d49db3a49ef0c9c89f88aeb323c17fa5ee23fb0c774d7fba3255
+      main/train-00000-of-00001.parquet: ea82612ea9582142387730c793eb67d3b12849002bc0b7fa6f8efafa7351419d
+      main/test-00000-of-00001.parquet: ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59
     expect_size:
-      train.parquet: 2735462
-      test.parquet: 331284
-    dest: DAPO-Math-17k_verl
+      main/train-00000-of-00001.parquet: 2306545
+      main/test-00000-of-00001.parquet: 419088
+    dest: data/raw/gsm8k
+    why_this_path: >-
+      scripts/prepare_gsm8k.py converts the raw parquet into
+      data/gsm8k/{train,validation64}.parquet with a fixed 2026-seed split.
 
-metric_key: val-core/math_dapo/acc/mean@1
-metric_source: text_log
-log_sample: "step:200 - val-core/math_dapo/acc/mean@1:0.0402"
-final_step: 200
-historical_final_baseline: "0.04022346368715084"
-required_final_score: "0.07"
+metric_key: val-core/openai/gsm8k/acc/mean@1
+metric_source: wandb_history
+log_sample: '{"_step": 150, "val-core/openai/gsm8k/acc/mean@1": 0.0}'
+final_step: 150
+historical_final_baseline: "0"
+required_final_score: "0.4"
 
 historical_eval_points:
-  - { step: 0, eval_score: 0.030726256983240222 }
-  - { step: 100, eval_score: 0.03519553072625698 }
-  - { step: 200, eval_score: 0.04022346368715084 }
+  - { step: 100, eval_score: 0.0 }
+  - { step: 150, eval_score: 0.0 }
 ```
 
-A `failure_reason` written from this diff would look like: `apply_monkey_patch no longer installs the flash-attention hook; final val-core is about 0.0402`. The exact wording follows the filtered diff.
+A `failure_reason` written from this diff would look like: `the per-token loss callback returns (loss, metrics) instead of the native (loss sum, token count, metrics), so MCore never normalizes the MoE z-loss gradients; final val-core is 0.0`. The exact wording follows the filtered diff.
 
 Each entry in `assets` becomes one `autorlbench_fetch_hf` / `autorlbench_dataset` / `autorlbench_fetch_url` call in `environment/prepare.sh`, with `$AUTORLBENCH_WORKSPACE/` prefixed to `dest`. `why_this_path` becomes the comment in the script, because a wrong path only blows up midway through training.
 ## No scoring method given
@@ -104,17 +114,17 @@ Reference scores are not limited to training scores. For each one, give the key 
 ```yaml
 score_components:
   - role: validation
-    key: val-core/math_dapo/acc/mean@1
-    required: "0.07"
+    key: val-core/openai/gsm8k/acc/mean@1
+    required: "0.4"
     weight: "0.8"
-    source: text_log
-    log_sample: "step:200 - val-core/math_dapo/acc/mean@1:0.0402"
+    source: wandb_history
+    log_sample: '{"_step": 150, "val-core/openai/gsm8k/acc/mean@1": 0.0}'
   - role: training_reward
     key: critic/rewards/mean
     required: "0.14"
     weight: "0.2"
     source: text_log
-    log_sample: "step:200 - critic/rewards/mean:0.16"
+    log_sample: "step:150 - critic/rewards/mean:0.16"
 pass_rule: "score = sum over components of weight times whether the component meets its threshold (1 if met, else 0); pass only when score is 1"
 ```
 
@@ -122,8 +132,8 @@ pass_rule: "score = sum over components of weight times whether the component me
 
 ```json
 {
-  "metric_key": "val-core/math_dapo/acc/mean@1",
-  "required_final_score": "0.07",
+  "metric_key": "val-core/openai/gsm8k/acc/mean@1",
+  "required_final_score": "0.4",
   "validation_weight": "0.8",
   "training_reward_key": "critic/rewards/mean",
   "required_training_reward": "0.14",

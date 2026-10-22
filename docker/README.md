@@ -16,11 +16,12 @@ Evaluation images and the in-container tooling shared by every task.
 
 | Name | Base | Used by |
 | --- | --- | --- |
-| `verl` | `verlai/verl:vllm017.latest` | `data/verl_taco_difficulty_mismatch`, `infrastructure/verl_missing_flash_attn_patch` |
+| `verl` | `verlai/verl:vllm017.latest` | `data/verl_taco_difficulty_mismatch` |
 | `slime-v0.3.2` | `slimerl/slime:v0.3.2-cu129` | `reward/slime_retool_length_reward_bonus` |
 | `search-r1-verl` | `nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04` + `search-r1-runtime/uv.lock` | `environment/search_r1_zero_query_embedding` |
 | `ppo-critic-vimpo` | `nvidia/cuda:12.8.1-devel-ubuntu24.04` | `configuration/verl_aime25_single_sample_protocol` |
 | `verl` | `verlai/verl:vllm017.latest` | `algorithm/verl_grpo_uid_after_repeat` |
+| `verl-moe-token` | `verlai/verl:vllm017.latest` + `verl-moe-token/mcore5047-minimal.patch` | `infrastructure/verl_moe_token_normalization` |
 
 An image shared by several tasks is part of each task's ground truth. If you change a
 Dockerfile, rerun every task that uses it. A task that needs a different stack gets a new

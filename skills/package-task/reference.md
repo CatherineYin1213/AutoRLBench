@@ -85,7 +85,7 @@ After copying, `cmp` must match. Keep LF line endings.
 | `evaluations/issue/verifier/test.sh` | `verifier/test.sh` in the same directory |
 | `evaluations/solution/verifier/test.sh` | `tasks/reward/slime_retool_length_reward_bonus/evaluations/solution/verifier/test.sh` |
 
-These five files in `environment/search_r1_zero_query_embedding` and `infrastructure/verl_missing_flash_attn_patch` are byte-identical to it.
+These five files in `environment/search_r1_zero_query_embedding` and `infrastructure/verl_moe_token_normalization` are byte-identical to it.
 
 When needed, copy `environment/docker-compose.yaml` verbatim from `tasks/reward/slime_retool_length_reward_bonus/environment/docker-compose.yaml`.
 
@@ -234,7 +234,7 @@ external_assets_not_in_git:
   - <asset delivered by prepare.sh, one-line description>
 ```
 
-When the same framework already has a more complete `task.yaml` (e.g. `infrastructure/verl_missing_flash_attn_patch`), reuse that skeleton, but still write in every root cause from this diff.
+When the same framework already has a more complete `task.yaml` (e.g. `infrastructure/verl_moe_token_normalization`), reuse that skeleton, but still write in every root cause from this diff.
 
 ## solution/oracle/standard_answer.txt
 
