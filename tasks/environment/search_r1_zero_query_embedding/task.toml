@@ -2,7 +2,7 @@ title = "Zero query vector in retrieval"
 license = "Apache-2.0"
 created_date = "2026-10-16"
 domain = "environment"
-tags = ["search-r1", "verl", "grpo", "retrieval", "faiss", "hotpotqa"]
+tags = ["verl", "grpo", "hotpotqa", "query_vector"]
 
 [submitter]
 name = "chenyinghao"
@@ -14,7 +14,7 @@ name = "Qwen2.5-1.5B-Instruct"
 name = "HotpotQA distractor (1024 train / 128 held-out)"
 
 [training]
-framework = "search-r1-verl"
+framework = "verl"
 algo = "grpo"
 script = "run.py"
 

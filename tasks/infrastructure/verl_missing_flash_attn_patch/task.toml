@@ -2,7 +2,7 @@ title = "Missing flash-attention hook"
 license = "MIT"
 created_date = "2026-08-08"
 domain = "infrastructure"
-tags = ["verl", "grpo", "llama", "flash-attn", "monkey-patch"]
+tags = ["verl", "grpo", "llama", "flash-attn"]
 
 [submitter]
 name = "benchmark_evaluation"
@@ -19,7 +19,7 @@ algo = "grpo"
 script = "examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh"
 
 [environment]
-image = "verl"
+image = "verl:vllm017.latest"
 
 # 2 GPUs.
 [environment.env]

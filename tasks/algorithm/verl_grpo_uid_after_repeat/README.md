@@ -8,7 +8,7 @@ every GRPO group a singleton and silently degrading training to baseline-free RE
 | --- | --- |
 | **Author** | AutoRLBench |
 | **Domain** | algorithm |
-| **Tags** | `verl` `grpo` `advantage` `uid` `silent-degeneration` |
+| **Tags** | `verl` `grpo` `advantage` `uid` |
 | **Model** | Llama-3.2-1B-Instruct |
 | **Dataset** | DAPO-Math-17k |
 | **Framework** | verl 0.9.0.dev @ `6f2aa24abfc01cc72811b376aeb3936503885096`, GRPO |

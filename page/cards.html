@@ -49,13 +49,12 @@
 
   /* ── Shared card shell ─────────────────────────────────── */
   .card {
-    width: 900px;
+    width: 780px;
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     background: var(--surface);
   }
-  #c2 { width: 900px; }
   .card-header {
     display: flex;
     align-items: center;
@@ -138,6 +137,9 @@
     line-height: 1;
   }
   .c1-stat .lbl {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
     font-size: .58rem;
     letter-spacing: .07em;
     text-transform: uppercase;
@@ -145,6 +147,33 @@
     margin-top: .35rem;
   }
   .c1-stat.accent .num { color: var(--red); }
+  .c1-note {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .18rem .5rem;
+    border: 1px solid rgba(47, 158, 91, .4);
+    border-radius: 999px;
+    background: #e6f2ea;
+    color: var(--text-2);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: .5rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .c1-note::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #2f9e5b;
+    box-shadow: 0 0 0 2px rgba(47, 158, 91, .16);
+    animation: c1-note-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes c1-note-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(47, 158, 91, .16); }
+    50% { box-shadow: 0 0 0 4px rgba(47, 158, 91, .26); }
+  }
 
   /* site pill */
   .site-pill {
@@ -166,43 +195,14 @@
     flex-shrink: 0;
   }
 
-  /* ── Card 2 — The gap ──────────────────────────────────── */
-  .vs-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1.2rem;
-    font-size: .74rem;
-  }
-  .vs-table th {
-    text-align: left;
-    font-size: .6rem;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    padding: 0 .75rem .5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .vs-table th:first-child { padding-left: 0; }
-  .vs-table td {
-    padding: .65rem .75rem;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-    line-height: 1.55;
-    color: var(--text);
-  }
-  .vs-table td:first-child { padding-left: 0; color: var(--text-2); }
-  .vs-table tr:last-child td { border-bottom: none; }
-  .pill-ok  { display: inline-block; padding: .1em .55em; border-radius: 99px; font-size: .65rem; font-weight: 600; background: #d4f0e0; color: #1e5e36; }
-  .pill-bad { display: inline-block; padding: .1em .55em; border-radius: 99px; font-size: .65rem; font-weight: 600; background: #fde8e6; color: #8c1c18; }
-
-  /* ── Card 3 — Six domains ──────────────────────────────── */
-  .domain-grid {
+  /* ── Card 2 — Six categories ───────────────────────────── */
+  .category-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: .65rem;
     margin-top: 1.15rem;
   }
-  .domain-row {
+  .category-row {
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     overflow: hidden;
@@ -212,18 +212,19 @@
     display: flex;
     flex-direction: column;
   }
-  .domain-img {
+  .category-img {
     width: 100%;
     aspect-ratio: 16/9;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
-    background: #e8e6e2;
+    background: #fff;
   }
-  .domain-info {
-    padding: .7rem .8rem .75rem;
+  .category-info {
+    padding: .1rem .8rem .6rem;
     flex: 1;
+    border-top: 1px solid var(--border);
   }
-  .domain-tag {
+  .category-tag {
     display: inline-block;
     font-size: .55rem;
     font-weight: 650;
@@ -232,20 +233,20 @@
     color: var(--text-2);
     margin-bottom: .3rem;
   }
-  .domain-info .name {
+  .category-info .name {
     font-size: .74rem;
     font-weight: 660;
     color: var(--text);
     margin-bottom: .2rem;
     line-height: 1.3;
   }
-  .domain-info .desc {
+  .category-info .desc {
     font-size: .64rem;
     line-height: 1.5;
     color: var(--text-2);
   }
 
-  /* ── Card 4 — Contribute ───────────────────────────────── */
+  /* ── Card 3 — Contribute ───────────────────────────────── */
   .steps {
     margin-top: 1.1rem;
     display: flex;
@@ -256,7 +257,7 @@
     display: grid;
     grid-template-columns: 32px 1fr;
     gap: .75rem;
-    padding: .8rem 0;
+    padding: .5rem 0;
     border-bottom: 1px solid var(--border);
     align-items: start;
   }
@@ -278,65 +279,52 @@
     line-height: 1.55;
     color: var(--text-2);
   }
-  .reward-band {
-    margin-top: 1.15rem;
-    padding: .85rem 1rem;
+
+  /* co-authorship band (Card 3, left column) */
+  .coauthor-band {
+    margin-top: auto;
+    padding: .65rem .7rem;
     background: var(--dark);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-md);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    justify-content: center;
+    gap: .4rem;
+    white-space: nowrap;
   }
-  .reward-band p {
+  .coauthor-band .cb-main {
     font-size: .72rem;
-    color: var(--text-inv-2);
-    line-height: 1.5;
+    font-weight: 740;
+    letter-spacing: -.02em;
+    color: var(--text-inv);
+    line-height: 1.3;
   }
-  .reward-band p strong { color: var(--amber-dk); font-weight: 660; }
-  .reward-badge {
-    flex-shrink: 0;
-    padding: .4rem .85rem;
+  .coauthor-band .cb-main strong { color: var(--amber-dk); }
+  .coauthor-band .cb-arrow { font-size: .75rem; color: var(--text-inv-2); }
+  .coauthor-band .cb-result {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .6rem;
     border: 1px solid var(--amber);
     border-radius: 99px;
-    font-size: .64rem;
+    font-size: .54rem;
     font-weight: 660;
     color: var(--amber-dk);
     white-space: nowrap;
   }
 
-  /* ── Card 5 — CTA ──────────────────────────────────────── */
-  #c5 .card-body {
-    background: var(--surface);
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
-  }
-  #c5 .headline { font-size: 1.9rem; letter-spacing: -.04em; margin-bottom: .75rem; }
-  #c5 .headline em { color: var(--red); font-style: normal; }
-  #c5 .sub { color: var(--text-2); margin-bottom: 1.4rem; }
-
-  .cta-url {
-    font-size: .75rem;
-    font-family: var(--mono);
-    color: var(--red);
-    border-bottom: 1px solid rgba(176,48,40,.3);
-    padding-bottom: .1em;
-    margin-bottom: 1.4rem;
-    text-decoration: none;
-  }
+  /* ── Card 3 — CTA ──────────────────────────────────────── */
 
   .accepting {
     display: inline-flex;
     align-items: center;
-    gap: .45rem;
-    padding: .38rem .85rem;
+    gap: .35rem;
+    padding: .26rem .7rem;
     background: rgba(42,122,74,.1);
     border: 1px solid rgba(42,122,74,.25);
     border-radius: 99px;
-    font-size: .65rem;
+    font-size: .55rem;
     font-weight: 600;
     color: var(--green);
   }
@@ -352,7 +340,7 @@
   }
 
   .tweet-text {
-    width: 900px;
+    width: 780px;
     padding: .25rem 0 .1rem;
     font-size: .95rem;
     line-height: 1.65;
@@ -384,7 +372,7 @@
   }
   .tweet-text .links a:hover { text-decoration: underline; }
   .thread-intro {
-    width: 900px;
+    width: 780px;
     padding: .25rem 0 .5rem;
   }
   .thread-intro p {
@@ -398,11 +386,6 @@
 </head>
 <body>
 
-<div class="thread-intro">
-  <p>✨ Introducing AutoRLBench — a benchmark built from real RL training failures.</p>
-  <p>Every task is a run that actually went wrong. The agent finds the root cause — and where a repair exists, fixes it and reruns.</p>
-  <p>We just published v0.1. We're recruiting contributors 🧵</p>
-</div>
 
 <!-- ═══════════════════════════════════════════════
      Card 1 — Introducing AutoRLBench
@@ -418,24 +401,24 @@
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1.5rem;">
       <div>
         <div class="eyebrow">New benchmark</div>
-        <div class="headline">Real RL training failures.<br>Can agents find them?</div>
+        <div class="headline">Real RL training failures.<br>Can agents find the issue and fix them?</div>
         <p class="sub" style="max-width:none;">Every task is a real RL run that went wrong. The agent reads the workspace, logs, and metrics, finds the root cause, and where a fix exists, repairs it and reruns.</p>
       </div>
       <img src="images/ai-trains-ai.jpeg" alt="AI Trains AI"
-           style="width:260px;height:auto;display:block;flex-shrink:0;">
+           style="width:185px;height:auto;display:block;flex-shrink:0;">
     </div>
     <div class="c1-stats" style="margin-top:1rem;">
       <div class="c1-stat accent">
         <div class="num">6</div>
-        <div class="lbl">Domains</div>
+        <div class="lbl">Failure Categories</div>
       </div>
       <div class="c1-stat">
-        <div class="num">7</div>
-        <div class="lbl">Evaluated systems</div>
+        <div class="num">10</div>
+        <div class="lbl">Tasks <span class="c1-note">collecting</span></div>
       </div>
       <div class="c1-stat">
-        <div class="num">0.92</div>
-        <div class="lbl">Top issue score</div>
+        <div class="num">2</div>
+        <div class="lbl">Evaluation Levels</div>
       </div>
     </div>
     <div class="site-pill" style="margin-top:1rem;">
@@ -446,128 +429,64 @@
 </div>
 
 
-<div class="tweet-text">
-  <p>RL training fails quietly.</p>
-  <p>Reward curves look healthy. Held-out accuracy dies. Training reward climbs while generation collapses. A single eval returns 6.7% instead of 20% — but it's the sampling protocol, not the model.</p>
-  <p>These failures don't show up in standard benchmarks. We're building the dataset of them.</p>
-</div>
-
 <!-- ═══════════════════════════════════════════════
-     Card 2 — The gap
-═══════════════════════════════════════════════ -->
-<div class="card" id="c2">
-  <div class="card-header">
-    <div class="brand">
-      <img src="images/logo.png" alt="AutoRLBench">
-    </div>
-    <span class="tag">02 · The problem</span>
-  </div>
-  <div class="card-body">
-    <div class="eyebrow">Why it's hard</div>
-    <div class="headline">RL failures are <em>quiet</em>.</div>
-    <p class="sub">Training reward looks fine. Held-out accuracy quietly dies. Standard benchmarks don't measure this.</p>
-    <table class="vs-table">
-      <thead>
-        <tr>
-          <th>What the logs show</th>
-          <th>What's actually wrong</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Training reward ↑ steadily</td>
-          <td><span class="pill-bad">Length bonus</span> — policy learns to write longer, not better</td>
-        </tr>
-        <tr>
-          <td>Search & format rates ~1.0</td>
-          <td><span class="pill-bad">Zero query vector</span> — every search returns the same docs</td>
-        </tr>
-        <tr>
-          <td>Training reward ↑, same policy</td>
-          <td><span class="pill-bad">GRPO → REINFORCE</span> — uid assigned after rollout repeat; group baseline disappears</td>
-        </tr>
-        <tr>
-          <td>One low AIME25 score</td>
-          <td><span class="pill-bad">Protocol bug</span> — 1 sample/question; noisy reward</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-
-<div class="tweet-text">
-  <p>The six tasks in v0.1, one per domain:</p>
-  <ul>
-    <li>🔁 <strong>Reward</strong> — length bonus teaches the policy to write longer, not better</li>
-    <li>⚙️ <strong>Config</strong> — 1 sample/question on 30-question AIME; noise, not a training failure</li>
-    <li>📊 <strong>Data</strong> — VERY_HARD train / EASY eval; held-out ends below step 0</li>
-    <li>🌐 <strong>Environment</strong> — query vector all zeros; every search returns the same docs</li>
-    <li>🧮 <strong>Algorithm</strong> — uid assigned after rollout repeat; GRPO becomes REINFORCE</li>
-    <li>🛠 <strong>Infrastructure</strong> — rewritten monkey patch drops the flash-attention hook silently</li>
-  </ul>
-  <p>Each one took a real run to discover.</p>
-</div>
-
-<!-- ═══════════════════════════════════════════════
-     Card 3 — Six domains
+     Card 2 — Six categories
 ═══════════════════════════════════════════════ -->
 <div class="card" id="c3">
   <div class="card-header">
     <div class="brand">
       <img src="images/logo.png" alt="AutoRLBench">
-    </div>
-    <span class="tag">03 · v0.1 tasks</span>
+    </div>  
+    <span class="tag">02 · Six Categories</span>
   </div>
   <div class="card-body">
-    <div class="eyebrow">Six domains</div>
-    <div class="headline">One task per failure mode.</div>
-    <p class="sub">Each task took a real run to discover. Each one was invisible until someone looked carefully.</p>
-    <div class="domain-grid">
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-reward.jpeg" alt="Reward">
-        <div class="domain-info">
-          <span class="domain-tag">Reward</span>
-          <div class="name">Length bonus reward hack</div>
-          <div class="desc">Model hacks the reward by generating longer answers.</div>
-        </div>
-      </div>
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-configuration.jpeg" alt="Configuration">
-        <div class="domain-info">
-          <span class="domain-tag">Configuration</span>
+    <div class="eyebrow">What does a task looks like?</div>
+    <!-- <div class="headline">One task per failure mode.</div> -->
+    <div class="category-grid">
+      <div class="category-row">
+        <img class="category-img" src="images/task-configuration.jpeg" alt="Configuration">
+        <div class="category-info">
+          <span class="category-tag">Configuration</span>
           <div class="name">AIME25 single-sample variance</div>
           <div class="desc">One sample per question makes evaluation too noisy.</div>
         </div>
       </div>
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-data.jpeg" alt="Data">
-        <div class="domain-info">
-          <span class="domain-tag">Data</span>
+      <div class="category-row">
+        <img class="category-img" src="images/task-reward.jpeg" alt="Reward">
+        <div class="category-info">
+          <span class="category-tag">Reward</span>
+          <div class="name">Length bonus reward hack</div>
+          <div class="desc">Model hacks the reward by generating longer answers.</div>
+        </div>
+      </div>
+      <div class="category-row">
+        <img class="category-img" src="images/task-data.jpeg" alt="Data">
+        <div class="category-info">
+          <span class="category-tag">Data</span>
           <div class="name">Training data is too hard</div>
           <div class="desc">Training set is very hard while validation set is easy.</div>
         </div>
       </div>
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-environment.jpeg" alt="Environment">
-        <div class="domain-info">
-          <span class="domain-tag">Environment</span>
+      <div class="category-row">
+        <img class="category-img" src="images/task-environment.jpeg" alt="Environment">
+        <div class="category-info">
+          <span class="category-tag">Environment</span>
           <div class="name">Zero query vector in retrieval</div>
           <div class="desc">Query vector stays all zeros, retrieves same documents.</div>
         </div>
       </div>
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-algorithm.jpeg" alt="Algorithm">
-        <div class="domain-info">
-          <span class="domain-tag">Algorithm</span>
-          <div class="name">GRPO uid assigned after rollout repeat</div>
+      <div class="category-row">
+        <img class="category-img" src="images/task-algorithm.jpeg" alt="Algorithm">
+        <div class="category-info">
+          <span class="category-tag">Algorithm</span>
+          <div class="name">uid assigned after rollout repeat</div>
           <div class="desc">GRPO silently degraded to baseline-free REINFORCE.</div>
         </div>
       </div>
-      <div class="domain-row">
-        <img class="domain-img" src="images/task-infrastructure.jpeg" alt="Infrastructure">
-        <div class="domain-info">
-          <span class="domain-tag">Infrastructure</span>
+      <div class="category-row">
+        <img class="category-img" src="images/task-infrastructure.jpeg" alt="Infrastructure">
+        <div class="category-info">
+          <span class="category-tag">Infrastructure</span>
           <div class="name">Missing flash-attention hook</div>
           <div class="desc">Flash-attention hook is never installed.</div>
         </div>
@@ -576,30 +495,22 @@
   </div>
 </div>
 
-
-<div class="tweet-text">
-  <p>If you've had a run like this — and you know (or suspect) why — that's a task.</p>
-  <p>You bring the workspace, the logs, the failure.<br>We handle the packaging.</p>
-  <p>Issue-only (diagnosis) or issue + solution (repair + rerun). Either works. No deadline.</p>
-  <p>Contribute 2 tasks → co-authorship on the paper. 🎉</p>
-</div>
-
 <!-- ═══════════════════════════════════════════════
-     Card 4 — Contribute + CTA (merged, compact)
+     Card 3 — Contribute + CTA (merged, compact)
 ═══════════════════════════════════════════════ -->
 <div class="card" id="c4">
   <div class="card-header">
     <div class="brand">
       <img src="images/logo.png" alt="AutoRLBench">
     </div>
-    <span class="tag">04 · Join us</span>
+    <span class="tag">03 · Join us</span>
   </div>
-  <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:stretch;padding:1.4rem 1.5rem;">
-    <!-- Left: steps + links -->
-    <div style="display:flex;flex-direction:column;gap:.85rem;">
+  <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:stretch;padding:1.1rem 1.3rem 1.2rem;">
+    <!-- Left: steps + co-author band -->
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
       <div>
         <div class="eyebrow">Contribute</div>
-        <div class="headline" style="font-size:1.25rem;margin-bottom:.7rem;white-space:nowrap;">You bring the run. We handle the rest.</div>
+        <div class="headline" style="font-size:1.2rem;margin-bottom:.4rem;">You bring the run. We handle the rest.</div>
       </div>
       <div class="steps" style="margin-top:0;">
         <div class="step">
@@ -615,34 +526,27 @@
           <div class="step-body"><strong>Open a PR</strong><p>Reviewed and live on the leaderboard.</p></div>
         </div>
       </div>
-      <div class="reward-band" style="margin-top:auto;">
-        <p>Contribute <strong>2 tasks</strong> → <strong>co-authorship</strong>.</p>
-        <span class="reward-badge">★ Paper</span>
+      <div class="coauthor-band">
+        <div class="cb-main">Contribute <strong>2 valid tasks</strong></div>
+        <div class="cb-arrow">→</div>
+        <span class="cb-result">★ Co-authorship on the paper</span>
       </div>
     </div>
     <!-- Right: headline + accepting + image -->
-    <div style="display:flex;flex-direction:column;gap:.75rem;">
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
       <div>
-        <div class="eyebrow" style="color:var(--red);">Why it matters</div>
-        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.5rem;">
-          <div class="headline" style="font-size:1.3rem;margin-bottom:0;">Towards <em>AI Trains AI</em>.</div>
-          <span class="accepting" style="display:inline-flex;flex-shrink:0;"><span class="dot"></span> Accepting contributions</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.35rem;">
+          <div class="eyebrow" style="margin-bottom:0;color:var(--red);">Why it matters</div>
+          <span class="accepting"><span class="dot"></span> Accepting contributions</span>
         </div>
-        <p class="sub">Agents that diagnose failures, propose fixes, and verify them. AutoRLBench is the benchmark layer that makes that loop rigorous.</p>
+        <div class="headline" style="font-size:1.3rem;margin-bottom:.5rem;">Towards <em>AI Trains AI</em>.</div>
+        <p class="sub">AutoRLBench measures the agent capability to diagnose and repair real RL training runs.</p>
       </div>
-      <img src="images/ai-trains-ai.jpeg" alt="AI Trains AI"
-           style="width:100%;border-radius:var(--r-md);object-fit:contain;background:#fff;height:220px;display:block;border:1px solid var(--border);box-sizing:border-box;padding:.5rem;">
+      <div style="width:92%;margin:0 auto;border-radius:var(--r-md);background:#fff;border:1px solid var(--border);box-sizing:border-box;padding:.4rem;display:flex;justify-content:center;">
+        <img src="images/ai-trains-ai.jpeg" alt="AI Trains AI"
+             style="width:78%;height:auto;display:block;">
+      </div>
     </div>
-  </div>
-</div>
-
-<div class="tweet-text">
-  <p>We want to contribute to the infrastructure for AI systems that train themselves — where agents diagnose failures, propose fixes, and verify them.</p>
-  <p>To get there we need more training runs, more failure modes, more contributors. Come build it with us.</p>
-  <div class="links">
-    <a href="https://thinking-space.github.io/AutoRLBench/">🌐 thinking-space.github.io/AutoRLBench</a>
-    <a href="https://github.com/Thinking-Space/AutoRLBench">💻 github.com/Thinking-Space/AutoRLBench</a>
-    <a href="https://thinking-space.github.io/AutoRLBench/contribute.html">📝 Contribute a run</a>
   </div>
 </div>
 

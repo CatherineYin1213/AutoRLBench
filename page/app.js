@@ -24,13 +24,16 @@ const CATEGORY_COUNTS = Object.fromEntries(
 );
 
 const ISSUE_RESULTS = [
-    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.62 },
-    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.54 },
-    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 0.77 },
-    { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.77 },
-    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.92 },
-    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.77 },
-    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.69 }
+    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.91 },
+    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.91 },
+    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 1.00 },
+    { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.55 },
+    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.82 },
+    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.64 },
+    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.36 },
+    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 0.91 },
+    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 0.91 },
+    { model: 'Grok-4.7', agent: 'Grok Build', score: 0.82 }
 ];
 
 function tasksForFamily(family) {
@@ -125,11 +128,22 @@ function renderLeaderboard() {
     const rows = ISSUE_RESULTS
         .map((result, index) => ({ ...result, index }))
         .sort((a, b) => b.score - a.score || a.index - b.index);
-    mount.innerHTML = rows.map((result, rank) => `
+    let displayedRank = 0;
+    let prevScore = null;
+    let prevRank = 0;
+    mount.innerHTML = rows.map((result, position) => {
+        if (result.score !== prevScore) {
+            displayedRank = position + 1;
+            prevRank = displayedRank;
+            prevScore = result.score;
+        } else {
+            displayedRank = prevRank;
+        }
+        return `
             <div class="lb-row">
-                <div class="lb-rank">${rank + 1}</div>
+                <div class="lb-rank">${displayedRank}</div>
                 <div class="lb-model-cell"><span class="lb-model-name">${result.model}</span></div>
-                <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}</span></div>
+                <div class="lb-agent-cell"><span class="lb-agent-name">${result.agent}<span class="lb-max-tag">MAX</span></span></div>
                 <div class="lb-scores">
                     <div class="lb-score-item">
                         <div class="lb-score-bar"><div class="lb-score-fill" style="width:${result.score * 100}%"></div></div>
@@ -137,7 +151,7 @@ function renderLeaderboard() {
                     <div class="lb-issue-score">${result.score.toFixed(2)}</div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 }
 
 function initLeaderboard() {}

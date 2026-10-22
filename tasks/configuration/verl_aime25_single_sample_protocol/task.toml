@@ -2,7 +2,7 @@ title = "AIME25 single-sample variance"
 license = "MIT"
 created_date = "2026-08-18"
 domain = "configuration"
-tags = ["verl", "ppo", "evaluation-protocol", "sampling", "aime25"]
+tags = ["verl", "ppo", "sampling", "aime25"]
 
 [submitter]
 name = "Wang Jiaze"
@@ -11,7 +11,7 @@ name = "Wang Jiaze"
 name = "Qwen3-4B-Base"
 
 [dataset]
-name = "AIME25 (30 questions)"
+name = "AIME 2025"
 
 [training]
 framework = "verl"

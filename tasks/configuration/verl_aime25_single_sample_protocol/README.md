@@ -6,9 +6,9 @@ Evaluating a Qwen3-4B-Base PPO checkpoint on AIME25. One sample per question mak
 | --- | --- |
 | **Author** | AutoRLBench |
 | **Domain** | configuration |
-| **Tags** | `verl` `ppo` `evaluation-protocol` `sampling` `aime25` |
+| **Tags** | `verl` `ppo` `sampling` `aime25` |
 | **Model** | Qwen3-4B-Base (PPO-Critic checkpoint) |
-| **Dataset** | AIME25 (30 questions) |
+| **Dataset** | AIME 2025 (30 questions) |
 | **Framework** | verl, evaluated through `run_eval.py` |
 | **Environment** | `ppo-critic-vimpo` · no GPU needed for grading |
 | **Evaluations** | issue · solution |

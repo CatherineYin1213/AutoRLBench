@@ -6,11 +6,11 @@ Training Qwen2.5-1.5B-Instruct with GRPO on TACO. The training set is very hard 
 | --- | --- |
 | **Author** | AutoRLBench |
 | **Domain** | data |
-| **Tags** | `verl` `grpo` `taco` `data-difficulty` |
+| **Tags** | `verl` `grpo` `taco` `data-difficulty` `issue-only` |
 | **Model** | Qwen2.5-1.5B-Instruct |
 | **Dataset** | TACO `VERY_HARD` train (2329 rows) · TACO `EASY` validation (184 rows) |
 | **Framework** | verl, `examples/grpo_trainer/run_qwen2_5_1.5b_instruct_taco_fsdp.sh` |
-| **Environment** | `verl` · no GPU (issue-only, no training is started) |
+| **Environment** | `verl:vllm017.latest` · no GPU (issue-only, no training is started) |
 | **Evaluations** | issue |
 | **Recorded runs** | 1 run, 400/400 steps, ~8 h 41 min on 8 GPUs |
 

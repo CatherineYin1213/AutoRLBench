@@ -6,11 +6,11 @@ Training Llama-3.2-1B-Instruct with GRPO on DAPO-Math-17k. A rewritten `apply_mo
 | --- | --- |
 | **Author** | AutoRLBench |
 | **Domain** | infrastructure |
-| **Tags** | `verl` `grpo` `llama` `flash-attn` `monkey-patch` |
+| **Tags** | `verl` `grpo` `llama` `flash-attn` |
 | **Model** | Llama-3.2-1B-Instruct |
 | **Dataset** | DAPO-Math-17k (test split 1807 rows) |
 | **Framework** | verl, `examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh` |
-| **Environment** | `verl` · 2 GPUs |
+| **Environment** | `verl:vllm017.latest` · 2 GPUs |
 | **Evaluations** | issue · solution |
 | **Recorded runs** | 1 defective + 1 repaired run, same node, 200 steps, ~29 min each |
 

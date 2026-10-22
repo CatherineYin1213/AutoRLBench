@@ -2,7 +2,7 @@ title = "GRPO uid assigned after rollout repeat"
 license = "Apache-2.0"
 created_date = "2026-10-17"
 domain = "algorithm"
-tags = ["verl", "grpo", "advantage", "uid", "silent-degeneration"]
+tags = ["verl", "grpo", "advantage", "uid"]
 
 [submitter]
 name = "benchmark_evaluation"
@@ -14,12 +14,12 @@ name = "Llama-3.2-1B-Instruct"
 name = "DAPO-Math-17k"
 
 [training]
-framework = "verl (GRPO, 0.9.0.dev @ 6f2aa24abfc01cc72811b376aeb3936503885096)"
+framework = "verl"
 algo = "GRPO"
 script = "examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh"
 
 [environment]
-image = "verl"
+image = "verl:vllm017.latest"
 
 [environment.env]
 HF_HUB_OFFLINE = "1"

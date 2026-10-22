@@ -6,7 +6,7 @@ Training Qwen2.5-1.5B-Instruct with GRPO on HotpotQA through Search-R1. The quer
 | --- | --- |
 | **Author** | AutoRLBench |
 | **Domain** | environment |
-| **Tags** | `search-r1` `verl` `grpo` `retrieval` `faiss` `hotpotqa` |
+| **Tags** | `verl` `grpo` `hotpotqa` `query_vector` |
 | **Model** | Qwen2.5-1.5B-Instruct · e5-base-v2 retriever |
 | **Dataset** | HotpotQA distractor, 1024 train / 128 held-out, 12,468-passage corpus |
 | **Framework** | Search-R1 with vendored veRL `598e61bd`, FSDP + vLLM 0.6.3 |
