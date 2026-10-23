@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoRLBench — A benchmark for AI agents on real RL training runs</title>
     <link rel="icon" type="image/png" href="images/favicon.png">
-    <link rel="stylesheet" href="styles.css?v=20261022-47">
+    <link rel="stylesheet" href="styles.css?v=20261023-4">
 </head>
 <body class="home-page">
     <!-- Aurora orbs — decorative, hidden from assistive tech -->
@@ -106,6 +106,46 @@
             <span class="lb-header-scores">Issue</span>
         </div>
         <div class="leaderboard-list"></div>
+
+        <div class="lb-analysis">
+            <h3 class="lb-subtitle">Failure Modes</h3>
+            <div class="lb-chart-row">
+                <figure class="lb-chart" style="flex-grow: 0.948">
+                    <div class="lb-chart-image">
+                        <img src="images/chart_category.png" width="670" height="707" loading="lazy"
+                             alt="Pass rate by failure category: Configuration 90%, Reward 80%, Environment 75%, Algorithm 45%, Infrastructure 35%, Data 10%.">
+                    </div>
+                    <figcaption>
+                        <h4>Pass rate by category</h4>
+                        <p>Issue-task pass rate in each failure category, averaged on all agents.</p>
+                    </figcaption>
+                </figure>
+                <figure class="lb-chart" style="flex-grow: 1.725">
+                    <div class="lb-chart-image">
+                        <img src="images/chart_detail.png" width="1421" height="824" loading="lazy"
+                             alt="Per-task outcome grid for each model, graded as pass, weak evidence, wrong cause, or fail.">
+                    </div>
+                    <figcaption>
+                        <h4>Per-task result</h4>
+                        <p>Agent performance on each Issue task: pass, weak evidence, wrong cause, or fail.</p>
+                    </figcaption>
+                </figure>
+            </div>
+        </div>
+
+        <div class="lb-analysis">
+            <h3 class="lb-subtitle">Time Usage &amp; Cost Efficiency</h3>
+            <figure class="lb-chart lb-chart-wide">
+                <div class="lb-chart-image">
+                    <img src="images/chart_usage.png" width="2335" height="754" loading="lazy"
+                         alt="Scatter plots of average performance against average time usage in minutes and average cost in dollars for each model.">
+                </div>
+                <figcaption>
+                    <h4>Performance vs. time and cost</h4>
+                    <p>Average Issue score against average minutes (left) and average cost (right) per task.</p>
+                </figcaption>
+            </figure>
+        </div>
     </section>
 
     <!-- Evaluation -->

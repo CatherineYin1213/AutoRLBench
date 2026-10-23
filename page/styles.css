@@ -4251,3 +4251,74 @@ body.home-page .lb-row { text-align: left; }
 @media (max-width: 560px) {
     body.home-page > section:not(.hero) { padding: 2.6rem 1.4rem 2.5rem; }
 }
+
+/* Leaderboard analysis charts — card shell mirrors .task-card */
+.lb-analysis {
+    margin-top: 3rem;
+}
+.lb-subtitle {
+    margin-bottom: 1.2rem;
+    color: var(--text-secondary);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.lb-chart-row {
+    display: flex;
+    gap: 1.2rem;
+}
+/* flex-grow = image aspect ratio and flex-basis = image padding,
+   so both chart images render at the same height */
+.lb-chart-row .lb-chart {
+    flex-basis: 2rem;
+    min-width: 0;
+}
+.lb-chart {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs);
+    text-align: left;
+}
+.lb-chart-image {
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    background: #fcfcfb; /* matches the chart PNG background */
+}
+.lb-chart-wide .lb-chart-image {
+    padding-top: 1.75rem;
+}
+.lb-chart-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.lb-chart figcaption {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.2rem 1.3rem;
+    border-top: 1px solid var(--border);
+}
+.lb-chart figcaption h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+.lb-chart figcaption p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+@media (max-width: 768px) {
+    .lb-chart-row { flex-direction: column; }
+    .lb-chart-row .lb-chart { flex: none !important; }
+}
