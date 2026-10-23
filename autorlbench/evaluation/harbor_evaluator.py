@@ -235,6 +235,15 @@ exit "$verifier_status"
         "*.distcp",
         "*.gguf",
         "__pycache__",
+        # Retrieval corpora that prepare.sh stages into /workspace (e.g. search_r1
+        # lands ~74GB of wiki-18 plus a large arrow cache). Collecting these as
+        # artifacts pushes the 120s tar budget past its limit and discards the
+        # trial's score, so exclude them by suffix / directory name.
+        "*.arrow",
+        ".hf_datasets_cache",
+        "wiki-18",
+        "*.index",
+        "*.faiss",
     )
 
     def _write_task_config(

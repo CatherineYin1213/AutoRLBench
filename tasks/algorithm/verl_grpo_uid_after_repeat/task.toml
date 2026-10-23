@@ -19,7 +19,7 @@ algo = "GRPO"
 script = "examples/grpo_trainer/run_llama3_2_1b_instruct_dapo_math_fsdp.sh"
 
 [environment]
-image = "verl:vllm017.latest"
+image = "verl"
 
 [environment.env]
 HF_HUB_OFFLINE = "1"

@@ -19,7 +19,7 @@ algo = "grpo"
 script = "examples/grpo_trainer/run_qwen2_5_1.5b_instruct_taco_fsdp.sh"
 
 [environment]
-image = "verl:vllm017.latest"
+image = "verl"
 
 # No GPUs declared on purpose: this task is issue-only, so neither the agent nor
 # the verifier stage starts training. Declaring NVIDIA_VISIBLE_DEVICES would add
