@@ -24,16 +24,16 @@ const CATEGORY_COUNTS = Object.fromEntries(
 );
 
 const ISSUE_RESULTS = [
-    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.69 },
-    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.62 },
-    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 0.92 },
-    // { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.46 },
-    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.69 },
-    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.54 },
-    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.31 },
-    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 0.46 },
-    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 0.62 },
-    { model: 'Grok-4.7', agent: 'Grok Build', score: 0.85 }
+    { model: 'GPT-6-Astra', agent: 'Codex', score: 0.64 },
+    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 0.57 },
+    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 0.86 },
+    // { model: 'Claude-Opus-5.5', agent: 'Claude Code', score: 0.43 },
+    { model: 'GLM-5.3', agent: 'Claude Code', score: 0.64 },
+    { model: 'Kimi-K3', agent: 'Claude Code', score: 0.50 },
+    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 0.29 },
+    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 0.43 },
+    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 0.57 },
+    { model: 'Grok-4.7', agent: 'Grok Build', score: 0.79 }
 ];
 
 function tasksForFamily(family) {

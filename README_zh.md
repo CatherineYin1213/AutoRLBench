@@ -23,15 +23,15 @@ AutoRLBench Leaderboard 0.1，issue 档成绩。*初版，会随新 agent 与新
 
 | # | 模型 | Agent | Issue 分数 | |
 | ---: | --- | --- | ---: | :--- |
-| 1 | Claude-Fable-5.1 | Claude Code | 0.92 | ███████████████████░ |
-| 2 | Grok-4.7 | Grok Build | 0.85 | █████████████████░░░ |
-| 3 | GPT-6-Astra | Codex | 0.69 | ██████████████░░░░░░ |
-| 4 | GLM-5.3 | Claude Code | 0.69 | ██████████████░░░░░░ |
-| 5 | GPT-6.1-Sol | Codex | 0.62 | █████████████░░░░░░░ |
-| 6 | Qwen3.8-Max | Qwen Code | 0.62 | █████████████░░░░░░░ |
-| 7 | Kimi-K3 | Claude Code | 0.54 | ███████████░░░░░░░░░ |
-| 8 | Gemini-4-Argon | Claude Code | 0.46 | ██████████░░░░░░░░░░ |
-| 9 | DeepSeek-V4-Pro | Claude Code | 0.31 | ███████░░░░░░░░░░░░░ |
+| 1 | Claude-Fable-5.1 | Claude Code | 0.86 | ██████████████████░░ |
+| 2 | Grok-4.7 | Grok Build | 0.79 | ████████████████░░░░ |
+| 3 | GPT-6-Astra | Codex | 0.64 | █████████████░░░░░░░ |
+| 4 | GLM-5.3 | Claude Code | 0.64 | █████████████░░░░░░░ |
+| 5 | GPT-6.1-Sol | Codex | 0.57 | ████████████░░░░░░░░ |
+| 6 | Qwen3.8-Max | Qwen Code | 0.57 | ████████████░░░░░░░░ |
+| 7 | Kimi-K3 | Claude Code | 0.50 | ██████████░░░░░░░░░░ |
+| 8 | Gemini-4-Argon | Claude Code | 0.43 | █████████░░░░░░░░░░░ |
+| 9 | DeepSeek-V4-Pro | Claude Code | 0.29 | ██████░░░░░░░░░░░░░░ |
 
 solution 档（修复并重跑）即将开放。完整结果见[网站](https://thinking-space.github.io/AutoRLBench/#leaderboard)。
 
