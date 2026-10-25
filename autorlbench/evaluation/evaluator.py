@@ -7,7 +7,7 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -30,6 +30,7 @@ from ..runtimes import (
     create_runtime,
 )
 from ..utils.filesystem import copy_tree, ensure_dir, tree_digest, write_text
+from .run_spec import REPORT_FILENAME, load_run_spec
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,15 @@ class TaskEvaluator:
         config: EvaluationConfig | None = None,
         strict: bool = True,
     ) -> EvaluationResult:
-        """Run one agent + verifier evaluation."""
+        """Run one prepare + rerun + verifier evaluation.
+
+        At the solution level the order is agent -> rerun -> verifier: the agent repairs code and
+        submits report.md but **does not train**; the rerun is the harness re-running the experiment
+        on the workspace the agent left behind, per the task's run_spec.json; and the verifier still
+        only ever reads this pass's fresh logs under $AUTORLBENCH_RESULTS. The issue level has no
+        rerun. This entry point itself runs no agent -- it is the verifier-side path -- so at the
+        solution level it only gets past the report gate on a workspace that already carries one.
+        """
         config = config or EvaluationConfig(backend=self.backend)
         self.log_level = config.log_level
         if self.log_level not in {"quiet", "debug"}:
@@ -125,26 +134,56 @@ class TaskEvaluator:
                     f"{prepare_result.returncode}; see prepare.stderr.log"
                 )
 
-            verifier_result = self._run_verifier(
-                package,
-                evaluation,
-                run,
-                config,
-                artifact=artifact,
-                agent_spec=agent_spec,
-            )
+            # The solution level's submission gate: a repair is only finished once /workspace/report.md
+            # exists. Without it the protocol was not completed, so neither the rerun nor the verifier
+            # runs -- above all for tasks whose verifier drives the work itself, where skipping this
+            # check would let a workspace that submitted nothing still collect a score.
+            report_file = run.workspace / REPORT_FILENAME
+            has_report = report_file.is_file() and report_file.stat().st_size > 0
+            rerun_result = None
+            verifier_result = None
+            if evaluation.level == "solution" and not has_report:
+                self._append_run_log(
+                    run.results, f"[SKIP] rerun reason=no_{REPORT_FILENAME}"
+                )
+                self._append_run_log(
+                    run.results, f"[SKIP] verifier reason=no_{REPORT_FILENAME}"
+                )
+            else:
+                if has_report:
+                    # Archive the report into results: the workspace is cleaned up after the run, and
+                    # reviewing "what did the agent actually change" needs something to point at.
+                    shutil.copy2(report_file, run.results / REPORT_FILENAME)
+                rerun_result = self._run_rerun(
+                    package, evaluation, run, config, artifact=artifact
+                )
+                verifier_result = self._run_verifier(
+                    package,
+                    evaluation,
+                    run,
+                    config,
+                    artifact=artifact,
+                    agent_spec=agent_spec,
+                )
             workspace_after_hash = tree_digest(run.workspace)
             metrics = self._extract_metrics(run.results, verifier_result)
+            rerun_ok = rerun_result is None or rerun_result.returncode == 0
+            if evaluation.level == "solution" and not has_report:
+                metrics["passed"] = False
+                metrics["failure"] = (
+                    f"agent did not submit {REPORT_FILENAME} in the workspace"
+                )
             result = EvaluationResult(
                 task_id=package.task_id,
                 evaluation_level=evaluation.level,
-                passed=bool(metrics.get("passed", verifier_result.returncode == 0)),
-                score=self._extract_score(metrics),
+                passed=rerun_ok and bool(metrics.get("passed", False)),
+                score=self._extract_score(metrics) if rerun_ok else 0.0,
                 metrics=metrics,
                 report_dir=run.results,
                 agent_spec=agent_spec,
                 agent_setup=None,
                 agent=None,
+                rerun=rerun_result,
                 verifier=verifier_result,
                 workspace_before_hash=workspace_before_hash,
                 workspace_after_hash=workspace_after_hash,
@@ -338,6 +377,85 @@ class TaskEvaluator:
         if config.huggingface_mirror:
             env["HF_ENDPOINT"] = config.huggingface_mirror
         return env
+
+    def _run_rerun(
+        self,
+        package: TaskPackage,
+        evaluation: EvaluationPaths,
+        run: PreparedRun,
+        config: EvaluationConfig,
+        artifact: Optional[EnvironmentArtifact],
+    ) -> Optional[CommandResult]:
+        """Re-run the experiment on the workspace the agent left behind, per run_spec.json.
+
+        Returns None when the task has no run_spec.json (a verifier that drives the work itself, or
+        a pure protocol repair such as verl_aime25_single_sample_protocol): those tasks go straight
+        from the submitted report to the verifier, and the agent-side constraints are carried by
+        instruction.md alone. A run_spec.json that exists but is invalid is a task-definition bug,
+        and load_run_spec raises RunSpecError on the spot -- not halfway into a training run.
+        """
+        if evaluation.level != "solution":
+            return None
+        spec = load_run_spec(evaluation.root, package.task_id)
+        if spec is None:
+            return None
+        # Grading only ever sees this pass: clear the log roots the spec declares first. Old logs an
+        # agent left behind by training against the protocol do not count.
+        for log_root in spec.log_roots:
+            shutil.rmtree(run.results / log_root, ignore_errors=True)
+        timeout_s = spec.timeout_s if spec.timeout_s is not None else config.timeout_s
+        # References like $AUTORLBENCH_RESULTS in spec.env have to become this backend's real paths
+        # (/results under docker, a host directory under local). standard_env only reads the request's
+        # path fields and never its env, so building the request before expanding is not circular.
+        request = SandboxRequest(
+            stage="rerun",
+            task_id=package.task_id,
+            host_task_root=run.visible_task,
+            host_visible_task=run.visible_task,
+            host_workspace=run.workspace,
+            host_results=run.results,
+            evaluation_level=evaluation.level,
+            host_environment=self._environment_mount(package),
+            # The rerun reads what prepare delivered too, mounted read-only: the agent cannot change it,
+            # which is the only thing that makes "the experiment ran on prepare's assets" hold.
+            host_prepared=run.prepared,
+            env={},
+            # Ray clusters and local retrieval servers inside an experiment need loopback; being offline
+            # is enforced by HF_HUB_OFFLINE and friends in _network_policy_env, not by cutting the network.
+            network="bridge",
+            timeout_s=timeout_s,
+            workdir="workspace",
+            task_env=dict(package.environment.env),
+        )
+        resolved = {
+            key: value
+            for key, value in self.runtime.standard_env(request).items()
+            if key.startswith("AUTORLBENCH_") and value
+        }
+        request = replace(request, env=spec.expand_env(resolved))
+        if artifact is None:
+            if self.runtime.needs_environment_image:
+                raise ValueError("rerun runtime needs a built environment artifact")
+            artifact = EnvironmentArtifact(backend=self.runtime.name)
+        self._append_run_log(run.results, "[START] rerun")
+        sandbox = self.runtime.create_sandbox(request, artifact=artifact)
+        try:
+            result = self.runtime.exec(
+                sandbox,
+                CommandSpec(
+                    shell=spec.command,
+                    timeout_s=timeout_s,
+                    # Training runs for hours: stream to disk like prepare does, so when it dies
+                    # rerun.stdout.log shows which step it died on.
+                    live_log_name="rerun",
+                    live_log_to_stderr=config.log_level == "debug",
+                ),
+            )
+        finally:
+            self.runtime.close_sandbox(sandbox)
+        self._write_stage_logs(run.results, "rerun", result)
+        self._append_command_summary(run.results, "rerun", result)
+        return result
 
     def _run_verifier(
         self,

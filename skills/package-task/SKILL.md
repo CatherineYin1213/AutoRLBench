@@ -41,10 +41,10 @@ tasks/<domain>/<task_id>/
     │   ├── instruction.md
     │   ├── oracle.md
     │   └── verifier/{test.sh,judge.py,judge_prompt.md}
-    └── solution/                 # optional: fix and rerun
+    └── solution/                 # optional: fix, then the harness reruns
         ├── instruction.md
         ├── oracle/
-        └── verifier/{test.sh,tests/grade_submission.py,resources/grader_spec.json}
+        └── verifier/{test.sh,tests/grade_submission.py,resources/{grader_spec.json,run_spec.json}}
 ```
 
 Do not produce `agent_trace.json`, `environment/Dockerfile`, `requirements.txt`, or `validation/`.
@@ -92,7 +92,10 @@ Form 2 **publishes only the defective side**. Putting both sides in `workspace/`
 3. **Write the oracle.** Use the diff from step 1 to write `evaluations/issue/oracle.md` and `solution/oracle/`.
    When there are multiple root causes, `oracle.md` must state that naming only some of them earns partial credit.
 4. **Write the solution tier** (only when there is a control side or a post-fix run): `instruction.md`, `grader_spec.json`,
-   `grade_submission.py`. If the log format matches, reuse an existing `grade_submission.py` and change only the spec.
+   `run_spec.json`, `grade_submission.py`. If the log format matches, reuse an existing `grade_submission.py` and change only the spec.
+   `instruction.md` tells the agent to repair and submit `report.md` and **not** to launch training; `run_spec.json` is what the
+   harness runs on its behalf. The two must agree — the agent is graded on a run it never starts, so a command or budget that
+   appears in only one of them is how a correct repair still scores 0.
 5. **Assemble the workspace.** Add the defective-side code and frozen evidence, slim and sanitize it (see below), then write `environment/prepare.sh`,
    `task.toml`, and `README.md`.
 6. **Offline self-check.** Replay the grader on the log samples. With a control side, replay once per side: the defective side must fail and the control side must pass.
@@ -167,6 +170,7 @@ points at the defect. Guard outputs with a `.complete` marker, hard-link them in
 - [ ] The four issue files and solution `test.sh` all match their source under `cmp`
 - [ ] Oracle root causes match the filtered diff; partial-credit sentence present for multiple causes
 - [ ] Grader replay: defective side exit 1, control side exit 0
+- [ ] Solution tier: `instruction.md` forbids launching training and requires `report.md`; its command, env and budget match `run_spec.json`
 - [ ] Workspace has the launch script and failure logs; sanitize scan shows only upstream hits
 - [ ] All `env` values in `task.toml` are strings, no `AUTORLBENCH_*`
 - [ ] Every asset in `prepare.sh` has `--expect` / `--expect-size`, and every revision is a 40-char sha

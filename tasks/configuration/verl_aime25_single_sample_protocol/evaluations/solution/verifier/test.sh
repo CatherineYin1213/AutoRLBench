@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${AUTORLBENCH_WORKSPACE:?AUTORLBENCH_WORKSPACE is required}"
 : "${AUTORLBENCH_RESULTS:?AUTORLBENCH_RESULTS is required}"
 : "${AUTORLBENCH_ORACLE:?AUTORLBENCH_ORACLE is required}"
-
-mkdir -p "$AUTORLBENCH_RESULTS"
+: "${AUTORLBENCH_WORKSPACE:?AUTORLBENCH_WORKSPACE is required}"
 
 PROTO="$AUTORLBENCH_RESULTS/solution_protocol.json"
 
-python3 \
-  "$AUTORLBENCH_WORKSPACE/run_eval.py" \
-  --protocol-only \
-  > "$PROTO"
+if [ ! -f "$PROTO" ]; then
+    echo "[FAIL] rerun did not produce solution_protocol.json" >&2
+    echo "       expected: $PROTO" >&2
+    exit 1
+fi
 
 python3 - "$PROTO" <<'PY'
 import json

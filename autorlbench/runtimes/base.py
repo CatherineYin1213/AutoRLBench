@@ -48,7 +48,12 @@ class SandboxInstance:
 
 @dataclass(frozen=True)
 class SandboxRequest:
-    """Host resources needed for one prepare / agent / verifier run."""
+    """Host resources needed for one prepare / agent / rerun / verifier run.
+
+    A rerun stage sits between the agent and the verifier: under the solution protocol the agent
+    only repairs code and never runs the experiment, so the harness re-runs it on the workspace
+    the agent left behind, and grading only ever sees that fresh run's logs.
+    """
 
     stage: str
     task_id: str
@@ -89,8 +94,10 @@ class SandboxRequest:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "task_env", dict(self.task_env))
-        if self.stage not in {"prepare", "agent", "verifier"}:
-            raise ValueError("sandbox stage must be 'prepare', 'agent' or 'verifier'")
+        if self.stage not in {"prepare", "agent", "rerun", "verifier"}:
+            raise ValueError(
+                "sandbox stage must be 'prepare', 'agent', 'rerun' or 'verifier'"
+            )
         if self.workdir not in {"workspace", "task_root", "prepared"}:
             raise ValueError(
                 "sandbox workdir must be 'workspace', 'task_root' or 'prepared'"
@@ -160,7 +167,7 @@ class SandboxRuntime(ABC):
         raise NotImplementedError(f"{self.name} does not support sandbox cleanup")
 
     def standard_env(self, request: SandboxRequest) -> Dict[str, str]:
-        """Build the AutoRLBench environment variables all three stages can rely on."""
+        """Build the AutoRLBench environment variables every stage can rely on."""
         visible_task = self.path(request, "visible_task")
         workspace = self.path(request, "workspace")
         results = self.path(request, "results")
@@ -170,8 +177,9 @@ class SandboxRuntime(ABC):
             oracle = self.path(request, "oracle")
             verifier = self.path(request, "verifier")
         else:
-            # Both prepare and the agent see only visible_task: prepare runs a script the task
-            # supplies, and there is no reason for it to read the oracle or grading scripts.
+            # prepare, agent and rerun all see only visible_task: prepare runs a script the task
+            # supplies, and neither the agent nor the rerun has a reason to read the oracle or the
+            # grading scripts -- the rerun runs the command the task declared, nothing more.
             task_root = visible_task
             visible = visible_task
             oracle = ""
@@ -209,9 +217,9 @@ class SandboxRuntime(ABC):
         """Offline switches, set per stage.
 
         These used to be baked into the image ENV, which no longer works: prepare is the only stage that **should**
-        have network, and image-level ENV treats all three stages alike, so prepare would cut off its own network.
+        have network, and image-level ENV treats every stage alike, so prepare would cut off its own network.
 
-        Agent and verifier are the opposite: any silent network download could run the evaluation on weights
+        Agent, rerun and verifier are the opposite: any silent network download could run the evaluation on weights
         nobody verified, without anyone noticing. So they are locked down here, and any data a task needs must be
         what the prepare stage delivered.
         """

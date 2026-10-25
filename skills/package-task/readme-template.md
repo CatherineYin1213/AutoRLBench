@@ -46,8 +46,10 @@ Name the single strongest piece of evidence that rules out the wrong diagnosis.>
 
 - **issue**: an LLM judge compares `agent_answer.md` with the hidden oracle on
   verdict / root cause / evidence, weighted 0.2 / 0.6 / 0.2. Passing requires ≥ 0.8.
-- **solution**: <metric key, step, threshold. Margins to both arms, whether it clears the
-  control's step 0, and how many runs per side it was calibrated on.>
+- **solution**: the agent submits `report.md` and does not train; the harness reruns the
+  experiment per `run_spec.json` and grades only that run. <metric key, step, threshold.
+  Margins to both arms, whether it clears the control's step 0, and how many runs per side
+  it was calibrated on.>
 ```
 
 For issue-only tasks, delete the `solution` line from both Reference solution and Verification.

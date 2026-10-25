@@ -359,6 +359,10 @@ class EvaluationResult:
     workspace_before_hash: str
     workspace_after_hash: str
     metadata: Dict[str, Any]
+    # The solution level's system rerun: the pass the harness runs after the agent submits its
+    # report and before grading. None for the issue level, and for solution tasks with no
+    # run_spec.json. Defaulted so the field can sit last without reordering the rest.
+    rerun: Optional[CommandResult] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -371,6 +375,7 @@ class EvaluationResult:
             "agent_spec": None if self.agent_spec is None else self.agent_spec.to_dict(),
             "agent_setup": None if self.agent_setup is None else self.agent_setup.to_dict(),
             "agent": None if self.agent is None else self.agent.to_dict(),
+            "rerun": None if self.rerun is None else self.rerun.to_dict(),
             "verifier": None if self.verifier is None else self.verifier.to_dict(),
             "workspace_before_hash": self.workspace_before_hash,
             "workspace_after_hash": self.workspace_after_hash,

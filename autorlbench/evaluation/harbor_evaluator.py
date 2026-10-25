@@ -38,6 +38,12 @@ from ..core.types import (
 )
 from ..tasks import SchemaError, load_task_package
 from .evaluator import TaskEvaluator
+from .run_spec import (
+    REPORT_FILENAME,
+    RunSpec,
+    RunSpecError,
+    load_run_spec,
+)
 from ..utils.filesystem import copy_tree, ensure_dir, tree_digest, write_text
 
 
@@ -95,7 +101,7 @@ class HarborTaskMaterializer:
 
         self._write_instruction(evaluation, task_dir)
         self._write_environment(unit, task_dir)
-        self._write_tests(evaluation, task_dir)
+        self._write_tests(unit, task_dir)
         self._write_solution(evaluation, task_dir)
         self._write_task_config(unit, task_dir, config)
         self._write_manifest(package, evaluation, task_dir, config)
@@ -141,7 +147,8 @@ class HarborTaskMaterializer:
 
         shutil.copytree(source, destination, symlinks=True, copy_function=link_or_copy)
 
-    def _write_tests(self, evaluation: EvaluationPaths, task_dir: Path) -> None:
+    def _write_tests(self, unit: HarborTaskUnit, task_dir: Path) -> None:
+        evaluation = unit.evaluation
         tests_dir = ensure_dir(task_dir / "tests")
         copy_tree(evaluation.verifier, tests_dir / "verifier")
         if evaluation.oracle.is_dir():
@@ -150,8 +157,20 @@ class HarborTaskMaterializer:
             shutil.copy2(evaluation.oracle, tests_dir / "oracle.md")
 
         test_script = tests_dir / "test.sh"
-        write_text(test_script, self._verifier_wrapper())
+        write_text(test_script, self._verifier_wrapper(self._load_run_spec(unit)))
         test_script.chmod(0o755)
+
+    @staticmethod
+    def _load_run_spec(unit: HarborTaskUnit) -> Optional[RunSpec]:
+        """Read the task's run_spec.json, turning a bad spec into a HarborAdapterError right here.
+
+        There is no second chance to load it inside Harbor's verifier container -- the wrapper is a
+        static script -- so all the validation happens at materialize time.
+        """
+        try:
+            return load_run_spec(unit.evaluation.root, unit.package.task_id)
+        except RunSpecError as exc:
+            raise HarborAdapterError(str(exc)) from exc
 
     @staticmethod
     def _write_solution(evaluation: EvaluationPaths, task_dir: Path) -> None:
@@ -166,9 +185,81 @@ class HarborTaskMaterializer:
         copy_tree(source, task_dir / "solution")
         (task_dir / "solution" / "solve.sh").chmod(0o755)
 
-    @staticmethod
-    def _verifier_wrapper() -> str:
-        return r'''#!/usr/bin/env bash
+    # These paths are constants inside Harbor's verifier container (see shared_env in
+    # _write_task_config); a run_spec's $AUTORLBENCH_* references are expanded to literals here, so
+    # the wrapper needs no substitution at run time.
+    _HARBOR_SPEC_PATHS = {
+        "AUTORLBENCH_WORKSPACE": "/workspace",
+        "AUTORLBENCH_RESULTS": "/logs/artifacts",
+    }
+
+    @classmethod
+    def _verifier_wrapper(cls, spec: Optional[RunSpec]) -> str:
+        """The solution level's wrapper: report gate -> system rerun -> test.sh.
+
+        Harbor only has agent and verifier stages, so the rerun folds into the verifier container:
+        same machine, same workspace (environment_mode = "shared", writable), with the report.md the
+        agent submitted and whatever it installed into PYTHONUSERBASE both still there. The only
+        difference from `_run_rerun` on the docker backend is that there the rerun is its own
+        sandbox; here the script pushes AUTORLBENCH_STAGE to rerun itself, runs the experiment, and
+        restores it to verifier afterwards.
+
+        The report gate applies to **every** solution task, including those with no run_spec: no
+        report, no rerun and no grading, score 0. The issue level never reaches it (the level is read
+        from AUTORLBENCH_EVALUATION_LEVEL at run time; the wrapper is one script for both).
+        """
+        rerun_section = ""
+        if spec is not None:
+            log_roots = " ".join(shlex.quote(root) for root in spec.log_roots)
+            expanded_env = spec.expand_env(cls._HARBOR_SPEC_PATHS)
+            env_exports = "\n".join(
+                f"export {key}={shlex.quote(value)}"
+                for key, value in expanded_env.items()
+            )
+            command_line = f"bash -c {shlex.quote(spec.command)}"
+            # Enforce the timeout where it can be enforced: on the odd slimmed-down image without
+            # `timeout`, run bare and let Harbor's own verifier timeout be the backstop.
+            if spec.timeout_s is not None:
+                command_line = (
+                    f"command -v timeout >/dev/null 2>&1 "
+                    f"&& exec timeout {spec.timeout_s}s {command_line}; "
+                    f"exec {command_line}"
+                )
+            env_note = (
+                "# run_spec's env ($AUTORLBENCH_* already expanded at materialize time). It goes on "
+                "top of\n# the task's metadata env: run_spec is the value the protocol requires."
+                if env_exports
+                else ""
+            )
+            rerun_section = f'''# --- AutoRLBench rerun: re-run the experiment on the agent's workspace ----
+# command / env come from the task's run_spec.json, expanded and inlined at materialize time.
+# Clear the logs first: even if an agent broke protocol and trained, those logs do not count --
+# grading only ever sees this pass.
+for _root in {log_roots}; do
+  rm -rf "$AUTORLBENCH_RESULTS/$_root"
+done
+unset _root
+{env_note}
+{env_exports}
+
+# The activate hook's once-only guard (AUTORLBENCH_ACTIVATED) does not re-run per stage, so set the
+# three variables its rerun branch would have set, explicitly, and clear them afterwards -- grading
+# must not depend on what the agent installed into the workspace user base.
+AUTORLBENCH_STAGE=rerun
+PYTHONUSERBASE=/workspace/.autorlbench-user
+PIP_USER=1
+PIP_BREAK_SYSTEM_PACKAGES=1
+export AUTORLBENCH_STAGE PYTHONUSERBASE PIP_USER PIP_BREAK_SYSTEM_PACKAGES
+( cd /workspace && {command_line} )
+_rerun_status=$?
+unset AUTORLBENCH_STAGE PYTHONUSERBASE PIP_USER PIP_BREAK_SYSTEM_PACKAGES
+export AUTORLBENCH_STAGE=verifier
+echo "autorlbench: rerun exit=$_rerun_status" >&2
+# Grade even when the rerun failed: against empty or partial logs the grading script scores 0 by
+# itself, which matches the docker backend, where the verifier always runs.
+
+'''
+        return f'''#!/usr/bin/env bash
 set +e
 
 # Harbor runs commands with `bash -c`, not a login shell, so /etc/profile.d does not take effect;
@@ -177,7 +268,20 @@ if [ -f /etc/profile.d/autorlbench-activate.sh ]; then
   . /etc/profile.d/autorlbench-activate.sh
 fi
 
-bash "$AUTORLBENCH_VERIFIER/test.sh"
+# --- AutoRLBench report gate: no report.md, no rerun, no grading ----------
+if [ "$AUTORLBENCH_EVALUATION_LEVEL" = "solution" ] && [ ! -s "$AUTORLBENCH_WORKSPACE/{REPORT_FILENAME}" ]; then
+  echo "autorlbench: agent did not submit {REPORT_FILENAME} in the workspace; skipping rerun and verifier" >&2
+  echo '{{"passed": false, "score": 0.0, "metrics": {{"failure": "agent did not submit {REPORT_FILENAME}"}}}}' > "$AUTORLBENCH_RESULTS/result.json"
+  cp "$AUTORLBENCH_RESULTS/result.json" /logs/verifier/autorlbench-result.json
+  printf '0\\n' > /logs/verifier/reward.txt
+  exit 1
+fi
+if [ "$AUTORLBENCH_EVALUATION_LEVEL" = "solution" ]; then
+  # Archive the report into results, same as the docker backend: the workspace is collected after the
+  # run, and reviewing "what did the agent actually change" needs something to point at.
+  cp "$AUTORLBENCH_WORKSPACE/{REPORT_FILENAME}" "$AUTORLBENCH_RESULTS/{REPORT_FILENAME}" 2>/dev/null || true
+fi
+{rerun_section}bash "$AUTORLBENCH_VERIFIER/test.sh"
 verifier_status=$?
 
 # Put the structured result in the verifier log so remote Harbor environments download it too.
@@ -189,7 +293,7 @@ fi
 # Harbor only consumes the reward file; AutoRLBench's full metrics still live in result.json.
 score=""
 if [ -f "$result_file" ]; then
-  score="$(tr '\n' ' ' < "$result_file" | sed -nE 's/.*"score"[[:space:]]*:[[:space:]]*(-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?).*/\1/p')"
+  score="$(tr '\\n' ' ' < "$result_file" | sed -nE 's/.*"score"[[:space:]]*:[[:space:]]*(-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?).*/\\1/p')"
 fi
 if ! printf '%s' "$score" | grep -Eq '^-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'; then
   if [ "$verifier_status" -eq 0 ]; then
@@ -199,7 +303,7 @@ if ! printf '%s' "$score" | grep -Eq '^-?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]
   fi
 fi
 
-printf '%s\n' "$score" > /logs/verifier/reward.txt
+printf '%s\\n' "$score" > /logs/verifier/reward.txt
 exit "$verifier_status"
 '''
 

@@ -378,6 +378,11 @@ class DockerRuntime(SandboxRuntime):
         Prepare only downloads models and datasets and needs no GPU. `docker create`
         accepts --gpus, but on some hosts the NVIDIA runtime hook fails at `docker start` when it
         tries to bind the actual device nodes.
+
+        The rerun has to run real training, so it takes the cards the task declares, exactly as the
+        agent stage does. The agent gets them too, but the protocol forbids it from launching
+        training -- there the GPU is headroom for cheap offline checks; the rerun is what actually
+        fills it.
         """
         if request.stage == "prepare":
             return []
@@ -409,17 +414,19 @@ class DockerRuntime(SandboxRuntime):
     def _mounts(self, request: SandboxRequest) -> Sequence[DockerMount]:
         """What each stage mounts, and who can write.
 
-        The differences between the three tables are this design's access control, so each is spelled out:
+        The differences between the tables are this design's access control, so each is spelled out:
 
-        * **workspace**: writable by prepare and agent, read-only for verifier. Prepare writes because
+        * **workspace**: writable by prepare, agent and rerun, read-only for verifier. Prepare writes because
           weights are downloaded to the relative path the task script references (`./Qwen2.5-0.5B-Instruct`);
+          rerun writes because training itself writes checkpoints;
           the verifier is read-only because grading must not alter the scene.
-        * **/task**: prepare and agent mount visible_task (instruction only);
+        * **/task**: prepare, agent and rerun mount visible_task (instruction only);
           the verifier mounts the whole evaluation directory (with oracle and grading scripts). This is "no spoilers":
-          prepare runs a script shipped with the task and has no reason to read the answer.
-        * **prepared**: writable by prepare, read-only for the later two stages. The verifier reads the model
+          prepare runs a script shipped with the task and has no reason to read the answer, and neither does a rerun.
+        * **prepared**: writable by prepare, read-only for every later stage. The verifier reads the model
           path prepare delivered, but must not read a copy the agent modified, or the grading basis would be editable by the examinee.
-        * **models / datasets**: writable by prepare, read-only for the later two stages. See
+          The rerun reads it too, read-only: that is what makes "the experiment ran on the assets prepare delivered" hold.
+        * **models / datasets**: writable by prepare, read-only for every later stage. See
           SandboxRequest.host_models.
         """
         if request.stage == "prepare":
@@ -434,7 +441,12 @@ class DockerRuntime(SandboxRuntime):
                 mounts.append(
                     DockerMount(request.host_tooling, TOOLING_DIR, read_only=True)
                 )
-        elif request.stage == "agent":
+        elif request.stage in {"agent", "rerun"}:
+            # Rerun comes after the agent: the workspace stays writable, because the training script
+            # writes checkpoints and ray writes scratch directories, and results stays writable
+            # because that is where the logs grading reads land. The only difference from the agent
+            # is nothing at all on /task -- a rerun runs the command the task declared and has no
+            # more reason to see the oracle than the agent does.
             mounts = [
                 DockerMount(request.host_workspace, "/workspace"),
                 DockerMount(request.host_visible_task, "/task", read_only=True),

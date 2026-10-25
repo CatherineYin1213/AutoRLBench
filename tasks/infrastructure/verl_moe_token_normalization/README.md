@@ -53,7 +53,9 @@ the observed gap without establishing cross-seed variance.
 
 - **issue**: an LLM judge scores verdict / root cause / evidence, weighted
   0.2 / 0.6 / 0.2. Passing requires ≥ 0.8.
-- **solution**: rerun the launch script and require
+- **solution**: the agent repairs the workspace and submits `report.md` without
+  training; a missing report scores 0. The harness then reruns
+  `scripts/train.sh` per `run_spec.json` and requires
   `val-core/openai/gsm8k/acc/mean@1` at step 150 ≥ 0.4 (cap 1.0). Only the
   step-150 evaluation of a fresh run counts: the grader reads only
   `experiment_logs`, rejects step-0-only or earlier-best logs, and extending

@@ -28,4 +28,4 @@ The code and weights are fine. The hard part is to stop treating one low score a
 ## Verification
 
 - **issue**: an LLM judge scores verdict / root cause / evidence, weighted 0.2 / 0.6 / 0.2. Passing requires ≥ 0.8.
-- **solution**: a deterministic, offline protocol check with no tolerance to calibrate. It runs `run_eval.py --protocol-only` and asserts `aime25`, 30 questions, 32 samples, `mean`, `temperature 1.0`, `top_p 1.0`, and 960 generations. It then runs `sha256sum -c` against the oracle manifest to confirm the preserved evidence was not modified.
+- **solution**: the agent repairs the config and submits `report.md` without running anything; a missing report scores 0. This task ships no `run_spec.json` — a protocol repair has no experiment to rerun — so grading is a deterministic, offline protocol check with no tolerance to calibrate. It runs `run_eval.py --protocol-only` and asserts `aime25`, 30 questions, 32 samples, `mean`, `temperature 1.0`, `top_p 1.0`, and 960 generations. It then runs `sha256sum -c` against the oracle manifest to confirm the preserved evidence was not modified.

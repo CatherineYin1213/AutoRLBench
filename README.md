@@ -98,15 +98,19 @@ The per-token loss callback omits the token count, so MoE z-loss gradients are n
 ## How a task works
 
 ```text
-prepare ──▶ agent ──▶ verifier
-  │           │          │
-  │           │          └─ issue:    LLM judge on agent_answer.md vs. hidden oracle
-  │           │             solution: rerun, then a metric threshold
+prepare ──▶ agent ──▶ [rerun] ──▶ verifier
+  │           │          │            │
+  │           │          │            └─ issue:    LLM judge on agent_answer.md vs. hidden oracle
+  │           │          │               solution: a metric threshold on the rerun's logs
+  │           │          └─ solution only: the harness re-runs the experiment on the agent's
+  │           │             workspace, per the task's run_spec.json
   │           └─ reads instruction.md and a writable copy of workspace/
   └─ fetches pinned models and datasets (the only stage with network)
 ```
 
 Each stage runs in its own container from the same prebuilt image. Oracles and verifiers are mounted only into the verifier stage.
+
+At the solution level the agent repairs the workspace and submits `report.md` — it does **not** launch training itself. The harness clears the task's log roots, re-runs the experiment on the repaired workspace, and grades only that fresh run. No `report.md`, no rerun and no grading: the task scores 0. A solution task without a `run_spec.json` (a pure protocol repair, say) skips the rerun but is bound by the same report gate.
 
 ## Repository layout
 
@@ -129,7 +133,7 @@ tasks/<domain>/<task_id>/
 ├── environment/prepare.sh  # fetches pinned models and datasets (only stage with network)
 └── evaluations/
     ├── issue/              # instruction.md · oracle.md · verifier/
-    └── solution/           # instruction.md · oracle/ · verifier/
+    └── solution/           # instruction.md · oracle/ · verifier/ (grader_spec.json · run_spec.json)
 ```
 
 ## Quick start
@@ -147,7 +151,7 @@ python3 -m autorlbench evaluate tasks/reward/slime_retool_length_reward_bonus \
 python3 -m autorlbench harbor-evaluate tasks/reward --agent codex --model <model>
 ```
 
-Run `python3 -m autorlbench --help` for every option. The issue verifier calls an OpenAI-compatible judge through `OPENAI_BASE_URL` and `OPENAI_API_KEY`.
+Run `python3 -m autorlbench --help` for every option. The issue verifier calls an OpenAI-compatible judge through `OPENAI_BASE_URL` and `OPENAI_API_KEY`. `evaluate` runs no agent, so at `--evaluation-level solution` it stops at the report gate and scores 0 unless the staged workspace already carries a `report.md`.
 
 ## Contributing
 

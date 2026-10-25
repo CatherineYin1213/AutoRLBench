@@ -99,15 +99,19 @@ per-token loss 回调缺少 token 计数，MoE z-loss 梯度从未被归一化�
 ## 一个任务怎么跑
 
 ```text
-prepare ──▶ agent ──▶ verifier
-  │           │          │
-  │           │          └─ issue:    LLM judge 比对 agent_answer.md 与隐藏 oracle
-  │           │             solution: 重跑后按指标门槛判定
+prepare ──▶ agent ──▶ [rerun] ──▶ verifier
+  │           │          │            │
+  │           │          │            └─ issue:    LLM judge 比对 agent_answer.md 与隐藏 oracle
+  │           │          │               solution: 按指标门槛判定重跑产出的日志
+  │           │          └─ 仅 solution：harness 按任务的 run_spec.json，
+  │           │             在 agent 修好的 workspace 上重跑实验
   │           └─ 读取 instruction.md 与一份可写的 workspace/
   └─ 拉取钉死版本的模型与数据集（唯一联网的阶段）
 ```
 
-三个阶段各自起容器，用的是同一个预构建镜像。oracle 与 verifier 只挂进 verifier 阶段。
+各阶段各自起容器，用的是同一个预构建镜像。oracle 与 verifier 只挂进 verifier 阶段。
+
+solution 层里 agent 只负责修 workspace 并提交 `report.md`，**不自己启动训练**。harness 会清掉任务声明的日志目录，在修好的 workspace 上重跑实验，只对这一遍的新日志判分。没交 `report.md` 就不重跑也不判分，直接记 0 分。没有 `run_spec.json` 的 solution 任务（比如纯协议修复）不触发重跑，但同样受 report 门槛约束。
 
 ## 目录
 
@@ -130,7 +134,7 @@ tasks/<domain>/<task_id>/
 ├── environment/prepare.sh  # 拉取钉死版本的模型与数据集（唯一联网阶段）
 └── evaluations/
     ├── issue/              # instruction.md · oracle.md · verifier/
-    └── solution/           # instruction.md · oracle/ · verifier/
+    └── solution/           # instruction.md · oracle/ · verifier/（grader_spec.json · run_spec.json）
 ```
 
 ## 快速开始
@@ -148,7 +152,7 @@ python3 -m autorlbench evaluate tasks/reward/slime_retool_length_reward_bonus \
 python3 -m autorlbench harbor-evaluate tasks/reward --agent codex --model <model>
 ```
 
-全部参数见 `python3 -m autorlbench --help`。issue 档的 verifier 通过 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY` 调用 OpenAI 兼容的 judge。
+全部参数见 `python3 -m autorlbench --help`。issue 档的 verifier 通过 `OPENAI_BASE_URL` 与 `OPENAI_API_KEY` 调用 OpenAI 兼容的 judge。`evaluate` 不跑 agent，所以 `--evaluation-level solution` 会停在 report 门槛记 0 分，除非 workspace 里本来就带了 `report.md`。
 
 ## 贡献
 

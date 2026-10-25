@@ -149,33 +149,54 @@ fix:
 
 ## solution/instruction.md
 
-From the start through "The dataset, held-out set, ... are fixed", reuse `tasks/reward/slime_retool_length_reward_bonus/evaluations/solution/instruction.md`. After that, replace with this task's user input:
+The solution protocol is debug-then-report: the agent repairs the workspace and submits `report.md`, and the **harness** re-runs the experiment afterwards. So `instruction.md` never tells the agent to launch anything.
+
+From the start through "Training reward alone does not establish held-out health.", reuse `tasks/reward/slime_retool_length_reward_bonus/evaluations/solution/instruction.md`. Keep its `## Your job` section verbatim too — the report gate is identical for every task. Then replace `## What the system will run` with this task's user input:
 
 ```markdown
-The launch script is:
+## What the system will run
 
-```text
-<launch-script-relative-path>
+After you submit the report, the system deletes everything under
+`$AUTORLBENCH_RESULTS/experiment_logs`, then re-runs the experiment in your
+repaired workspace as a foreground process:
+
+```bash
+<the exact command from run_spec.json>
 ```
 
-<user-supplied args or example invocation>
+<with this environment: the env block from run_spec.json, when it has one>
 
-The effective run must use:
+The effective run uses:
 
 - model `<in-container model path>`
 - train data `<train set path>`
 - validation data `<validation set path>`
 - <fixed step count and eval interval, e.g. `--num-rollout 100`, `--eval-interval 10`>
-- `LOG_DIR=$AUTORLBENCH_RESULTS/experiment_logs`
 - `WANDB_MODE=offline`
-- `WANDB_DIR=$AUTORLBENCH_RESULTS/experiment_logs`
 
-Create `$AUTORLBENCH_RESULTS/experiment_logs` first. Offline W&B data must be
-created below `$AUTORLBENCH_RESULTS/experiment_logs/wandb`. The run is scored only
-from files under `$AUTORLBENCH_RESULTS/experiment_logs`; logs written anywhere
-else are ignored. Do not copy, edit, or fabricate log metrics. Otherwise the
-run is scored 0.
+A task-specific grading script then reads **only this fresh run's** files under
+`$AUTORLBENCH_RESULTS/experiment_logs` and scores the key metrics; logs written
+anywhere else are ignored. Do not copy, edit, or fabricate log metrics.
+Otherwise the run is scored 0.
 ```
+
+Call out any trap that would make the rerun produce the wrong run, since the agent is the only one who can fix it beforehand: a budget baked into the launch script that the rerun does not override (`--num-rollout 3000` where the protocol wants 70), a launcher that builds its own Ray runtime-env JSON so `WANDB_DIR` never reaches the training process, a guard that refuses a run-name that already exists. State what the agent must change, not what the defect is.
+
+## solution/verifier/resources/run_spec.json
+
+The machine-readable half of the same protocol: what the harness runs, with what environment, for how long, and which log roots it clears first. Values may reference `$AUTORLBENCH_RESULTS` / `$AUTORLBENCH_WORKSPACE`; the harness expands them per backend. `env` must not declare `AUTORLBENCH_*` itself.
+
+```json
+{
+  "schema_version": 1,
+  "command": "<shell command, run from the workspace root, with every override the protocol requires>",
+  "env": {"LOG_DIR": "$AUTORLBENCH_RESULTS/experiment_logs"},
+  "timeout_s": 28800,
+  "log_roots": ["experiment_logs"]
+}
+```
+
+`timeout_s` is the run's real wall-clock budget — without it the generic evaluation timeout applies and cuts a multi-hour run off at the knees. Omit the file entirely for a solution task with nothing to re-run (a pure protocol repair): the report gate still applies, the rerun is simply skipped.
 
 ## solution/oracle/README.md
 
