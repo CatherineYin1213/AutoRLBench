@@ -9,6 +9,7 @@
   "score_mode": "final",
   "validation_dump": "val_generations/{step}.jsonl",
   "validation_recheck_tolerance": "0.002",
+  "answer_key": "gsm8k_test_answer_key.json",
   "log_roots": [
     "experiment_logs"
   ]

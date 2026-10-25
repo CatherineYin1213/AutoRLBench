@@ -9,8 +9,15 @@ percent.
 
 The step-60 validation generations (`experiment_logs/val_generations/60.jsonl`)
 are re-graded with `../tests/gsm8k_reference.py`, a verbatim copy of verl's
-`verl/utils/reward_score/gsm8k.py` (strict `####` extraction). The re-graded
-accuracy must be within 0.002 of the logged metric and must also be >= 0.4.
+`verl/utils/reward_score/gsm8k.py` (strict `####` extraction), against the
+protected answer key `gsm8k_test_answer_key.json`: one entry per GSM8K test
+problem (1319, no duplicate questions), keyed by the sha256 of the user message
+with whitespace collapsed, built from the prepared `data/gsm8k/test.parquet` by
+`build_answer_key.py`. Each dump row is matched to the key by its question;
+every key problem must appear exactly once, and rows that match no key problem,
+missing problems or repeated problems fail the run. Answers come from the key,
+not from the dump's `gts`. The re-graded accuracy must be within 0.002 of the
+logged metric and must also be >= 0.4.
 
 ## System rerun (`run_spec.json`)
 

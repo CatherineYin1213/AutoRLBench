@@ -39,8 +39,9 @@
 Machine grading reads only new `experiment_logs` files and requires
 `val-core/openai/gsm8k/acc/mean@1 >= 0.4` at step 60 (`score_mode=final`),
 with an accuracy cap of 1.0. The step-60 validation dump is re-graded with the
-verifier's own copy of verl's GSM8K scorer and must agree with the logged value
-within 0.002.
+verifier's own copy of verl's GSM8K scorer against a protected answer key: all
+1319 test problems must appear exactly once, answers come from the key, and the
+re-grade must agree with the logged value within 0.002.
 
 Two defective and two repaired runs calibrate this initial threshold (seed 1
 on 1 GPU, seed 2 on 2 GPUs). Step 60: defective 0.08415 / 0.08112, repaired

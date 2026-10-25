@@ -2,14 +2,17 @@
 """Extract the target veRL metric from fresh logs and assign a binary score.
 
 Task-local addition: when grader_spec.json names a `validation_dump`, the final-step validation generations are
-re-graded with the verifier's own copy of verl's GSM8K scorer (gsm8k_reference.py, not the workspace's), and the
-logged metric must agree with that re-grade. A workspace whose reward or scorer was edited cannot pass on its own
-numbers.
+re-graded with the verifier's own copy of verl's GSM8K scorer (gsm8k_reference.py, not the workspace's) against the
+verifier's protected answer key (`answer_key`, one entry per test problem). Every problem of the key must appear in
+the dump exactly once, answers come from the key rather than the dump's own `gts`, and the logged metric must agree
+with that re-grade. A workspace whose reward, scorer, dump writer or logged numbers were edited cannot pass on its
+own data.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -41,6 +44,7 @@ OPTIONAL_SPEC_KEYS = {
     "score_mode",
     "validation_dump",
     "validation_recheck_tolerance",
+    "answer_key",
 }
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -217,29 +221,72 @@ def judged_value(spec: dict[str, Any], values: dict[int, tuple[Any, Decimal, str
     return best[0], best[1], best[3]
 
 
+def user_message(decoded_input: str) -> str | None:
+    """The user turn of a verl validation dump's decoded prompt ("system ... user <message> assistant")."""
+    start = decoded_input.find("\nuser\n")
+    end = decoded_input.rfind("\nassistant")
+    if start < 0 or end <= start:
+        return None
+    return decoded_input[start + len("\nuser\n"):end]
+
+
+def question_key(text: str) -> str:
+    return hashlib.sha256(" ".join(text.split()).encode("utf-8")).hexdigest()
+
+
+def load_answer_key(spec: dict[str, Any]) -> dict[str, str]:
+    path = Path(__file__).resolve().parent.parent / "resources" / spec["answer_key"]
+    problems = json.loads(path.read_text(encoding="utf-8"))["problems"]
+    answers = {p["question_sha256"]: str(p["answer"]) for p in problems}
+    if len(answers) != len(problems):
+        raise ValueError("answer key has duplicate questions")
+    return answers
+
+
 def recheck_validation(spec: dict[str, Any], results: Path):
-    """Re-grade the final-step validation dump with the verifier's copy of the GSM8K scorer."""
+    """Re-grade the final-step validation dump against the protected answer key.
+
+    Each dump row is matched to a key entry by its question; unknown, missing or repeated problems fail. The score
+    uses the key's answers, never the dump's own `gts`.
+    """
     relative = spec.get("validation_dump")
     if relative is None:
         return None, 0, []
+    answers = load_answer_key(spec)
     root = results / spec["log_roots"][0]
     path = root / relative.format(step=spec["final_step"])
     label = path.relative_to(results).as_posix()
     if path.is_symlink() or not path.is_file():
         return None, 0, [f"missing validation dump {label}"]
-    total = 0
+    seen: dict[str, int] = {}
+    unknown = 0
     correct = Decimal(0)
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         row = json.loads(line)
-        total += 1
-        correct += Decimal(
-            str(gsm8k_reference.compute_score(str(row["output"]), str(row["gts"])))
-        )
-    if total == 0:
-        return None, 0, [f"validation dump {label} is empty"]
-    return correct / Decimal(total), total, []
+        message = user_message(str(row.get("input", "")))
+        key = question_key(message) if message is not None else None
+        if key not in answers:
+            unknown += 1
+            continue
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] == 1:
+            correct += Decimal(
+                str(gsm8k_reference.compute_score(str(row.get("output", "")), answers[key]))
+            )
+    errors = []
+    if unknown:
+        errors.append(f"validation dump {label} has {unknown} rows matching no protected test problem")
+    missing = len(answers) - len(seen)
+    if missing:
+        errors.append(f"validation dump {label} is missing {missing} of the {len(answers)} test problems")
+    repeated = sum(n - 1 for n in seen.values())
+    if repeated:
+        errors.append(f"validation dump {label} repeats {repeated} test problems")
+    if errors:
+        return None, len(seen), errors
+    return correct / Decimal(len(answers)), len(seen), []
 
 
 def grade(spec: dict[str, Any], results: Path):
