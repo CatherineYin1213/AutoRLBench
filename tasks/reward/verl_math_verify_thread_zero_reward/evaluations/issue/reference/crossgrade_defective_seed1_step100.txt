@@ -1,0 +1,5 @@
+/workspace/outputs/val_generations/100.jsonl: 497 MATH answers; reference indep_mv: 262 correct, 235 wrong
+  buggy_thread   mean=0.0000  TP=   0 TN= 235 FP=   0 FN= 262  agree=0.4728
+  buggy_main     mean=0.5272  TP= 262 TN= 235 FP=   0 FN=   0  agree=1.0000
+  fixed_thread   mean=0.5272  TP= 262 TN= 235 FP=   0 FN=   0  agree=1.0000
+  indep_verl     mean=0.4950  TP= 246 TN= 235 FP=   0 FN=  16  agree=0.9678
