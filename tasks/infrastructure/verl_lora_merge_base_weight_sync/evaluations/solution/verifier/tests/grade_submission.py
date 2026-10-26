@@ -261,7 +261,8 @@ def recheck_validation(spec: dict[str, Any], results: Path):
     seen: dict[str, int] = {}
     unknown = 0
     correct = Decimal(0)
-    for line in path.read_text(encoding="utf-8").splitlines():
+    # Split on \n only: dumps keep characters such as U+2028 unescaped, and str.splitlines() would break a row there.
+    for line in path.read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
         row = json.loads(line)

@@ -34,8 +34,10 @@ Two extra probe runs (`evaluations/issue/reference/weight-sync-probe.md`) record
 
 ## Verification
 
-- **issue**: an LLM judge compares `agent_answer.md` with the hidden oracle on
-  verdict / root cause / evidence, weighted 0.2 / 0.6 / 0.2. Passing requires ≥ 0.8.
+- **issue**: an LLM judge compares `agent_answer.md` with the hidden oracle and scores
+  verdict, root cause and evidence. As implemented in the shared `judge.py`, a run passes only if
+  the verdict score is 1.0 and the root-cause and evidence scores are both strictly greater than 0.8;
+  the 0.2 / 0.6 / 0.2 weighted score is reported but does not decide the pass.
 - **solution**: the agent submits `report.md` and does not train; the harness reruns the
   experiment per `run_spec.json` and grades only that run. `val-core/openai/gsm8k/acc/mean@1`
   at step 60 must be ≥ 0.4, and the verifier's own re-grade of the step-60 validation
