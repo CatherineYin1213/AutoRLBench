@@ -4,14 +4,19 @@ For each step and source it reports the score the trainer logged next to two ind
 "reward went up" can be split into "the grader started working" vs "the model got better":
   gsm8k: verl gsm8k strict ("####"), verl gsm8k flexible (last number)
   math : math-verify parse()+verify() called directly (no math_metric wrapper), verl math_reward (last \\boxed{})
-Usage: python regrade.py <dump_dir> [<dump_dir> ...]   (prints one JSON line per (dir, step, source))
+The gsm8k and math_reward scorers come from the verl tree given with --verl (those two files are the same in both
+arms); math-verify must be importable (e.g. PYTHONPATH=workspace/third_party/python).
+Usage: python regrade.py --verl <verl tree> <dump_dir> [<dump_dir> ...]   (one JSON line per (dir, step, source))
 """
 import glob
 import json
 import os
 import sys
 
-sys.path.insert(0, "/workspace/src/verl")  # pristine verl @6f2aa24 for the gsm8k / math_reward scorers only
+if len(sys.argv) < 4 or sys.argv[1] != "--verl":
+    sys.exit(__doc__)
+sys.path.insert(0, os.path.abspath(sys.argv[2]))
+DUMP_DIRS = sys.argv[3:]
 from math_verify import parse, verify  # noqa: E402
 from math_verify.parser import ExprExtractionConfig, LatexExtractionConfig  # noqa: E402
 from verl.utils.reward_score import gsm8k, math_reward  # noqa: E402
@@ -31,7 +36,7 @@ def source(prompt):
 
 
 def main():
-    for d in sys.argv[1:]:
+    for d in DUMP_DIRS:
         files = sorted(glob.glob(os.path.join(d, "*.jsonl")), key=lambda p: int(os.path.basename(p).split(".")[0]))
         for path in files:
             acc = {}

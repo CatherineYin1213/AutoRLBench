@@ -14,6 +14,9 @@ async def via_executor():
 
 
 if __name__ == "__main__":
-    print("verl math_verify from", math_verify.__file__, "| math_verify pkg", mv_pkg.__file__)
+    import hashlib
+
+    print("verl math_verify.py sha256", hashlib.sha256(open(math_verify.__file__, "rb").read()).hexdigest(),
+          "| math_verify pkg", mv_pkg.__version__ if hasattr(mv_pkg, "__version__") else "")
     print("main thread     :", [math_verify.compute_score(o, g) for o, g in CASES])
     print("run_in_executor :", asyncio.run(via_executor()))

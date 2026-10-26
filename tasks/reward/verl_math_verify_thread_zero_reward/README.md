@@ -34,7 +34,9 @@ MATH-500 is evaluated on 497 of its 500 problems in every run: `data.filter_over
 
 ## Verification
 
-- **issue**: an LLM judge compares `agent_answer.md` with the hidden oracle on
-  verdict / root cause / evidence, weighted 0.2 / 0.6 / 0.2. Passing requires ≥ 0.8.
+- **issue**: an LLM judge compares `agent_answer.md` with the hidden oracle and scores
+  verdict, root cause and evidence. As implemented in the shared `judge.py`, a run passes only if
+  the verdict score is 1.0 and the root-cause and evidence scores are both strictly greater than 0.8;
+  the 0.2 / 0.6 / 0.2 weighted score is reported but does not decide the pass.
 
-A rerun-based solution level is not offered: across two seeds the step-100 MATH-500 gap between the repaired and defective runs was +5.0 points (p=0.007) and +0.8 points (p=0.74), and the repaired run's own gain over its step 0 (+2.8 points in both) was not significant (p=0.17 and p=0.12), so a stable acceptance threshold based on MATH learning gain has not been established. The grading-path evidence (exception trace, cross-grading of the same answers, real reward paths on identical answers) is in `evaluations/issue/reference/`.
+This submission covers the issue level. Across two seeds the step-100 MATH-500 gap between the repaired and defective runs was +5.0 points (p=0.007) and +0.8 points (p=0.74), and the repaired run's own gain over its step 0 (+2.8 points in both) was not significant (p=0.17 and p=0.12), so a stable acceptance threshold based on MATH learning gain has not been established. The grading-path evidence (exception trace, cross-grading of the same answers, real reward paths on identical answers) is in `evaluations/issue/reference/`.

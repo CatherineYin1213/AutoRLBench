@@ -95,72 +95,6 @@
     ],
     "files": [
       {
-        "file": "evaluations/issue/reference/regrade_defective_seed1.jsonl",
-        "sha256_before": "4a1c460834637e120f9338bea5801c76d40a8bec886307df8adab0824968d5b1",
-        "sha256_after": "fc81c5d0ccee3df9358f34b6b53f02bf1943ca08ac9b231d91cac13dd5283503",
-        "replacements": {
-          "run output directory": 12
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/crossgrade_defective_seed1_step100.txt",
-        "sha256_before": "7c02e7ff739e8ddb792e0806133df04fbf972b27d4044b579241ee81bcbff757",
-        "sha256_after": "10c3515de6f0ab5e8533f51145f30b1ddc525b34df7ef82a684bfd356702e031",
-        "replacements": {
-          "run output directory": 1
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/crossgrade_repaired_seed1_step100.txt",
-        "sha256_before": "f6dd7a753bc2e002dbf78d9e7527ea6688b76a0d23b471ef88f42796e58e80e9",
-        "sha256_after": "777cb37c06bf06219429928825071c2f2a5dee0a77c8662130854e6a3ab6b0e1",
-        "replacements": {
-          "run output directory": 1
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/crossgrade_repaired_seed2_step100.txt",
-        "sha256_before": "8d175f2fd3e2bcaaa6c4f802901d99f760f1140e47dd958f5e3b16de4227f0ae",
-        "sha256_after": "e13087570442f02f5b674b17a6c3124e739792681991fe63a1c5c768e0112b95",
-        "replacements": {
-          "run output directory": 1
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/capture_stack.txt",
-        "sha256_before": "32963ffaee5d6fce3a712a9d4c2a458ccdb927a1c3cac1db10e67ede4ae6e5ad",
-        "sha256_after": "89b7677211bd9147be509dc56f93a632367a27a922e99a01cd1da5bcca232af0",
-        "replacements": {
-          "math-verify install directory": 4,
-          "analysis script directory": 1
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/thread_check.txt",
-        "sha256_before": "81c427873ddaf69f2573893a5bdf02e5b9f4a9b677b3239b177095d929189a14",
-        "sha256_after": "014ced83d964f4671823f70dc6edba43c0f9e86a7198e2ca695de85d2e77e64f",
-        "replacements": {
-          "workspace directory": 2,
-          "math-verify install directory": 2
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/scripts/regrade.py",
-        "sha256_before": "9f98231ef35f782fb88539af0deaf466b35038d064786631051f10ad4278c0f0",
-        "sha256_after": "35abf02ada68c1e1152005fc7785328b4040add566276a6b6040855e3f882df0",
-        "replacements": {
-          "remaining host mount prefix": 1
-        }
-      },
-      {
-        "file": "evaluations/issue/reference/scripts/crossgrade.py",
-        "sha256_before": "df40d9cb80f99802e6a9aaddad693818aa848e18daa79c8b5c9821acb3eeb362",
-        "sha256_after": "e6817d892b7da62178adc5562c356a96bb96835f47f67d81e27f37fdc39c7ea3",
-        "replacements": {
-          "workspace directory": 2
-        }
-      },
-      {
         "file": "evaluations/issue/reference/runs/repaired-seed1/train.log",
         "sha256_before": "9a6ff1b188b89b922a47fd6830b2c47d122e36423870933d569e1b60400cbee5",
         "sha256_after": "e7fdd9b9d58584d33a834cb7ffa0fa78e960d1308c471c1d9ca5c4fe1327f5c2",
@@ -197,6 +131,15 @@
           "run name": 2,
           "host IP address": 2,
           "host name": 1
+        }
+      },
+      {
+        "file": "evaluations/issue/reference/capture_stack.txt",
+        "sha256_before": "32963ffaee5d6fce3a712a9d4c2a458ccdb927a1c3cac1db10e67ede4ae6e5ad",
+        "sha256_after": "89b7677211bd9147be509dc56f93a632367a27a922e99a01cd1da5bcca232af0",
+        "replacements": {
+          "math-verify install directory": 4,
+          "analysis script directory": 1
         }
       }
     ]

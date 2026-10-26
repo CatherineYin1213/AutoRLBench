@@ -65,8 +65,25 @@ issue-level and its claim is limited to the grading path.
 
 - `capture_stack.txt`, `math500_excluded.txt`, `regrade_defective_seed1.jsonl` (logged vs. re-graded scores by
   step and source), `crossgrade_*.txt`, `paired_seed*.txt`, and `thread_check.txt` (pre-fix vs. released
-  `compute_score`, main thread vs. `run_in_executor`).
-- `scripts/`: the scripts that produced them.
-- `runs/`: sanitized console histories of the other three runs (repaired seeds 1–2, defective seed 2) and the
-  repaired seed-1 step-0/100 validation generations.
+  `compute_score`, main thread vs. `run_in_executor`). Each cross-grading and thread-check output prints the
+  sha256 of the `math_verify.py` that was actually imported, so the two implementations can be told apart.
+- `released_math_verify.py`: `verl/utils/reward_score/math_verify.py` as released at `6f2aa24` (scoring in a
+  subprocess pool), the implementation the repaired runs used. The workspace carries only the pre-fix file.
+- `scripts/`: the scripts that produced the outputs. All outputs were regenerated from the packaged files with
+  task-relative paths; from the task root after `prepare.sh`, for example:
+
+  ```bash
+  python3 evaluations/issue/reference/scripts/crossgrade.py \
+      --dump workspace/outputs/val_generations/100.jsonl --buggy-verl workspace/verl \
+      --released evaluations/issue/reference/released_math_verify.py --math-verify workspace/third_party/python
+  PYTHONPATH=workspace/third_party/python python3 evaluations/issue/reference/scripts/regrade.py \
+      --verl workspace/verl workspace/outputs/rollouts workspace/outputs/val_generations
+  PYTHONPATH=workspace/third_party/python python3 evaluations/issue/reference/scripts/paired.py \
+      evaluations/issue/reference/runs/repaired-seed1/val_generations workspace/outputs/val_generations 100
+  ```
+
+  `crossgrade.py` runs each verl scorer in its own process with only its own verl tree on `sys.path`; the
+  released scorer runs from a temporary copy of `workspace/verl` with `released_math_verify.py` in place.
+- `runs/`: sanitized console histories and step-0/100 validation generations of the other three runs (repaired
+  data seeds 1 and 2, defective data seed 2).
 - `reference.patch`: upstream fix #5635 (`3d274f6` → `9586c974`) for this file.
