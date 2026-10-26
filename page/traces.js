@@ -3,9 +3,9 @@
 
     /* Traces index (traces.html). Lists every task in the benchmark; each
        task expands into a table of published agent runs (model, agent,
-       effort, result, duration, turns, cost), following the run-catalog
-       layout of PostTrainBench's traces browser. Rows link to the trace
-       viewer (trace.html?trace=…). */
+       effort, level, result, duration, turns, cost), following the
+       run-catalog layout of PostTrainBench's traces browser. Rows link to
+       the trace viewer (trace.html?trace=…). */
 
     const RUNS = window.AUTORLBENCH_RUNS || [];
     const TASKS = window.AUTORLBENCH_TASKS || [];
@@ -75,11 +75,17 @@
         return `<span class="traces-agent-name">${escHtml(run.agent || '—')}</span>`;
     }
 
+    function levelCell(run) {
+        const level = run.level || 'issue';
+        return escHtml(level.charAt(0).toUpperCase() + level.slice(1));
+    }
+
     function runRow(run) {
         const cells = [
             `<td class="traces-col-model">${escHtml(run.model || '—')}</td>`,
             `<td class="traces-col-agent">${agentCell(run)}</td>`,
             `<td class="traces-col-effort">${run.effort ? escHtml(run.effort) : dash()}</td>`,
+            `<td class="traces-col-level">${levelCell(run)}</td>`,
             `<td class="traces-col-result">${resultCell(run)}</td>`,
             `<td class="traces-col-num">${run.durationMs != null ? escHtml(fmtDuration(run.durationMs)) : dash()}</td>`,
             `<td class="traces-col-num">${run.steps != null ? fmtNum(run.steps) : dash()}</td>`,
@@ -98,6 +104,7 @@
                             <th>model</th>
                             <th>agent</th>
                             <th>effort</th>
+                            <th>level</th>
                             <th>result</th>
                             <th>duration</th>
                             <th>turns</th>

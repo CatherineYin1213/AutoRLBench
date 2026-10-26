@@ -408,7 +408,7 @@
         mount.innerHTML = `
             <div class="trace-layout">
                 <aside class="trace-rail">${renderRail(trace, fileName, stats)}</aside>
-                <main class="trace-main">
+                <main class="trace-main trace-viewport">
                     <header class="trace-toolbar">
                         <div class="trace-toolbar-count">
                             ${escHtml(fmtNum(stats.steps))} steps · ${escHtml(fmtNum(stats.toolCalls))} tool calls · ${escHtml(fmtNum(stats.thoughts))} thoughts
@@ -420,6 +420,10 @@
 
         renderTimeline();
         bindRail();
+
+        /* The site footer travels with the trace content: it appears only
+           after the event thread is scrolled to the very end. */
+        adoptFooter(mount.querySelector('.trace-viewport'));
     }
 
     /* ---- Output expansion -------------------------------------------- */
@@ -585,11 +589,19 @@
         return res.json();
     }
 
+    /* Move the site footer into the given container so it appears after
+       the trace content instead of below the fixed-height console. */
+    function adoptFooter(container) {
+        const footer = document.querySelector('body > footer');
+        if (footer && container) container.appendChild(footer);
+    }
+
     async function init() {
         if (!mount) return;
         const slugs = Object.keys(TRACES);
         if (!slugs.length) {
             mount.innerHTML = '<div class="task-panel-note">No traces available yet.</div>';
+            adoptFooter(mount);
             return;
         }
         const wanted = new URLSearchParams(window.location.search).get('trace');
@@ -604,6 +616,7 @@
             renderShell(trace, fileName);
         } catch (err) {
             mount.innerHTML = `<div class="task-panel-note">Could not load the trace (${escHtml(err.message)}).</div>`;
+            adoptFooter(mount);
         }
     }
 

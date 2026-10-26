@@ -1352,12 +1352,6 @@ section {
     border-color: var(--text);
 }
 
-.leaderboard-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-}
-
 .lb-kicker {
     margin: -1.2rem 0 1.8rem;
     color: var(--text-secondary);
@@ -1367,29 +1361,70 @@ section {
     text-transform: uppercase;
 }
 
-.lb-header-total {
-    text-align: right;
-}
-
-.lb-row {
-    display: grid;
-    grid-template-columns: 34px minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
-    align-items: center;
-    gap: 1rem;
-    padding: 1.2rem 1.5rem;
-    background: var(--surface);
+.lb-table-wrap {
     border: 1px solid var(--border);
     border-radius: 10px;
-    transition: all 0.2s;
+    background: var(--surface);
+    overflow-x: auto;
+    box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(24, 22, 18, 0.03);
 }
 
-.lb-row:hover {
-    border-color: var(--text);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+.lb-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.lb-row.hidden {
+.lb-table th {
+    padding: 1rem 1.2rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.lb-table td {
+    padding: 1.05rem 1.2rem;
+    vertical-align: middle;
+}
+
+.lb-tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s ease;
+}
+
+.lb-tr:last-child {
+    border-bottom: none;
+}
+
+.lb-tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.lb-tr.hidden {
     display: none;
+}
+
+.lb-col-rank,
+.lb-cell-rank {
+    width: 52px;
+    text-align: center;
+}
+
+/* th centering needs the extra specificity to beat `.lb-table th`'s left. */
+.lb-table th.lb-col-rank,
+.lb-table th.lb-col-agent,
+.lb-table th.lb-col-effort,
+.lb-table th.lb-col-score {
+    text-align: center;
+}
+
+.lb-col-score,
+.lb-cell-score {
+    text-align: center;
 }
 
 .lb-rank {
@@ -1399,11 +1434,18 @@ section {
     text-align: center;
 }
 
-.lb-model-cell,
-.lb-agent-cell {
+.lb-model-cell {
     display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.lb-model-logo {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
 .lb-model-name,
@@ -1417,9 +1459,19 @@ section {
     font-weight: 500;
 }
 
+.lb-col-agent,
+.lb-col-effort,
+.lb-cell-agent,
+.lb-cell-effort {
+    text-align: center;
+}
+
+.lb-cell-effort {
+    white-space: nowrap;
+}
+
 .lb-max-tag {
     display: inline-block;
-    margin-left: 0.4rem;
     padding: 0.08rem 0.35rem;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -1433,57 +1485,15 @@ section {
     line-height: 1.4;
 }
 
-.lb-scores {
-    display: flex;
-    gap: 0.8rem;
-    align-items: center;
-}
-
-.lb-score-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    flex: 1;
-}
-
-.lb-score-label {
-    font-size: 0.65rem;
+.lb-soon {
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
 }
 
-.lb-score-bar {
-    height: 4px;
-    background: rgba(0,0,0,0.06);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.lb-score-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent) 0%, #4d6278 58%, var(--brick) 100%);
-    border-radius: 2px;
-    transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.lb-avg {
-    font-size: 1.3rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    text-align: right;
-    color: var(--accent);
-}
-
-.lb-header {
-    display: grid;
-    grid-template-columns: 34px minmax(180px, 1.1fr) minmax(160px, 0.9fr) minmax(220px, 2fr);
-    gap: 1rem;
-    padding: 0 1.5rem 0.8rem;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-secondary);
+.lb-cell-soon {
+    text-align: center;
+    white-space: nowrap;
 }
 
 /* How to Contribute */
@@ -1692,18 +1702,10 @@ footer {
         height: 1px;
     }
 
-    .lb-row {
-        grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0.5rem;
-        padding: 1rem;
-    }
-
-    .lb-scores {
-        grid-column: 2 / -1;
-    }
-
-    .lb-header {
-        display: none;
+    .lb-table th,
+    .lb-table td {
+        padding-left: 0.9rem;
+        padding-right: 0.9rem;
     }
 
     .leaderboard-controls {
@@ -3108,7 +3110,6 @@ body::after {
 
 /* Typography: aligned numerals, balanced headings, ink-black hero title. */
 .stat-number,
-.lb-avg,
 .eval-stat strong,
 .chart-value,
 .analysis-summary strong,
@@ -3274,7 +3275,6 @@ nav {
 
 /* Cards: tokenized resting + hover depth with a top light edge. */
 .task-card,
-.lb-row,
 .eval-stat,
 .chart-card {
     transition: border-color 0.25s ease, box-shadow 0.3s cubic-bezier(0.22, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.22, 0.8, 0.2, 1);
@@ -3291,14 +3291,6 @@ nav {
 .eval-stat,
 .chart-card {
     box-shadow: inset 0 1px 0 #ffffff, var(--shadow-xs);
-}
-
-.lb-row {
-    box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(24, 22, 18, 0.03);
-}
-
-.lb-row:hover {
-    box-shadow: inset 0 1px 0 #ffffff, var(--shadow-md);
 }
 
 /* Leaderboard: medal-style rank chips and active filter depth. */
@@ -3323,7 +3315,6 @@ nav {
 
 /* Meter tracks get a hairline inner ring. */
 .chart-track,
-.lb-score-bar,
 .agent-score-visual i {
     box-shadow: inset 0 0 0 1px rgba(24, 24, 22, 0.045);
 }
@@ -4009,12 +4000,7 @@ body.home-page .domain-card.is-active {
     box-shadow: inset 0 1px 0 #ffffff, 0 12px 28px rgba(154, 64, 56, 0.12);
 }
 
-body.home-page .lb-score-fill {
-    background: var(--brick);
-}
-
 body.home-page .stat-number,
-body.home-page .lb-avg,
 body.home-page .task-overview-stat strong {
     color: var(--text);
 }
@@ -4023,9 +4009,9 @@ body.home-page .task-overview-stat strong {
     min-width: 3rem;
     color: var(--text);
     font-size: 1.05rem;
-    font-weight: 700;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: center;
 }
 
 .lb-pending {
@@ -4401,8 +4387,6 @@ body.home-page .lb-kicker { margin-left: auto; margin-right: auto; }
 /* Card interiors keep their own alignment; only module copy centers. */
 body.home-page .pipeline-flow { text-align: left; }
 body.home-page .tasks-grid { text-align: left; }
-body.home-page .lb-header,
-body.home-page .lb-row { text-align: left; }
 
 @media (max-width: 560px) {
     body.home-page > section:not(.hero) { padding: 2.6rem 1.4rem 2.5rem; }
@@ -4727,6 +4711,14 @@ body.guide-page .guide-deadline-link:hover span {
    structured event timeline on the right — thread line, turn markers, and
    block cards (thought / text / tool call). */
 body.trace-page {
+    /* Console page: the document itself never scrolls — each trace column
+       manages its own overflow (rail + main viewport). The footer stays
+       visible below the console via the column flex layout. */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
     background-image:
         radial-gradient(900px 420px at 8% -8%, rgba(154, 64, 56, 0.1), transparent 62%),
         radial-gradient(980px 520px at 96% -4%, rgba(44, 65, 92, 0.1), transparent 64%),
@@ -4740,9 +4732,23 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
 
 .trace-view {
     /* Overrides the global `section { max-width: 1100px }` cap: the
-       two-column trace console needs the wider layout. */
+       two-column trace console needs the wider layout. Fills the viewport
+       between the fixed nav and the footer so the columns control their
+       own scrolling. */
     max-width: none;
-    padding: 6.5rem 1.25rem 5rem;
+    padding: 6.5rem 1.25rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Height must chain down to the scrollable viewport: view > root > layout. */
+#trace-root {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ---- Layout: summary rail + event main -------------------------------- */
@@ -4753,13 +4759,14 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
     gap: 1.4rem;
     max-width: 1320px;
     margin: 0 auto;
-    align-items: start;
+    flex: 1;
+    min-height: 0;
 }
 
 .trace-rail {
-    position: sticky;
-    top: 5.4rem;
-    max-height: calc(100vh - 6.5rem);
+    /* Fixed in place: the rail never scrolls the page, and only spills
+       into its own scrollbar when the card outgrows the column. */
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     display: flex;
@@ -4770,6 +4777,7 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
 }
 
 .trace-rail::-webkit-scrollbar { width: 4px; }
+
 
 .trace-back {
     display: inline-flex;
@@ -4923,12 +4931,36 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
 
 /* ---- Main column: toolbar + event thread ------------------------------- */
 
-.trace-main { min-width: 0; }
+.trace-main {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The scrollable pane: the document does not scroll on the trace page —
+   the event thread (and only it) scrolls inside this viewport. */
+.trace-viewport {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 10px 2.5rem 0;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+}
+
+.trace-viewport::-webkit-scrollbar { width: 6px; }
+
+/* Footer inside the viewport: shows up after the last trace event when
+   the thread is scrolled all the way down. */
+.trace-viewport > footer {
+    max-width: none;
+    margin: 1.5rem 0 0;
+    padding: 2.5rem 0 0;
+}
 
 .trace-toolbar {
-    position: sticky;
-    top: 5.4rem;
-    z-index: 25;
     display: flex;
     align-items: center;
     gap: 0.6rem 1rem;
@@ -5383,14 +5415,13 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
 /* ---- Responsive ---------------------------------------------------------- */
 
 @media (max-width: 1020px) {
-    .trace-view { padding: 6.5rem 1.25rem 4rem; }
+    body.trace-page { overflow: auto; display: block; }
+    .trace-view { height: auto; padding: 6.5rem 1.25rem 4rem; }
     .trace-layout { grid-template-columns: minmax(0, 1fr); }
     .trace-rail {
-        position: static;
-        max-height: none;
         overflow: visible;
     }
-    .trace-toolbar { position: static; }
+    .trace-viewport { overflow: visible; padding: 0; }
 }
 
 @media (max-width: 640px) {
@@ -5611,6 +5642,13 @@ tr.traces-row-link:hover td { background: rgba(236, 232, 227, 0.4); }
     font-size: 0.74rem;
     white-space: nowrap;
     color: var(--text-secondary);
+}
+
+.traces-col-level {
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    white-space: nowrap;
+    text-transform: capitalize;
 }
 
 .traces-effort-tag {
