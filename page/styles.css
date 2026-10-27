@@ -4707,7 +4707,7 @@ body.guide-page .guide-deadline-link:hover span {
 }
 
 /* Agent trace viewer (trace.html). Two-column console layout modeled on
-   PostTrainBench's run view: a sticky left rail with the run summary, and a
+   AutoRLBench's run view: a sticky left rail with the run summary, and a
    structured event timeline on the right — thread line, turn markers, and
    block cards (thought / text / tool call). */
 body.trace-page {
@@ -5444,7 +5444,7 @@ body.trace-page > *:not(#globe-canvas):not(nav):not(.site-toast) {
 }
 
 /* Traces index (traces.html). Task groups that expand into a run table —
-   the catalog layout of PostTrainBench's traces browser, in this site's
+   the catalog layout of AutoRLBench's traces browser, in this site's
    card / pill idiom. */
 body.traces-page {
     background-image:

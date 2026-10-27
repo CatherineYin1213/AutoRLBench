@@ -5,7 +5,7 @@
      *
      * Renders an ATIF-format agent session trace (the JSON files under
      * page/agent-trace/) in a two-column console layout modeled on
-     * PostTrainBench's run view: a narrow left rail with the run summary,
+     * AutoRLBench's run view: a narrow left rail with the run summary,
      * and a structured event timeline as the main column — thread line,
      * turn markers, and block cards (thought / text / tool call). Thoughts
      * and tool calls are collapsed by default; long outputs clip with a

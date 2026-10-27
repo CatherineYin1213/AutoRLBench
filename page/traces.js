@@ -4,7 +4,7 @@
     /* Traces index (traces.html). Lists every task in the benchmark; each
        task expands into a table of published agent runs (model, agent,
        effort, level, result, duration, turns, cost), following the
-       run-catalog layout of PostTrainBench's traces browser. Rows link to
+       run-catalog layout of AutoRLBench's traces browser. Rows link to
        the trace viewer (trace.html?trace=…). */
 
     const RUNS = window.AUTORLBENCH_RUNS || [];
