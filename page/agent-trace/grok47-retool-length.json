@@ -25,7 +25,7 @@
     {
       "step_id": 4,
       "source": "user",
-      "message": "<user_query>\n# RL training run diagnosis\n\nReview the staged post-training experiment and determine whether it is healthy\nor unhealthy. Treat the workspace as a historical snapshot: inspect its source,\neffective configuration, launch scripts, data processing, reward logic, logs,\ntracked metrics, and frozen evaluation evidence. Do not assume that an unusual\nsetting or implementation is causal without connecting it to observed behavior.\n\nUse held-out evaluation evidence together with rollout, truncation, runtime,\noptimization, and training signals. Training reward alone does not establish\nheld-out health. A truncated log is not by itself proof of a defect.\n\nDo not launch a full training run, use the network, or modify the historical\nsnapshot. The dataset, held-out set, model, training-step budget, and evaluation\ninterval are fixed.\n\n## Deliverable\n\nWrite one concise UTF-8 diagnosis to:\n\n```text\n$PTDBENCH_RESULTS/agent_answer.md\n```\n\nState the verdict, identify the concrete root cause or causes, and explain the\ncausal chain using specific workspace evidence. Distinguish root causes from\nsymptoms. Do not propose or implement a fix, and do not write other deliverable\nfiles.\n</user_query>"
+      "message": "<user_query>\n# RL training run diagnosis\n\nReview the staged post-training experiment and determine whether it is healthy\nor unhealthy. Treat the workspace as a historical snapshot: inspect its source,\neffective configuration, launch scripts, data processing, reward logic, logs,\ntracked metrics, and frozen evaluation evidence. Do not assume that an unusual\nsetting or implementation is causal without connecting it to observed behavior.\n\nUse held-out evaluation evidence together with rollout, truncation, runtime,\noptimization, and training signals. Training reward alone does not establish\nheld-out health. A truncated log is not by itself proof of a defect.\n\nDo not launch a full training run, use the network, or modify the historical\nsnapshot. The dataset, held-out set, model, training-step budget, and evaluation\ninterval are fixed.\n\n## Deliverable\n\nWrite one concise UTF-8 diagnosis to:\n\n```text\n$AUTORLBENCH_RESULTS/agent_answer.md\n```\n\nState the verdict, identify the concrete root cause or causes, and explain the\ncausal chain using specific workspace evidence. Distinguish root causes from\nsymptoms. Do not propose or implement a fix, and do not write other deliverable\nfiles.\n</user_query>"
     },
     {
       "step_id": 5,
@@ -1379,7 +1379,7 @@
           "tool_call_id": "call-18b829c1-2894-4aff-aaaf-d02331959a13-68",
           "function_name": "run_terminal_command",
           "arguments": {
-            "command": "echo \"PTDBENCH_RESULTS=${PTDBENCH_RESULTS:-unset}\"; ls -la \"${PTDBENCH_RESULTS:-/tmp}\" 2>/dev/null | head -20; python3 -c \"import os; print(os.environ.get('PTDBENCH_RESULTS'))\"",
+            "command": "echo \"AUTORLBENCH_RESULTS=${AUTORLBENCH_RESULTS:-unset}\"; ls -la \"${AUTORLBENCH_RESULTS:-/tmp}\" 2>/dev/null | head -20; python3 -c \"import os; print(os.environ.get('AUTORLBENCH_RESULTS'))\"",
             "description": "Locate diagnosis output directory"
           }
         }
@@ -1388,7 +1388,7 @@
         "results": [
           {
             "source_call_id": "call-18b829c1-2894-4aff-aaaf-d02331959a13-68",
-            "content": "exit: 0\nPTDBENCH_RESULTS=/logs/artifacts\ntotal 1\ndrwxrwxrwx 2 root root 0 Oct 20 13:26 .\ndrwxrwxrwx 5 root root 4 Oct 20 13:26 ..\n/logs/artifacts\n"
+            "content": "exit: 0\nAUTORLBENCH_RESULTS=/logs/artifacts\ntotal 1\ndrwxrwxrwx 2 root root 0 Oct 20 13:26 .\ndrwxrwxrwx 5 root root 4 Oct 20 13:26 ..\n/logs/artifacts\n"
           }
         ]
       },
@@ -1423,7 +1423,7 @@
       "step_id": 46,
       "source": "agent",
       "model_name": "grok-4.7-build",
-      "message": "The staged GRPO run is unhealthy. The custom reward pays up to `+5` for length on every sample, while correctness is only `\u00b11`, and KL and entropy coefficients are zero.\n\nHeld-out `eval/aime` uses that same score. From step 0 to step 99 it rises from `0.82` to `3.84` while mean AIME response length goes from about `4k` to `15.3k` and truncation from `0.8%` to `82.5%`. After subtracting the length term, the score falls, and late values sit at the ceiling of a fully wrong, max-length batch. Training raw reward tracks `5 * length / 16384` (correlation `0.982`). Truncation and the rising logged score are symptoms.\n\nThe diagnosis is in `$PTDBENCH_RESULTS/agent_answer.md`.",
+      "message": "The staged GRPO run is unhealthy. The custom reward pays up to `+5` for length on every sample, while correctness is only `\u00b11`, and KL and entropy coefficients are zero.\n\nHeld-out `eval/aime` uses that same score. From step 0 to step 99 it rises from `0.82` to `3.84` while mean AIME response length goes from about `4k` to `15.3k` and truncation from `0.8%` to `82.5%`. After subtracting the length term, the score falls, and late values sit at the ceiling of a fully wrong, max-length batch. Training raw reward tracks `5 * length / 16384` (correlation `0.982`). Truncation and the rising logged score are symptoms.\n\nThe diagnosis is in `$AUTORLBENCH_RESULTS/agent_answer.md`.",
       "llm_call_count": 1
     }
   ],
