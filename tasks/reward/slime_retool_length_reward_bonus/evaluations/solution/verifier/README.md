@@ -28,7 +28,7 @@ rather than inferred from a second-order accuracy collapse.
 ## Bounds and how they are calibrated
 
 The reference is the repaired run at
-`devspace 1177503:/user/chenyinghao/harbor-runs/manual-slime-retool` — the
+`devspace 1177503:/user/user2/harbor-runs/manual-slime-retool` — the
 canonical recipe with no length term, same image, same assets, same
 `--num-rollout 70` budget, 8 eval points:
 

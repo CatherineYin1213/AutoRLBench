@@ -59,10 +59,10 @@ window.AUTORLBENCH_TASKS = [
         "dataset": "TACO",
         "framework": "verl",
         "image": "verl:vllm017.latest",
-        "created": "2026-10-10",
+        "created": "2026-10-21",
         "license": "MIT",
-        "brief": "Training set is very hard while validation set is easy.",
-        "issue": "Training Qwen2.5-1.5B-Instruct with GRPO on TACO. The training set is very hard while the validation set is easy."
+        "brief": "Training set is very hard while validation set is easy, so GRPO gets almost no learning signal.",
+        "issue": "Training Qwen2.5-1.5B-Instruct with GRPO on TACO. The training problems are too hard for the model under the all-tests-pass reward, so training never learns and held-out accuracy stays flat."
     },
     {
         "id": "environment/search_r1_zero_query_embedding",

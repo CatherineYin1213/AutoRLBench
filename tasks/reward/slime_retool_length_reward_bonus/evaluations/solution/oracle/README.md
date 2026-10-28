@@ -113,7 +113,7 @@ the defect lives:
 
 Both bounds are calibrated on the repaired reference run — the canonical recipe
 with the length term removed, same image and assets, `--num-rollout 70`
-(`devspace 1177503:/user/chenyinghao/harbor-runs/manual-slime-retool`):
+(`devspace 1177503:/user/user2/harbor-runs/manual-slime-retool`):
 
 | step | 0 | 9 | 19 | 29 | 39 | 49 | 59 | 69 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
