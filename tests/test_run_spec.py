@@ -222,6 +222,8 @@ class RerunStageTests(unittest.TestCase):
                     "prepared": self.root / "prepared",
                     "models": self.root / "models",
                     "datasets": self.root / "datasets",
+                    # The staged environment/ copy _prepare_run links into the run directory.
+                    "environment": self.root / "environment",
                 },
             )(),
             EvaluationConfig(backend="local"),
