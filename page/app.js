@@ -24,16 +24,16 @@ const CATEGORY_COUNTS = Object.fromEntries(
 );
 
 const ISSUE_RESULTS = [
-    { model: 'GPT-6-Astra', agent: 'Codex', score: 64.3, logo: 'openai' },
-    { model: 'GPT-6.1-Sol', agent: 'Codex', score: 57.1, logo: 'openai' },
-    { model: 'Claude-Fable-5.1', agent: 'Claude Code', score: 85.7, logo: 'anthropic' },
-    { model: 'GLM-5.3', agent: 'Claude Code', score: 64.3, logo: 'glm' },
-    { model: 'Kimi-K3', agent: 'Claude Code', score: 42.9, logo: 'kimi' },
-    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', score: 21.4, logo: 'deepseek' },
-    { model: 'Gemini-4-Argon', agent: 'Claude Code', score: 42.9, logo: 'googlegemini' },
-    { model: 'Qwen3.8-Max', agent: 'Qwen Code', score: 57.1, logo: 'qwen' },
-    { model: 'Grok-4.7', agent: 'Grok Build', score: 78.6, logo: 'xai' },
-    { model: 'Kimi-K3.1-Pro', agent: 'Claude Code', score: 71.4, logo: 'kimi' },
+    { model: 'GPT-6-Astra', agent: 'Codex', issue: 66.7, solution: 50.0, logo: 'openai' },
+    { model: 'GPT-6.1-Sol', agent: 'Codex', issue: 55.6, solution: 50.0, logo: 'openai' },
+    { model: 'Claude-Fable-5.1', agent: 'Claude Code', issue: 83.3, solution: 75.0, logo: 'anthropic' },
+    { model: 'GLM-5.3', agent: 'Claude Code', issue: 61.1, solution: 40.0, logo: 'glm' },
+    { model: 'Kimi-K3', agent: 'Claude Code', issue: 33.3, solution: 75.0, logo: 'kimi' },
+    { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', issue: 16.7, solution: 75.0, logo: 'deepseek' },
+    { model: 'Gemini-4-Argon', agent: 'Claude Code', issue: 38.9, solution: 50.0, logo: 'googlegemini' },
+    { model: 'Qwen3.8-Max', agent: 'Qwen Code', issue: 50.0, solution: 50.0, logo: 'qwen' },
+    { model: 'Grok-4.7', agent: 'Grok Build', issue: 66.7, solution: 66.7, logo: 'xai' },
+    { model: 'Kimi-K3.1-Pro', agent: 'Claude Code', issue: 66.7, solution: 75.0, logo: 'kimi' },
 ];
 
 function tasksForFamily(family) {
@@ -47,7 +47,7 @@ function renderCategoryStrip() {
     const categoryCount = document.getElementById('category-count');
     const activeCount = document.getElementById('active-task-count');
     if (categoryCount) categoryCount.textContent = String(TASK_CATEGORIES.length);
-    if (activeCount) activeCount.textContent = '10'; // total tasks in the benchmark; only one sample per category is listed below
+    if (activeCount) activeCount.textContent = '18'; // total tasks in the benchmark; only one sample per category is listed below
     const heroTasks = document.getElementById('hero-task-count');
     if (heroTasks) heroTasks.textContent = String(TASKS.length);
 
@@ -128,13 +128,13 @@ function renderLeaderboard() {
     const mount = document.querySelector('.leaderboard-list');
     if (!mount) return;
     const rows = ISSUE_RESULTS
-        .map((result, index) => ({ ...result, index }))
-        .sort((a, b) => b.score - a.score || a.index - b.index);
+        .map((result, index) => ({ ...result, overall: (result.issue + result.solution) / 2, index }))
+        .sort((a, b) => b.overall - a.overall || a.index - b.index);
     let displayedRank = 0;
     let prevScore = null;
     let prevRank = 0;
     mount.innerHTML = rows.map((result, position) => {
-        if (result.score !== prevScore) {
+        if (result.overall !== prevScore) {
             displayedRank = position + 1;
             prevRank = displayedRank;
             prevScore = result.score;
@@ -151,8 +151,9 @@ function renderLeaderboard() {
                 <td class="lb-model-cell"><img class="lb-model-logo" src="images/logos/${result.logo}.png" alt="" width="18" height="18" loading="lazy"><span class="lb-model-name">${result.model}</span></td>
                 <td class="lb-cell-agent"><span class="lb-agent-name">${result.agent}</span></td>
                 <td class="lb-cell-effort"><span class="lb-max-tag">MAX</span></td>
-                <td class="lb-cell-score"><span class="lb-issue-score">${result.score.toFixed(1)} %</span></td>
-                <td class="lb-cell-soon"><span class="lb-soon">Coming Soon</span></td>
+                <td class="lb-cell-score"><span class="lb-score-value">${result.issue.toFixed(1)} %</span></td>
+                <td class="lb-cell-score"><span class="lb-score-value">${result.solution.toFixed(1)} %</span></td>
+                <td class="lb-cell-score"><span class="lb-score-value is-avg">${result.overall.toFixed(1)} %</span></td>
             </tr>
         `}).join('');
 }

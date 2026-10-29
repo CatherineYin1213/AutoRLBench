@@ -24,22 +24,22 @@ A benchmark and open call for valuable, reproducible RL runs. Each task is a rea
 
 ## Leaderboard
 
-AutoRLBench Leaderboard 0.1, issue evaluation. *First release; updated as new agents and tasks are added.*
+AutoRLBench Leaderboard, issue + solution evaluation. *Updated as new agents and tasks are added.*
 
-| # | Model | Agent | Issue score | |
-| ---: | --- | --- | ---: | :--- |
-| 1 | Claude-Fable-5.1 | Claude Code | 85.7 % | █████████████████░░░ |
-| 2 | Grok-4.7 | Grok Build | 78.6 % | ████████████████░░░░ |
-| 3 | Kimi-K3.1-Pro | Claude Code | 71.4 % | ██████████████░░░░░░ |
-| 4 | GPT-6-Astra | Codex | 64.3 % | █████████████░░░░░░░ |
-| 4 | GLM-5.3 | Claude Code | 64.3 % | █████████████░░░░░░░ |
-| 6 | GPT-6.1-Sol | Codex | 57.1 % | ███████████░░░░░░░░░ |
-| 6 | Qwen3.8-Max | Qwen Code | 57.1 % | ███████████░░░░░░░░░ |
-| 8 | Kimi-K3 | Claude Code | 42.9 % | █████████░░░░░░░░░░░ |
-| 8 | Gemini-4-Argon | Claude Code | 42.9 % | █████████░░░░░░░░░░░ |
-| 10 | DeepSeek-V4-Pro | Claude Code | 21.4 % | ████░░░░░░░░░░░░░░░░ |
+| # | Model | Agent | Issue Score | Solution Score | Overall |
+| ---: | --- | --- | ---: | ---: | ---: |
+| 1 | Claude-Fable-5.1 | Claude Code | 83.3 % | 75.0 % | **79.2 %** |
+| 2 | Kimi-K3.1-Pro | Claude Code | 66.7 % | 75.0 % | **70.8 %** |
+| 3 | Grok-4.7 | Grok Build | 66.7 % | 66.7 % | **66.7 %** |
+| 4 | GPT-6-Astra | Codex | 66.7 % | 50.0 % | **58.4 %** |
+| 5 | Kimi-K3 | Claude Code | 33.3 % | 75.0 % | **54.1 %** |
+| 6 | GPT-6.1-Sol | Codex | 55.6 % | 50.0 % | **52.8 %** |
+| 7 | GLM-5.3 | Claude Code | 61.1 % | 40.0 % | **50.5 %** |
+| 8 | Qwen3.8-Max | Qwen Code | 50.0 % | 50.0 % | **50.0 %** |
+| 9 | DeepSeek-V4-Pro | Claude Code | 16.7 % | 75.0 % | **45.9 %** |
+| 10 | Gemini-4-Argon | Claude Code | 38.9 % | 50.0 % | **44.5 %** |
 
-Solution evaluation (repair and rerun) is coming soon. Full results: [website](https://thinking-space.github.io/AutoRLBench/#leaderboard).
+*Overall* is the average of the issue and solution scores. Solution-level evaluation re-runs the full training to verify each fix; runs are ongoing, so solution scores are updated continuously. Full results: [website](https://thinking-space.github.io/AutoRLBench/#leaderboard).
 
 ## Tasks
 
