@@ -27,13 +27,13 @@ const ISSUE_RESULTS = [
     { model: 'GPT-6-Astra', agent: 'Codex', issue: 66.7, solution: 50.0, logo: 'openai' },
     { model: 'GPT-6.1-Sol', agent: 'Codex', issue: 55.6, solution: 50.0, logo: 'openai' },
     { model: 'Claude-Fable-5.1', agent: 'Claude Code', issue: 83.3, solution: 75.0, logo: 'anthropic' },
-    { model: 'GLM-5.3', agent: 'Claude Code', issue: 61.1, solution: 40.0, logo: 'glm' },
+    { model: 'GLM-5.3', agent: 'Claude Code', issue: 55.6, solution: 40.0, logo: 'glm' },
     { model: 'Kimi-K3', agent: 'Claude Code', issue: 33.3, solution: 75.0, logo: 'kimi' },
     { model: 'DeepSeek-V4-Pro', agent: 'Claude Code', issue: 16.7, solution: 75.0, logo: 'deepseek' },
-    { model: 'Gemini-4-Argon', agent: 'Claude Code', issue: 38.9, solution: 50.0, logo: 'googlegemini' },
-    { model: 'Qwen3.8-Max', agent: 'Qwen Code', issue: 50.0, solution: 50.0, logo: 'qwen' },
+    { model: 'Gemini-4-Argon', agent: 'Claude Code', issue: 44.4, solution: 50.0, logo: 'googlegemini' },
+    { model: 'Qwen3.8-Max', agent: 'Qwen Code', issue: 44.4, solution: 50.0, logo: 'qwen' },
     { model: 'Grok-4.7', agent: 'Grok Build', issue: 66.7, solution: 66.7, logo: 'xai' },
-    { model: 'Kimi-K3.1-Pro', agent: 'Claude Code', issue: 66.7, solution: 75.0, logo: 'kimi' },
+    { model: 'Kimi-K3.1-Pro', agent: 'Claude Code', issue: 61.1, solution: 75.0, logo: 'kimi' },
 ];
 
 function tasksForFamily(family) {

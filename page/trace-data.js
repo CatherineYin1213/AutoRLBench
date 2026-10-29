@@ -58,11 +58,11 @@ window.AUTORLBENCH_RUNS =
     "agent": "claude-code",
     "effort": "max",
     "level": "issue",
-    "passed": true,
-    "score": 0.91,
-    "durationMs": 2166000,
-    "steps": 26,
-    "costUsd": 3.4801
+    "passed": false,
+    "score": 0.29,
+    "durationMs": 684000,
+    "steps": 15,
+    "costUsd": 2.1422
   },
   {
     "task": "reward/slime_retool_length_reward_bonus",
@@ -605,10 +605,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": true,
-    "score": 1.0,
-    "durationMs": 367000,
+    "score": 0.936,
+    "durationMs": 597000,
     "steps": 20,
-    "costUsd": 2.5047
+    "costUsd": 3.0151
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -619,10 +619,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": true,
-    "score": 0.98,
-    "durationMs": 565000,
-    "steps": 27,
-    "costUsd": 1.2439
+    "score": 0.954,
+    "durationMs": 770000,
+    "steps": 32,
+    "costUsd": 0.9467
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -633,10 +633,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": true,
-    "score": 1.0,
-    "durationMs": 1573000,
-    "steps": 88,
-    "costUsd": 9.1446
+    "score": 0.976,
+    "durationMs": 482000,
+    "steps": 11,
+    "costUsd": 2.0907
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -646,11 +646,11 @@ window.AUTORLBENCH_RUNS =
     "agent": "claude-code",
     "effort": "max",
     "level": "issue",
-    "passed": true,
-    "score": 0.972,
-    "durationMs": 3260000,
-    "steps": 314,
-    "costUsd": 65.7673
+    "passed": false,
+    "score": 0.26,
+    "durationMs": 957000,
+    "steps": 62,
+    "costUsd": 11.9178
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -661,10 +661,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": false,
-    "score": 0.27,
-    "durationMs": 672000,
-    "steps": 28,
-    "costUsd": 5.8072
+    "score": 0.26,
+    "durationMs": 1717000,
+    "steps": 22,
+    "costUsd": 3.5328
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -675,10 +675,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": false,
-    "score": 0.31,
-    "durationMs": 466000,
-    "steps": 27,
-    "costUsd": 8.4333
+    "score": 0.25,
+    "durationMs": 1471000,
+    "steps": 36,
+    "costUsd": 8.2451
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -688,11 +688,11 @@ window.AUTORLBENCH_RUNS =
     "agent": "claude-code",
     "effort": "max",
     "level": "issue",
-    "passed": false,
-    "score": 0.93,
-    "durationMs": 1116000,
-    "steps": 68,
-    "costUsd": 27.6144
+    "passed": true,
+    "score": 0.96,
+    "durationMs": 2174000,
+    "steps": 95,
+    "costUsd": 38.1562
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -702,11 +702,11 @@ window.AUTORLBENCH_RUNS =
     "agent": "qwen-code",
     "effort": "max",
     "level": "issue",
-    "passed": true,
-    "score": 0.954,
-    "durationMs": 4468000,
-    "steps": 46,
-    "costUsd": 2.0021
+    "passed": false,
+    "score": 0.26,
+    "durationMs": 2211000,
+    "steps": 39,
+    "costUsd": null
   },
   {
     "task": "infrastructure/verl_moe_token_normalization",
@@ -717,10 +717,10 @@ window.AUTORLBENCH_RUNS =
     "effort": "max",
     "level": "issue",
     "passed": false,
-    "score": 0.23,
-    "durationMs": 504000,
-    "steps": 18,
-    "costUsd": 2.1103
+    "score": 0.25,
+    "durationMs": 344000,
+    "steps": 36,
+    "costUsd": null
   },
   {
     "task": "data/verl_taco_difficulty_mismatch",

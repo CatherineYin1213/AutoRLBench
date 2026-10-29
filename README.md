@@ -29,15 +29,15 @@ AutoRLBench Leaderboard, issue + solution evaluation. *Updated as new agents and
 | # | Model | Agent | Issue Score | Solution Score | Overall |
 | ---: | --- | --- | ---: | ---: | ---: |
 | 1 | Claude-Fable-5.1 | Claude Code | 83.3 % | 75.0 % | **79.2 %** |
-| 2 | Kimi-K3.1-Pro | Claude Code | 66.7 % | 75.0 % | **70.8 %** |
+| 2 | Kimi-K3.1-Pro | Claude Code | 61.1 % | 75.0 % | **68.0 %** |
 | 3 | Grok-4.7 | Grok Build | 66.7 % | 66.7 % | **66.7 %** |
 | 4 | GPT-6-Astra | Codex | 66.7 % | 50.0 % | **58.4 %** |
 | 5 | Kimi-K3 | Claude Code | 33.3 % | 75.0 % | **54.1 %** |
 | 6 | GPT-6.1-Sol | Codex | 55.6 % | 50.0 % | **52.8 %** |
-| 7 | GLM-5.3 | Claude Code | 61.1 % | 40.0 % | **50.5 %** |
-| 8 | Qwen3.8-Max | Qwen Code | 50.0 % | 50.0 % | **50.0 %** |
-| 9 | DeepSeek-V4-Pro | Claude Code | 16.7 % | 75.0 % | **45.9 %** |
-| 10 | Gemini-4-Argon | Claude Code | 38.9 % | 50.0 % | **44.5 %** |
+| 7 | GLM-5.3 | Claude Code | 55.6 % | 40.0 % | **47.8 %** |
+| 8 | Gemini-4-Argon | Claude Code | 44.4 % | 50.0 % | **47.2 %** |
+| 9 | Qwen3.8-Max | Qwen Code | 44.4 % | 50.0 % | **47.2 %** |
+| 10 | DeepSeek-V4-Pro | Claude Code | 16.7 % | 75.0 % | **45.9 %** |
 
 *Overall* is the average of the issue and solution scores. Solution-level evaluation re-runs the full training to verify each fix; runs are ongoing, so solution scores are updated continuously. Full results: [website](https://thinking-space.github.io/AutoRLBench/#leaderboard).
 
